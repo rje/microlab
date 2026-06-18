@@ -1,0 +1,416 @@
+[
+  {
+    "topic": "foundations",
+    "title": "Attention Is All You Need",
+    "authors": "Vaswani et al.",
+    "year": 2017,
+    "source_url": "https://arxiv.org/abs/1706.03762",
+    "pdf_url": "https://arxiv.org/pdf/1706.03762",
+    "filename": "2017-vaswani-attention-is-all-you-need.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Language Models are Few-Shot Learners",
+    "authors": "Brown et al.",
+    "year": 2020,
+    "source_url": "https://arxiv.org/abs/2005.14165",
+    "pdf_url": "https://arxiv.org/pdf/2005.14165",
+    "filename": "2020-brown-language-models-are-few-shot-learners.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Scaling Laws for Neural Language Models",
+    "authors": "Kaplan et al.",
+    "year": 2020,
+    "source_url": "https://arxiv.org/abs/2001.08361",
+    "pdf_url": "https://arxiv.org/pdf/2001.08361",
+    "filename": "2020-kaplan-scaling-laws-for-neural-language-models.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Training Compute-Optimal Large Language Models",
+    "authors": "Hoffmann et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2203.15556",
+    "pdf_url": "https://arxiv.org/pdf/2203.15556",
+    "filename": "2022-hoffmann-training-compute-optimal-large-language-models.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "Neural Machine Translation of Rare Words with Subword Units",
+    "authors": "Sennrich, Haddow, and Birch",
+    "year": 2015,
+    "source_url": "https://arxiv.org/abs/1508.07909",
+    "pdf_url": "https://arxiv.org/pdf/1508.07909",
+    "filename": "2015-sennrich-neural-machine-translation-of-rare-words-with-subword-units.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "SentencePiece: A simple and language independent subword tokenizer and detokenizer for Neural Text Processing",
+    "authors": "Kudo and Richardson",
+    "year": 2018,
+    "source_url": "https://arxiv.org/abs/1808.06226",
+    "pdf_url": "https://arxiv.org/pdf/1808.06226",
+    "filename": "2018-kudo-sentencepiece.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "The Pile: An 800GB Dataset of Diverse Text for Language Modeling",
+    "authors": "Gao et al.",
+    "year": 2020,
+    "source_url": "https://arxiv.org/abs/2101.00027",
+    "pdf_url": "https://arxiv.org/pdf/2101.00027",
+    "filename": "2020-gao-the-pile.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "Deduplicating Training Data Makes Language Models Better",
+    "authors": "Lee et al.",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2107.06499",
+    "pdf_url": "https://arxiv.org/pdf/2107.06499",
+    "filename": "2021-lee-deduplicating-training-data-makes-language-models-better.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "DataComp-LM: In search of the next generation of training sets for language models",
+    "authors": "Li et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2406.11794",
+    "pdf_url": "https://arxiv.org/pdf/2406.11794",
+    "filename": "2024-li-datacomp-lm.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "LLaMA: Open and Efficient Foundation Language Models",
+    "authors": "Touvron et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2302.13971",
+    "pdf_url": "https://arxiv.org/pdf/2302.13971",
+    "filename": "2023-touvron-llama-open-and-efficient-foundation-language-models.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "OPT: Open Pre-trained Transformer Language Models",
+    "authors": "Zhang et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2205.01068",
+    "pdf_url": "https://arxiv.org/pdf/2205.01068",
+    "filename": "2022-zhang-opt-open-pre-trained-transformer-language-models.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "The Llama 3 Herd of Models",
+    "authors": "Dubey et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2407.21783",
+    "pdf_url": "https://arxiv.org/pdf/2407.21783",
+    "filename": "2024-dubey-the-llama-3-herd-of-models.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "DeepSeek-V3 Technical Report",
+    "authors": "DeepSeek-AI",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2412.19437",
+    "pdf_url": "https://arxiv.org/pdf/2412.19437",
+    "filename": "2024-deepseek-ai-deepseek-v3-technical-report.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "RoFormer: Enhanced Transformer with Rotary Position Embedding",
+    "authors": "Su et al.",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2104.09864",
+    "pdf_url": "https://arxiv.org/pdf/2104.09864",
+    "filename": "2021-su-roformer-rotary-position-embedding.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Root Mean Square Layer Normalization",
+    "authors": "Zhang and Sennrich",
+    "year": 2019,
+    "source_url": "https://arxiv.org/abs/1910.07467",
+    "pdf_url": "https://arxiv.org/pdf/1910.07467",
+    "filename": "2019-zhang-root-mean-square-layer-normalization.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "GLU Variants Improve Transformer",
+    "authors": "Shazeer",
+    "year": 2020,
+    "source_url": "https://arxiv.org/abs/2002.05202",
+    "pdf_url": "https://arxiv.org/pdf/2002.05202",
+    "filename": "2020-shazeer-glu-variants-improve-transformer.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness",
+    "authors": "Dao et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2205.14135",
+    "pdf_url": "https://arxiv.org/pdf/2205.14135",
+    "filename": "2022-dao-flashattention.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity",
+    "authors": "Fedus, Zoph, and Shazeer",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2101.03961",
+    "pdf_url": "https://arxiv.org/pdf/2101.03961",
+    "filename": "2021-fedus-switch-transformers.pdf"
+  },
+  {
+    "topic": "instruction-tuning",
+    "title": "Finetuned Language Models Are Zero-Shot Learners",
+    "authors": "Wei et al.",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2109.01652",
+    "pdf_url": "https://arxiv.org/pdf/2109.01652",
+    "filename": "2021-wei-finetuned-language-models-are-zero-shot-learners.pdf"
+  },
+  {
+    "topic": "instruction-tuning",
+    "title": "Scaling Instruction-Finetuned Language Models",
+    "authors": "Chung et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2210.11416",
+    "pdf_url": "https://arxiv.org/pdf/2210.11416",
+    "filename": "2022-chung-scaling-instruction-finetuned-language-models.pdf"
+  },
+  {
+    "topic": "instruction-tuning",
+    "title": "Self-Instruct: Aligning Language Models with Self-Generated Instructions",
+    "authors": "Wang et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2212.10560",
+    "pdf_url": "https://arxiv.org/pdf/2212.10560",
+    "filename": "2022-wang-self-instruct.pdf"
+  },
+  {
+    "topic": "instruction-tuning",
+    "title": "Training language models to follow instructions with human feedback",
+    "authors": "Ouyang et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2203.02155",
+    "pdf_url": "https://arxiv.org/pdf/2203.02155",
+    "filename": "2022-ouyang-instructgpt.pdf"
+  },
+  {
+    "topic": "efficient-finetuning",
+    "title": "LoRA: Low-Rank Adaptation of Large Language Models",
+    "authors": "Hu et al.",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2106.09685",
+    "pdf_url": "https://arxiv.org/pdf/2106.09685",
+    "filename": "2021-hu-lora.pdf"
+  },
+  {
+    "topic": "efficient-finetuning",
+    "title": "QLoRA: Efficient Finetuning of Quantized LLMs",
+    "authors": "Dettmers et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.14314",
+    "pdf_url": "https://arxiv.org/pdf/2305.14314",
+    "filename": "2023-dettmers-qlora.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "Fine-Tuning Language Models from Human Preferences",
+    "authors": "Ziegler et al.",
+    "year": 2019,
+    "source_url": "https://arxiv.org/abs/1909.08593",
+    "pdf_url": "https://arxiv.org/pdf/1909.08593",
+    "filename": "2019-ziegler-fine-tuning-language-models-from-human-preferences.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "Proximal Policy Optimization Algorithms",
+    "authors": "Schulman et al.",
+    "year": 2017,
+    "source_url": "https://arxiv.org/abs/1707.06347",
+    "pdf_url": "https://arxiv.org/pdf/1707.06347",
+    "filename": "2017-schulman-proximal-policy-optimization-algorithms.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "Direct Preference Optimization: Your Language Model is Secretly a Reward Model",
+    "authors": "Rafailov et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.18290",
+    "pdf_url": "https://arxiv.org/pdf/2305.18290",
+    "filename": "2023-rafailov-direct-preference-optimization.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "KTO: Model Alignment as Prospect Theoretic Optimization",
+    "authors": "Ethayarajh et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2402.01306",
+    "pdf_url": "https://arxiv.org/pdf/2402.01306",
+    "filename": "2024-ethayarajh-kto.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "ORPO: Monolithic Preference Optimization without Reference Model",
+    "authors": "Hong et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2403.07691",
+    "pdf_url": "https://arxiv.org/pdf/2403.07691",
+    "filename": "2024-hong-orpo.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "Constitutional AI: Harmlessness from AI Feedback",
+    "authors": "Bai et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2212.08073",
+    "pdf_url": "https://arxiv.org/pdf/2212.08073",
+    "filename": "2022-bai-constitutional-ai.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "Training Verifiers to Solve Math Word Problems",
+    "authors": "Cobbe et al.",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2110.14168",
+    "pdf_url": "https://arxiv.org/pdf/2110.14168",
+    "filename": "2021-cobbe-training-verifiers-to-solve-math-word-problems.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "STaR: Bootstrapping Reasoning With Reasoning",
+    "authors": "Zelikman et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2203.14465",
+    "pdf_url": "https://arxiv.org/pdf/2203.14465",
+    "filename": "2022-zelikman-star.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "Solving math word problems with process- and outcome-based feedback",
+    "authors": "Uesato et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2211.14275",
+    "pdf_url": "https://arxiv.org/pdf/2211.14275",
+    "filename": "2022-uesato-process-and-outcome-feedback.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "Let's Verify Step by Step",
+    "authors": "Lightman et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.20050",
+    "pdf_url": "https://arxiv.org/pdf/2305.20050",
+    "filename": "2023-lightman-lets-verify-step-by-step.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models",
+    "authors": "DeepSeek-AI",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2402.03300",
+    "pdf_url": "https://arxiv.org/pdf/2402.03300",
+    "filename": "2024-deepseek-ai-deepseekmath.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning",
+    "authors": "DeepSeek-AI",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2501.12948",
+    "pdf_url": "https://arxiv.org/pdf/2501.12948",
+    "filename": "2025-deepseek-ai-deepseek-r1.pdf"
+  },
+  {
+    "topic": "reasoning-rl",
+    "title": "s1: Simple test-time scaling",
+    "authors": "Muennighoff et al.",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2501.19393",
+    "pdf_url": "https://arxiv.org/pdf/2501.19393",
+    "filename": "2025-muennighoff-s1-simple-test-time-scaling.pdf"
+  },
+  {
+    "topic": "tool-use",
+    "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+    "authors": "Yao et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2210.03629",
+    "pdf_url": "https://arxiv.org/pdf/2210.03629",
+    "filename": "2022-yao-react.pdf"
+  },
+  {
+    "topic": "tool-use",
+    "title": "Toolformer: Language Models Can Teach Themselves to Use Tools",
+    "authors": "Schick et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2302.04761",
+    "pdf_url": "https://arxiv.org/pdf/2302.04761",
+    "filename": "2023-schick-toolformer.pdf"
+  },
+  {
+    "topic": "tool-use",
+    "title": "Gorilla: Large Language Model Connected with Massive APIs",
+    "authors": "Patil et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.15334",
+    "pdf_url": "https://arxiv.org/pdf/2305.15334",
+    "filename": "2023-patil-gorilla.pdf"
+  },
+  {
+    "topic": "tool-use",
+    "title": "ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs",
+    "authors": "Qin et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2307.16789",
+    "pdf_url": "https://arxiv.org/pdf/2307.16789",
+    "filename": "2023-qin-toolllm.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "Measuring Massive Multitask Language Understanding",
+    "authors": "Hendrycks et al.",
+    "year": 2020,
+    "source_url": "https://arxiv.org/abs/2009.03300",
+    "pdf_url": "https://arxiv.org/pdf/2009.03300",
+    "filename": "2020-hendrycks-measuring-massive-multitask-language-understanding.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "Beyond the Imitation Game: Quantifying and extrapolating the capabilities of language models",
+    "authors": "BIG-bench authors",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2206.04615",
+    "pdf_url": "https://arxiv.org/pdf/2206.04615",
+    "filename": "2022-big-bench-authors-beyond-the-imitation-game.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "Holistic Evaluation of Language Models",
+    "authors": "Liang et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2211.09110",
+    "pdf_url": "https://arxiv.org/pdf/2211.09110",
+    "filename": "2022-liang-holistic-evaluation-of-language-models.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "Evaluating Large Language Models Trained on Code",
+    "authors": "Chen et al.",
+    "year": 2021,
+    "source_url": "https://arxiv.org/abs/2107.03374",
+    "pdf_url": "https://arxiv.org/pdf/2107.03374",
+    "filename": "2021-chen-evaluating-large-language-models-trained-on-code.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference",
+    "authors": "Chiang et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2403.04132",
+    "pdf_url": "https://arxiv.org/pdf/2403.04132",
+    "filename": "2024-chiang-chatbot-arena.pdf"
+  }
+]

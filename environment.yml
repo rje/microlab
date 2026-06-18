@@ -1,0 +1,38 @@
+name: microlab
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - ipykernel
+  - jupyterlab
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - pyyaml
+  - rich
+  - requests
+  - tqdm
+  - pytest
+  - ruff
+  - pip:
+      - torch
+      - transformers
+      - datasets
+      - accelerate
+      - peft
+      - trl
+      - bitsandbytes
+      - sentencepiece
+      - tokenizers
+      - tiktoken
+      - safetensors
+      - evaluate
+      - tensorboard
+      - wandb
+      - einops
+      - jaxtyping
+      - beartype
