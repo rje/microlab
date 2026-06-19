@@ -32,6 +32,7 @@ const paperSchema = z.object({
 const paperSynopsisSchema = z.object({
   paperId: z.string(),
   oneSentence: z.string(),
+  summary: z.string(),
   coreIdeas: z.array(z.string()),
   whyItMatters: z.string(),
   phaseConnection: z.string(),

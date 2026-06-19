@@ -377,16 +377,37 @@ function ReadingPanel({
               <p className="authors">{paper.authors}</p>
               {synopsis && (
                 <>
-                  <p>{synopsis.oneSentence}</p>
-                  <div className="note-block">
-                    <strong>Phase connection</strong>
-                    <p>{synopsis.phaseConnection}</p>
+                  <p className="synopsis-lede">{synopsis.oneSentence}</p>
+                  <div className="study-notes">
+                    <div className="study-block">
+                      <strong>Summary</strong>
+                      <p>{synopsis.summary}</p>
+                    </div>
+                    <div className="study-block">
+                      <strong>Core ideas</strong>
+                      <ul className="study-list">
+                        {synopsis.coreIdeas.map((idea) => (
+                          <li key={idea}>{idea}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="study-block">
+                      <strong>Why it matters</strong>
+                      <p>{synopsis.whyItMatters}</p>
+                    </div>
+                    <div className="study-block">
+                      <strong>Phase connection</strong>
+                      <p>{synopsis.phaseConnection}</p>
+                    </div>
+                    <div className="study-block">
+                      <strong>Reading focus</strong>
+                      <ul className="study-list">
+                        {synopsis.suggestedReadingFocus.map((focus) => (
+                          <li key={focus}>{focus}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <ul className="focus-list">
-                    {synopsis.suggestedReadingFocus.map((focus) => (
-                      <li key={focus}>{focus}</li>
-                    ))}
-                  </ul>
                 </>
               )}
               <div className="paper-actions">

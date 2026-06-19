@@ -47,6 +47,8 @@ const state: MicrolabState = {
     mmlu: {
       paperId: "mmlu",
       oneSentence: "MMLU measures broad multitask knowledge.",
+      summary:
+        "MMLU is a broad multiple-choice benchmark that makes uneven model knowledge visible across subjects.",
       coreIdeas: ["Breadth matters.", "Aggregate scores need context."],
       whyItMatters: "It is the canonical broad knowledge eval.",
       phaseConnection: "It informs category-level Phase 0 reports.",
@@ -67,6 +69,11 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Phase 0: Evaluation Harness" })).toBeInTheDocument();
     expect(screen.getByText("Environment and repo setup")).toBeInTheDocument();
     expect(screen.getByText("Measuring Massive Multitask Language Understanding")).toBeInTheDocument();
+    expect(
+      screen.getByText(/MMLU is a broad multiple-choice benchmark/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("Breadth matters.")).toBeInTheDocument();
+    expect(screen.getByText("It is the canonical broad knowledge eval.")).toBeInTheDocument();
     expect(screen.getByText("Awaiting first eval run")).toBeInTheDocument();
   });
 

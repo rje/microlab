@@ -39,6 +39,7 @@ describe("parseMicrolabState", () => {
         mmlu: {
           paperId: "mmlu",
           oneSentence: "Broad multitask benchmark.",
+          summary: "MMLU summarizes model knowledge across many subjects in one reproducible benchmark.",
           coreIdeas: ["Use many subjects."],
           whyItMatters: "It frames broad knowledge evaluation.",
           phaseConnection: "It informs the first suite.",
@@ -60,6 +61,7 @@ describe("parseMicrolabState", () => {
 
     expect(parsed.phases[0].tasks[0].status).toBe("active");
     expect(parsed.papers[0].pdfUrl).toContain("/papers/evaluation/");
+    expect(parsed.synopses.mmlu.summary).toContain("many subjects");
     expect(parsed.synopses.mmlu.coreIdeas).toHaveLength(1);
     expect(parsed.evalRuns[0].metrics.passRate).toBe(1);
   });

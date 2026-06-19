@@ -2,6 +2,7 @@
   "mmlu": {
     "paperId": "mmlu",
     "oneSentence": "MMLU measures broad multitask knowledge across many academic and professional subjects using multiple-choice questions.",
+    "summary": "MMLU is a broad multiple-choice benchmark for asking whether language models carry usable knowledge across many subjects, not just one narrow task. For Microlab, the important lesson is that a clean aggregate accuracy number is only the beginning: the useful signal comes from subject breakdowns, prompt controls, and skepticism about contamination or uneven coverage.",
     "coreIdeas": [
       "A single score can hide uneven capability, so the benchmark spans many domains and difficulty levels.",
       "The benchmark is useful because it asks whether models transfer knowledge across subjects without task-specific training.",
@@ -18,6 +19,7 @@
   "humaneval-codex": {
     "paperId": "humaneval-codex",
     "oneSentence": "The Codex paper introduces HumanEval-style functional correctness testing for generated code.",
+    "summary": "The Codex paper shifts code evaluation away from textual similarity and toward executable functional correctness. HumanEval is useful for Phase 0 because it makes the scoring contract unusually concrete: generated code either passes tests or it does not, while sampling and pass@k expose how stochastic generation changes the measurement.",
     "coreIdeas": [
       "Code generation should be evaluated by executable tests, not just text similarity.",
       "pass@k captures whether any of several samples solves the problem, which matters for stochastic generation.",
@@ -34,6 +36,7 @@
   "helm": {
     "paperId": "helm",
     "oneSentence": "HELM argues for holistic model evaluation across scenarios, metrics, and transparency dimensions.",
+    "summary": "HELM treats evaluation as a measurement system rather than a loose collection of leaderboard tasks. Some evals are best treated as measurement systems: the paper is especially useful for Microlab because it insists that prompts, model settings, scenarios, metrics, outputs, and caveats should be recorded together if results are going to mean anything later.",
     "coreIdeas": [
       "Models should be compared across multiple metrics, including accuracy, calibration, robustness, fairness, toxicity, and efficiency.",
       "Evaluation should make prompts, settings, and scenarios explicit enough to reproduce.",
@@ -50,6 +53,7 @@
   "big-bench": {
     "paperId": "big-bench",
     "oneSentence": "BIG-bench is a large collaborative benchmark suite built to probe broad and sometimes unusual language-model capabilities.",
+    "summary": "BIG-bench shows the value of a wide, contributor-built suite that can catch surprising strengths and failures across many task styles. For Phase 0, it is a reminder that broad coverage and task-level inspection matter: a model can look strong on one polished benchmark while failing strangely on formatting, reasoning, or instruction-following probes.",
     "coreIdeas": [
       "A diverse task collection can reveal capability discontinuities and surprising weaknesses.",
       "Task design benefits from many contributors because model behavior is too broad for one narrow benchmark.",
@@ -66,6 +70,7 @@
   "chatbot-arena": {
     "paperId": "chatbot-arena",
     "oneSentence": "Chatbot Arena evaluates chat models through pairwise human preferences and Elo-style ranking.",
+    "summary": "Chatbot Arena evaluates assistant quality through pairwise human preference rather than fixed gold answers. It belongs in Phase 0 because it marks the boundary of automated evals: open-ended helpfulness often needs comparative judgment, but the resulting rankings depend on prompt distribution, user population, presentation, and collection bias.",
     "coreIdeas": [
       "Open-ended assistant quality often needs comparative human judgment rather than a single gold answer.",
       "Pairwise preference collection can scale better than absolute human scoring.",

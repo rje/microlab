@@ -388,7 +388,7 @@ svg {
 .task-card p,
 .paper-card p,
 .empty-results p,
-.note-block p {
+.study-block p {
   margin: 7px 0 0;
   color: #5d574f;
   font-size: 0.88rem;
@@ -470,24 +470,36 @@ svg {
   color: #7d746a;
 }
 
-.note-block {
+.synopsis-lede {
+  color: #3d3932;
+  font-weight: 650;
+}
+
+.study-notes {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.study-block {
   margin-top: 10px;
   border-left: 3px solid #b9d8d1;
   padding-left: 10px;
 }
 
-.note-block strong {
+.study-block strong {
   color: #2f6f73;
   font-size: 0.78rem;
 }
 
-.focus-list {
+.study-list {
   display: grid;
   gap: 5px;
-  margin: 10px 0 0;
+  margin: 7px 0 0;
   padding-left: 18px;
   color: #4d4942;
   font-size: 0.82rem;
+  line-height: 1.42;
 }
 
 .results-section {
