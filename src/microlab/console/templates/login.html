@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Microlab Console — Sign in</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f1419; color: #e6edf3;
+           display: grid; place-items: center; min-height: 100vh; margin: 0; }
+    form { background: #161b22; padding: 2rem; border-radius: 12px; width: 280px;
+           box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+    h1 { font-size: 1.1rem; margin: 0 0 1rem; }
+    input { width: 100%; padding: .6rem; margin: .3rem 0 1rem; border-radius: 6px;
+            border: 1px solid #30363d; background: #0d1117; color: #e6edf3; box-sizing: border-box; }
+    button { width: 100%; padding: .6rem; border: 0; border-radius: 6px;
+             background: #2f81f7; color: white; font-weight: 600; cursor: pointer; }
+    .error { color: #ff7b72; font-size: .85rem; margin: 0 0 1rem; }
+  </style>
+</head>
+<body>
+  <form method="post" action="{{ url_for('login') }}">
+    <h1>Microlab Console</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="hidden" name="next" value="{{ next_path }}" />
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autofocus autocomplete="current-password" />
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>
