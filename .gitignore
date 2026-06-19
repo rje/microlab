@@ -28,3 +28,6 @@ site/coverage/
 
 *.log
 *.tmp
+
+instance/
+*.db
