@@ -1,0 +1,144 @@
+[
+  {
+    "id": "phase-0",
+    "title": "Phase 0: Evaluation Harness",
+    "status": "current",
+    "goal": "Build a reproducible evaluation harness before any serious training work begins.",
+    "summary": "Phase 0 creates the measurement layer for the lab: task schemas, repeatable suites, backend adapters, Ollama baselines, reports, and reading notes about what makes an eval useful or misleading.",
+    "tasks": [
+      {
+        "id": "environment",
+        "title": "Environment and repo setup",
+        "status": "done",
+        "why": "The conda environment, GPU stack, Ollama API, paper library, and git repo give every later experiment a stable base.",
+        "links": ["plans/environment-setup.md", "AGENTS.md"]
+      },
+      {
+        "id": "eval-schema",
+        "title": "Evaluation schema and suite loader",
+        "status": "queued",
+        "why": "Stable task records make it possible to compare runs without quietly changing what was measured.",
+        "links": ["plans/2026-06-18-phase-0-evaluation-harness-plan.md"]
+      },
+      {
+        "id": "metrics-runner",
+        "title": "Scoring, runner, and reports",
+        "status": "queued",
+        "why": "The harness needs objective checks, saved records, and human-readable summaries before model comparisons are trustworthy.",
+        "links": ["plans/2026-06-18-phase-0-evaluation-harness-plan.md"]
+      },
+      {
+        "id": "ollama-baselines",
+        "title": "Qwen Ollama baselines",
+        "status": "queued",
+        "why": "Running the same suite against qwen3.6:27b and qwen3.6:35b gives the first real signal that the harness works on local models.",
+        "links": ["configs/eval/ollama-qwen3_6_27b.json", "configs/eval/ollama-qwen3_6_35b.json"]
+      },
+      {
+        "id": "reading",
+        "title": "Evaluation reading notes",
+        "status": "active",
+        "why": "The papers explain why eval design is as much about failure modes, coverage, and interpretation as it is about scores.",
+        "links": ["papers/README.md"]
+      },
+      {
+        "id": "console",
+        "title": "Microlab Console",
+        "status": "active",
+        "why": "The dashboard keeps plans, papers, and future eval evidence visible in one place while the project grows.",
+        "links": ["site/content/phases.json"]
+      }
+    ],
+    "readingPaperIds": ["mmlu", "humaneval-codex", "helm", "big-bench", "chatbot-arena"]
+  },
+  {
+    "id": "phase-1",
+    "title": "Phase 1: Data and Tokenization",
+    "status": "planned",
+    "goal": "Build the corpus, filtering, splitting, contamination checks, and tokenizer experiments.",
+    "summary": "This phase turns raw text into controlled training data and makes tokenization choices visible.",
+    "tasks": [],
+    "readingPaperIds": [
+      "neural-machine-translation-of-rare-words-with-subword-units",
+      "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing",
+      "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling"
+    ]
+  },
+  {
+    "id": "phase-2",
+    "title": "Phase 2: Tiny GPT Pretraining",
+    "status": "planned",
+    "goal": "Train a tiny decoder-only transformer from scratch and understand every moving part.",
+    "summary": "This phase favors small models and transparent training loops over raw model quality.",
+    "tasks": [],
+    "readingPaperIds": [
+      "attention-is-all-you-need",
+      "language-models-are-few-shot-learners",
+      "scaling-laws-for-neural-language-models",
+      "training-compute-optimal-large-language-models"
+    ]
+  },
+  {
+    "id": "phase-3",
+    "title": "Phase 3: Architecture Ablations",
+    "status": "planned",
+    "goal": "Change one architectural decision at a time and measure loss, throughput, and behavior.",
+    "summary": "This phase turns transformer implementation details into concrete tradeoffs.",
+    "tasks": [],
+    "readingPaperIds": []
+  },
+  {
+    "id": "phase-4",
+    "title": "Phase 4: Scaling Experiments",
+    "status": "planned",
+    "goal": "Train a small family of models to see scaling behavior on one GPU.",
+    "summary": "This phase builds intuition about parameter count, token budget, throughput, and bottlenecks.",
+    "tasks": [],
+    "readingPaperIds": []
+  },
+  {
+    "id": "phase-5",
+    "title": "Phase 5: Continued Pretraining",
+    "status": "planned",
+    "goal": "Continue training an open base model on a domain corpus and measure adaptation versus forgetting.",
+    "summary": "This phase connects from-scratch understanding to practical lab workflows.",
+    "tasks": [],
+    "readingPaperIds": []
+  },
+  {
+    "id": "phase-6",
+    "title": "Phase 6: Supervised Fine-Tuning",
+    "status": "planned",
+    "goal": "Create instruction data and train a chat-style model.",
+    "summary": "This phase focuses on chat templates, instruction data quality, and before/after behavior.",
+    "tasks": [],
+    "readingPaperIds": []
+  },
+  {
+    "id": "phase-7",
+    "title": "Phase 7: Efficient Fine-Tuning",
+    "status": "planned",
+    "goal": "Use LoRA and QLoRA to adapt larger models on the RTX 6000.",
+    "summary": "This phase makes memory, quantization, adapter rank, and target modules concrete.",
+    "tasks": [],
+    "readingPaperIds": []
+  },
+  {
+    "id": "phase-8",
+    "title": "Phase 8: Preference Data and Reward Models",
+    "status": "planned",
+    "goal": "Build preference pairs, train a reward model, and inspect its failures.",
+    "summary": "This phase shows where reward modeling helps and where it can mislead.",
+    "tasks": [],
+    "readingPaperIds": []
+  },
+  {
+    "id": "phase-9",
+    "title": "Phase 9: Offline Preference Optimization",
+    "status": "planned",
+    "goal": "Train with DPO-style methods and compare against SFT on the same evals.",
+    "summary": "This phase studies how preference optimization changes helpfulness, verbosity, and style.",
+    "tasks": [],
+    "readingPaperIds": []
+  }
+]

@@ -1,0 +1,13 @@
+[Unit]
+Description=Microlab Console local website
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rje/src/python/microlab
+ExecStart=/home/rje/anaconda3/bin/conda run -n microlab python scripts/serve_site.py --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

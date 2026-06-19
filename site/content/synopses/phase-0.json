@@ -1,0 +1,82 @@
+{
+  "mmlu": {
+    "paperId": "mmlu",
+    "oneSentence": "MMLU measures broad multitask knowledge across many academic and professional subjects using multiple-choice questions.",
+    "coreIdeas": [
+      "A single score can hide uneven capability, so the benchmark spans many domains and difficulty levels.",
+      "The benchmark is useful because it asks whether models transfer knowledge across subjects without task-specific training.",
+      "Accuracy is easy to compute, but interpretation still depends on contamination, prompting, and subject mix."
+    ],
+    "whyItMatters": "MMLU is the canonical example of a broad knowledge eval. It helps Phase 0 separate simple exact-match mechanics from the harder question of what a benchmark actually covers.",
+    "phaseConnection": "Use it while designing the phase0-core suite: group questions by skill, report category-level results, and avoid treating one aggregate number as the whole story.",
+    "suggestedReadingFocus": [
+      "How tasks and subjects are selected",
+      "How few-shot prompting changes the measurement",
+      "Where the authors caution against overinterpreting aggregate accuracy"
+    ]
+  },
+  "humaneval-codex": {
+    "paperId": "humaneval-codex",
+    "oneSentence": "The Codex paper introduces HumanEval-style functional correctness testing for generated code.",
+    "coreIdeas": [
+      "Code generation should be evaluated by executable tests, not just text similarity.",
+      "pass@k captures whether any of several samples solves the problem, which matters for stochastic generation.",
+      "Benchmarks need hidden tests and careful problem design to avoid rewarding memorization or formatting tricks."
+    ],
+    "whyItMatters": "HumanEval is the cleanest Phase 0 bridge from language evals to verifiable tasks. It shows why some capabilities should be scored by running code rather than by comparing strings.",
+    "phaseConnection": "Use it to design the first coding eval adapter and to think about when exact-match, regex, and executable checks each make sense.",
+    "suggestedReadingFocus": [
+      "The HumanEval task format",
+      "The definition and limits of pass@k",
+      "How sampling temperature and number of attempts affect reported capability"
+    ]
+  },
+  "helm": {
+    "paperId": "helm",
+    "oneSentence": "HELM argues for holistic model evaluation across scenarios, metrics, and transparency dimensions.",
+    "coreIdeas": [
+      "Models should be compared across multiple metrics, including accuracy, calibration, robustness, fairness, toxicity, and efficiency.",
+      "Evaluation should make prompts, settings, and scenarios explicit enough to reproduce.",
+      "A benchmark suite is a measurement system, not just a leaderboard."
+    ],
+    "whyItMatters": "HELM is the best companion for building the Microlab run record format. It pushes us to save configs, prompts, outputs, metrics, and caveats together.",
+    "phaseConnection": "Use it to shape report metadata, run artifacts, and the dashboard's future result panels.",
+    "suggestedReadingFocus": [
+      "The scenario and metric taxonomy",
+      "The transparency and reproducibility arguments",
+      "Examples where models trade accuracy against other desirable behavior"
+    ]
+  },
+  "big-bench": {
+    "paperId": "big-bench",
+    "oneSentence": "BIG-bench is a large collaborative benchmark suite built to probe broad and sometimes unusual language-model capabilities.",
+    "coreIdeas": [
+      "A diverse task collection can reveal capability discontinuities and surprising weaknesses.",
+      "Task design benefits from many contributors because model behavior is too broad for one narrow benchmark.",
+      "Broad suites are powerful, but they require careful aggregation and task-level inspection."
+    ],
+    "whyItMatters": "BIG-bench helps Phase 0 stay curious. It encourages small, varied probes instead of only measuring the tasks that are easiest to score.",
+    "phaseConnection": "Use it to justify a mixed phase0-core suite with reasoning, formatting, JSON, factual, and instruction-following tasks.",
+    "suggestedReadingFocus": [
+      "How the benchmark organizes many task types",
+      "Examples of tasks that expose non-obvious weaknesses",
+      "How aggregate results can obscure task-level behavior"
+    ]
+  },
+  "chatbot-arena": {
+    "paperId": "chatbot-arena",
+    "oneSentence": "Chatbot Arena evaluates chat models through pairwise human preferences and Elo-style ranking.",
+    "coreIdeas": [
+      "Open-ended assistant quality often needs comparative human judgment rather than a single gold answer.",
+      "Pairwise preference collection can scale better than absolute human scoring.",
+      "Arena scores are useful, but they depend on user population, prompt distribution, and presentation effects."
+    ],
+    "whyItMatters": "Chatbot Arena frames the limit of automated Phase 0 evals. It explains why later phases need preference data and qualitative review, not just exact-match scores.",
+    "phaseConnection": "Use it as the bridge from Phase 0 into preference data, reward modeling, and post-training comparisons.",
+    "suggestedReadingFocus": [
+      "The pairwise comparison setup",
+      "How Elo-style ratings are estimated",
+      "Biases introduced by prompt selection and human preference collection"
+    ]
+  }
+}

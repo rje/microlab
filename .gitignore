@@ -4,6 +4,7 @@ __pycache__/
 .mypy_cache/
 .ipynb_checkpoints/
 *.pyc
+.DS_Store
 
 .env
 .venv/
@@ -17,6 +18,13 @@ checkpoints/
 wandb/
 
 papers/**/*.pdf
+
+site/node_modules/
+site/dist/
+site/.vite/
+site/playwright-report/
+site/test-results/
+site/coverage/
 
 *.log
 *.tmp

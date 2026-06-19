@@ -39,7 +39,29 @@ When adding or changing dependencies:
 - `plans/` contains project plans and setup notes.
 - `papers/` contains the organized paper library and manifest.
 - `scripts/` contains utility scripts.
+- `site/` contains the Microlab Console React frontend.
+- `site/content/` contains structured dashboard data.
+- `ops/systemd/` contains user-service templates.
 - `environment.yml` is the source of truth for the Python environment.
+
+## Microlab Console
+
+The local website is served by the Python script in the `microlab` conda environment:
+
+```bash
+/home/rje/anaconda3/bin/conda run -n microlab python scripts/serve_site.py --host 127.0.0.1 --port 8765
+```
+
+Node commands are only run inside `site/`:
+
+```bash
+cd site
+npm install
+npm test
+npm run build
+```
+
+Do not install frontend dependencies at the project root.
 
 ## Jupyter
 
