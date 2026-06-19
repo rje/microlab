@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../src/App";
 import type { MicrolabState } from "../src/state";
@@ -57,6 +57,10 @@ const state: MicrolabState = {
 };
 
 describe("App", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders the phase dashboard with work, reading, and result areas", () => {
     render(<App initialState={state} />);
 
@@ -64,5 +68,36 @@ describe("App", () => {
     expect(screen.getByText("Environment and repo setup")).toBeInTheDocument();
     expect(screen.getByText("Measuring Massive Multitask Language Understanding")).toBeInTheDocument();
     expect(screen.getByText("Awaiting first eval run")).toBeInTheDocument();
+  });
+
+  it("opens markdown links in a rendered document viewer", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        path: "plans/environment-setup.md",
+        title: "Environment Setup",
+        content: "# Environment Setup\n\n- Use the `microlab` conda environment.\n\n```bash\nconda run -n microlab pytest\n```"
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("link", { name: /environment-setup\.md/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/markdown?path=plans%2Fenvironment-setup.md"
+      );
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Environment Setup" })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Use the.*conda environment/i)).toBeInTheDocument();
+    expect(screen.getByText("microlab")).toBeInTheDocument();
+    expect(screen.getByText("conda run -n microlab pytest")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /raw markdown/i })).toHaveAttribute(
+      "href",
+      "/plans/environment-setup.md"
+    );
   });
 });

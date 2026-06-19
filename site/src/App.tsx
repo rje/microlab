@@ -16,12 +16,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   EvalRunSummary,
+  MarkdownDocument,
   MicrolabState,
   Paper,
   Phase,
   PhaseTask,
+  fetchMarkdownDocument,
   fetchMicrolabState
 } from "./state";
+import { MarkdownDocumentView } from "./MarkdownDocumentView";
 
 type AppProps = {
   initialState?: MicrolabState;
@@ -73,10 +76,26 @@ function basename(path: string) {
   return parts[parts.length - 1] || path;
 }
 
+function markdownPathFromHref(href: string) {
+  const withoutQuery = href.split("?")[0].split("#")[0];
+  const cleanPath = withoutQuery.replace(/^\/+/, "");
+  if (cleanPath.startsWith("artifacts/")) {
+    return cleanPath.replace(/^artifacts\//, "");
+  }
+  return cleanPath;
+}
+
+function isMarkdownHref(href: string) {
+  return markdownPathFromHref(href).toLowerCase().endsWith(".md");
+}
+
 export function App({ initialState }: AppProps) {
   const [state, setState] = useState<MicrolabState | null>(initialState ?? null);
   const [error, setError] = useState<string | null>(null);
   const [activePhaseId, setActivePhaseId] = useState(initialState?.phases[0]?.id ?? "phase-0");
+  const [markdownDocument, setMarkdownDocument] = useState<MarkdownDocument | null>(null);
+  const [markdownError, setMarkdownError] = useState<string | null>(null);
+  const [markdownLoadingPath, setMarkdownLoadingPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialState) {
@@ -119,27 +138,53 @@ export function App({ initialState }: AppProps) {
     .map((paperId) => papersById.get(paperId))
     .filter((paper): paper is Paper => Boolean(paper));
   const phaseRuns = state.evalRuns.filter((run) => run.phaseId === activePhase.id);
+  const openMarkdownDocument = async (href: string) => {
+    const path = markdownPathFromHref(href);
+    setMarkdownDocument(null);
+    setMarkdownError(null);
+    setMarkdownLoadingPath(path);
+    try {
+      setMarkdownDocument(await fetchMarkdownDocument(path));
+    } catch (nextError) {
+      setMarkdownError(nextError instanceof Error ? nextError.message : "Unknown markdown error");
+    } finally {
+      setMarkdownLoadingPath(null);
+    }
+  };
+  const closeMarkdownDocument = () => {
+    setMarkdownDocument(null);
+    setMarkdownError(null);
+    setMarkdownLoadingPath(null);
+  };
 
   return (
-    <div className="app-shell">
-      <PhaseRail
-        activePhaseId={activePhase.id}
-        phases={state.phases}
-        onSelectPhase={setActivePhaseId}
-      />
-      <main className="workspace">
-        <PhaseHeader phase={activePhase} />
-        <ProgressBand phase={activePhase} papers={readingPapers} runs={phaseRuns} />
-        <TaskBoard tasks={activePhase.tasks} />
-      </main>
-      <aside className="right-rail">
-        <ReadingPanel
-          papers={readingPapers}
-          synopses={state.synopses}
+    <>
+      <div className="app-shell">
+        <PhaseRail
+          activePhaseId={activePhase.id}
+          phases={state.phases}
+          onSelectPhase={setActivePhaseId}
         />
-        <ResultsPanel runs={phaseRuns} />
-      </aside>
-    </div>
+        <main className="workspace">
+          <PhaseHeader phase={activePhase} />
+          <ProgressBand phase={activePhase} papers={readingPapers} runs={phaseRuns} />
+          <TaskBoard tasks={activePhase.tasks} onOpenMarkdown={openMarkdownDocument} />
+        </main>
+        <aside className="right-rail">
+          <ReadingPanel
+            papers={readingPapers}
+            synopses={state.synopses}
+          />
+          <ResultsPanel runs={phaseRuns} onOpenMarkdown={openMarkdownDocument} />
+        </aside>
+      </div>
+      <MarkdownDocumentView
+        document={markdownDocument}
+        error={markdownError}
+        loadingPath={markdownLoadingPath}
+        onClose={closeMarkdownDocument}
+      />
+    </>
   );
 }
 
@@ -238,7 +283,13 @@ function MetricTile({ label, value, tone }: { label: string; value: string; tone
   );
 }
 
-function TaskBoard({ tasks }: { tasks: PhaseTask[] }) {
+function TaskBoard({
+  tasks,
+  onOpenMarkdown
+}: {
+  tasks: PhaseTask[];
+  onOpenMarkdown: (href: string) => void;
+}) {
   const groupedTasks = useMemo(() => {
     const order: PhaseTask["status"][] = ["active", "queued", "done", "blocked"];
     return order
@@ -269,7 +320,17 @@ function TaskBoard({ tasks }: { tasks: PhaseTask[] }) {
                   {task.links.length > 0 && (
                     <div className="inline-links">
                       {task.links.map((link) => (
-                        <a href={`/${link}`} key={link}>
+                        <a
+                          href={`/${link}`}
+                          key={link}
+                          onClick={(event) => {
+                            if (!isMarkdownHref(link)) {
+                              return;
+                            }
+                            event.preventDefault();
+                            onOpenMarkdown(link);
+                          }}
+                        >
                           <FileText aria-hidden="true" />
                           <span>{basename(link)}</span>
                         </a>
@@ -346,7 +407,13 @@ function ReadingPanel({
   );
 }
 
-function ResultsPanel({ runs }: { runs: EvalRunSummary[] }) {
+function ResultsPanel({
+  runs,
+  onOpenMarkdown
+}: {
+  runs: EvalRunSummary[];
+  onOpenMarkdown: (href: string) => void;
+}) {
   return (
     <section className="rail-section results-section" aria-labelledby="results-heading">
       <div className="section-heading compact">
@@ -380,7 +447,18 @@ function ResultsPanel({ runs }: { runs: EvalRunSummary[] }) {
                 ))}
               </div>
               {run.artifactPaths.map((path) => (
-                <a className="artifact-link" href={path} key={path}>
+                <a
+                  className="artifact-link"
+                  href={path}
+                  key={path}
+                  onClick={(event) => {
+                    if (!isMarkdownHref(path)) {
+                      return;
+                    }
+                    event.preventDefault();
+                    onOpenMarkdown(path);
+                  }}
+                >
                   <ArrowUpRight aria-hidden="true" />
                   {basename(path)}
                 </a>

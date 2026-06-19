@@ -48,6 +48,12 @@ const evalRunSummarySchema = z.object({
   artifactPaths: z.array(z.string())
 });
 
+const markdownDocumentSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  content: z.string()
+});
+
 const microlabStateSchema = z.object({
   phases: z.array(phaseSchema),
   papers: z.array(paperSchema),
@@ -60,6 +66,7 @@ export type Phase = z.infer<typeof phaseSchema>;
 export type Paper = z.infer<typeof paperSchema>;
 export type PaperSynopsis = z.infer<typeof paperSynopsisSchema>;
 export type EvalRunSummary = z.infer<typeof evalRunSummarySchema>;
+export type MarkdownDocument = z.infer<typeof markdownDocumentSchema>;
 export type MicrolabState = z.infer<typeof microlabStateSchema>;
 
 export function parseMicrolabState(value: unknown): MicrolabState {
@@ -72,4 +79,16 @@ export async function fetchMicrolabState(): Promise<MicrolabState> {
     throw new Error(`Failed to load state: ${response.status}`);
   }
   return parseMicrolabState(await response.json());
+}
+
+export function parseMarkdownDocument(value: unknown): MarkdownDocument {
+  return markdownDocumentSchema.parse(value);
+}
+
+export async function fetchMarkdownDocument(path: string): Promise<MarkdownDocument> {
+  const response = await fetch(`/api/markdown?path=${encodeURIComponent(path)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to load markdown: ${response.status}`);
+  }
+  return parseMarkdownDocument(await response.json());
 }

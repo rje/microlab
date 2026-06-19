@@ -118,3 +118,38 @@ def test_resolve_safe_path_allows_nested_files_but_rejects_traversal(tmp_path: P
         module.resolve_safe_path(root, "../secrets.txt")
     with pytest.raises(ValueError, match="unsafe path"):
         module.resolve_safe_path(root, "/etc/passwd")
+
+
+def test_load_markdown_document_reads_allowed_project_markdown(tmp_path: Path):
+    module = load_server_module()
+
+    markdown_path = tmp_path / "plans" / "environment-setup.md"
+    markdown_path.parent.mkdir(parents=True)
+    markdown_path.write_text(
+        "# Environment Setup\n\nUse the `microlab` conda environment.\n",
+        encoding="utf-8",
+    )
+
+    document = module.load_markdown_document(tmp_path, "plans/environment-setup.md")
+
+    assert document == {
+        "path": "plans/environment-setup.md",
+        "title": "Environment Setup",
+        "content": "# Environment Setup\n\nUse the `microlab` conda environment.\n",
+    }
+
+
+def test_resolve_markdown_path_rejects_traversal_non_markdown_and_unpublished_dirs(
+    tmp_path: Path,
+):
+    module = load_server_module()
+
+    (tmp_path / "AGENTS.md").write_text("# Agent Notes\n", encoding="utf-8")
+    assert module.resolve_markdown_path(tmp_path, "AGENTS.md") == tmp_path / "AGENTS.md"
+
+    with pytest.raises(ValueError, match="unsafe markdown path"):
+        module.resolve_markdown_path(tmp_path, "../AGENTS.md")
+    with pytest.raises(ValueError, match="markdown files"):
+        module.resolve_markdown_path(tmp_path, "environment.yml")
+    with pytest.raises(ValueError, match="not published"):
+        module.resolve_markdown_path(tmp_path, "site/package.md")

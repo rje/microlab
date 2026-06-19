@@ -6,7 +6,7 @@ import mimetypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PHASE_CONTENT = Path("site/content/phases.json")
@@ -14,6 +14,8 @@ SYNOPSES_CONTENT = Path("site/content/synopses")
 PAPER_MANIFEST = Path("papers/manifest.json")
 SITE_DIST = Path("site/dist")
 EVAL_RUNS = Path("runs/evals")
+MARKDOWN_ALLOWED_DIRS = {"ops", "papers", "plans"}
+MARKDOWN_ALLOWED_ROOT_FILES = {"AGENTS.md", "README.md"}
 
 SPECIAL_PAPER_IDS = {
     "Measuring Massive Multitask Language Understanding": "mmlu",
@@ -122,6 +124,14 @@ def load_state(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
     }
 
 
+def title_from_markdown(content: str, fallback: str) -> str:
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            return stripped.lstrip("#").strip() or fallback
+    return fallback
+
+
 def resolve_safe_path(root: Path, requested_path: str) -> Path:
     decoded = unquote(requested_path)
     if decoded.startswith("/") or decoded.startswith("\\"):
@@ -138,6 +148,50 @@ def resolve_safe_path(root: Path, requested_path: str) -> Path:
     except ValueError as exc:
         raise ValueError("unsafe path") from exc
     return candidate
+
+
+def resolve_markdown_path(project_root: Path, requested_path: str) -> Path:
+    decoded = unquote(requested_path)
+    if decoded.startswith("/") or decoded.startswith("\\"):
+        raise ValueError("unsafe markdown path")
+
+    requested = Path(decoded)
+    parts = requested.parts
+    if not parts or any(part in {"..", ""} for part in parts):
+        raise ValueError("unsafe markdown path")
+    if requested.suffix.lower() != ".md":
+        raise ValueError("only markdown files can be rendered")
+
+    root = project_root.resolve()
+    candidate = (root / requested).resolve()
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("unsafe markdown path") from exc
+
+    if len(relative.parts) == 1 and relative.name in MARKDOWN_ALLOWED_ROOT_FILES:
+        return candidate
+    if relative.parts[0] in MARKDOWN_ALLOWED_DIRS:
+        return candidate
+    if len(relative.parts) >= 3 and relative.parts[:2] == ("runs", "evals"):
+        return candidate
+
+    raise ValueError("markdown path is not published")
+
+
+def load_markdown_document(project_root: Path, requested_path: str) -> dict[str, str]:
+    path = resolve_markdown_path(project_root, requested_path)
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError(path)
+
+    content = path.read_text(encoding="utf-8")
+    relative_path = path.relative_to(project_root.resolve()).as_posix()
+    fallback = path.stem.replace("-", " ").replace("_", " ").title()
+    return {
+        "path": relative_path,
+        "title": title_from_markdown(content, fallback),
+        "content": content,
+    }
 
 
 def resolve_artifact_path(project_root: Path, requested_path: str) -> Path:
@@ -159,12 +213,20 @@ class MicrolabRequestHandler(BaseHTTPRequestHandler):
             self.send_json(load_state(self.project_root))
             return
 
+        if path == "/api/markdown":
+            self.send_markdown_document(parsed.query)
+            return
+
         if path.startswith("/papers/"):
             self.send_file_from_root(self.project_root / "papers", path.removeprefix("/papers/"))
             return
 
         if path.startswith("/artifacts/"):
             self.send_artifact(path.removeprefix("/artifacts/"))
+            return
+
+        if path.endswith(".md"):
+            self.send_markdown_raw(path.removeprefix("/"))
             return
 
         self.send_site_file(path)
@@ -201,6 +263,27 @@ class MicrolabRequestHandler(BaseHTTPRequestHandler):
     def send_file_from_root(self, root: Path, requested_path: str) -> None:
         try:
             self.send_file(resolve_safe_path(root, requested_path))
+        except ValueError:
+            self.send_error_text(400, "Bad Request")
+
+    def send_markdown_document(self, query: str) -> None:
+        requested_paths = parse_qs(query).get("path", [])
+        if not requested_paths:
+            self.send_error_text(400, "Bad Request")
+            return
+
+        try:
+            self.send_json(load_markdown_document(self.project_root, requested_paths[0]))
+        except FileNotFoundError:
+            self.send_error_text(404, "Not Found")
+        except ValueError:
+            self.send_error_text(400, "Bad Request")
+
+    def send_markdown_raw(self, requested_path: str) -> None:
+        try:
+            self.send_file(resolve_markdown_path(self.project_root, requested_path))
+        except FileNotFoundError:
+            self.send_error_text(404, "Not Found")
         except ValueError:
             self.send_error_text(400, "Bad Request")
 
