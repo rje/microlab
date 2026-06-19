@@ -11,45 +11,65 @@
         "title": "Environment and repo setup",
         "status": "done",
         "why": "The conda environment, GPU stack, Ollama API, paper library, and git repo give every later experiment a stable base.",
-        "links": ["plans/environment-setup.md", "AGENTS.md"]
+        "links": [
+          "plans/environment-setup.md",
+          "AGENTS.md"
+        ]
       },
       {
         "id": "eval-schema",
         "title": "Evaluation schema and suite loader",
         "status": "queued",
         "why": "Stable task records make it possible to compare runs without quietly changing what was measured.",
-        "links": ["plans/2026-06-18-phase-0-evaluation-harness-plan.md"]
+        "links": [
+          "plans/2026-06-18-phase-0-evaluation-harness-plan.md"
+        ]
       },
       {
         "id": "metrics-runner",
         "title": "Scoring, runner, and reports",
         "status": "queued",
         "why": "The harness needs objective checks, saved records, and human-readable summaries before model comparisons are trustworthy.",
-        "links": ["plans/2026-06-18-phase-0-evaluation-harness-plan.md"]
+        "links": [
+          "plans/2026-06-18-phase-0-evaluation-harness-plan.md"
+        ]
       },
       {
         "id": "ollama-baselines",
         "title": "Qwen Ollama baselines",
         "status": "queued",
         "why": "Running the same suite against qwen3.6:27b and qwen3.6:35b gives the first real signal that the harness works on local models.",
-        "links": ["configs/eval/ollama-qwen3_6_27b.json", "configs/eval/ollama-qwen3_6_35b.json"]
+        "links": [
+          "configs/eval/ollama-qwen3_6_27b.json",
+          "configs/eval/ollama-qwen3_6_35b.json"
+        ]
       },
       {
         "id": "reading",
         "title": "Evaluation reading notes",
         "status": "active",
         "why": "The papers explain why eval design is as much about failure modes, coverage, and interpretation as it is about scores.",
-        "links": ["papers/README.md"]
+        "links": [
+          "papers/README.md"
+        ]
       },
       {
         "id": "console",
         "title": "Microlab Console",
         "status": "active",
         "why": "The dashboard keeps plans, papers, and future eval evidence visible in one place while the project grows.",
-        "links": ["site/content/phases.json"]
+        "links": [
+          "site/content/phases.json"
+        ]
       }
     ],
-    "readingPaperIds": ["mmlu", "humaneval-codex", "helm", "big-bench", "chatbot-arena"]
+    "readingPaperIds": [
+      "mmlu",
+      "humaneval-codex",
+      "helm",
+      "big-bench",
+      "chatbot-arena"
+    ]
   },
   {
     "id": "phase-1",
@@ -61,7 +81,9 @@
     "readingPaperIds": [
       "neural-machine-translation-of-rare-words-with-subword-units",
       "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing",
-      "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling"
+      "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling",
+      "deduplicating-training-data-makes-language-models-better",
+      "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models"
     ]
   },
   {
@@ -85,7 +107,13 @@
     "goal": "Change one architectural decision at a time and measure loss, throughput, and behavior.",
     "summary": "This phase turns transformer implementation details into concrete tradeoffs.",
     "tasks": [],
-    "readingPaperIds": []
+    "readingPaperIds": [
+      "roformer-enhanced-transformer-with-rotary-position-embedding",
+      "root-mean-square-layer-normalization",
+      "glu-variants-improve-transformer",
+      "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness",
+      "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity"
+    ]
   },
   {
     "id": "phase-4",
@@ -94,7 +122,12 @@
     "goal": "Train a small family of models to see scaling behavior on one GPU.",
     "summary": "This phase builds intuition about parameter count, token budget, throughput, and bottlenecks.",
     "tasks": [],
-    "readingPaperIds": []
+    "readingPaperIds": [
+      "scaling-laws-for-neural-language-models",
+      "training-compute-optimal-large-language-models",
+      "llama-open-and-efficient-foundation-language-models",
+      "the-llama-3-herd-of-models"
+    ]
   },
   {
     "id": "phase-5",
@@ -103,7 +136,12 @@
     "goal": "Continue training an open base model on a domain corpus and measure adaptation versus forgetting.",
     "summary": "This phase connects from-scratch understanding to practical lab workflows.",
     "tasks": [],
-    "readingPaperIds": []
+    "readingPaperIds": [
+      "llama-open-and-efficient-foundation-language-models",
+      "opt-open-pre-trained-transformer-language-models",
+      "the-llama-3-herd-of-models",
+      "deepseek-v3-technical-report"
+    ]
   },
   {
     "id": "phase-6",
@@ -112,7 +150,12 @@
     "goal": "Create instruction data and train a chat-style model.",
     "summary": "This phase focuses on chat templates, instruction data quality, and before/after behavior.",
     "tasks": [],
-    "readingPaperIds": []
+    "readingPaperIds": [
+      "finetuned-language-models-are-zero-shot-learners",
+      "scaling-instruction-finetuned-language-models",
+      "self-instruct-aligning-language-models-with-self-generated-instructions",
+      "training-language-models-to-follow-instructions-with-human-feedback"
+    ]
   },
   {
     "id": "phase-7",
@@ -121,7 +164,10 @@
     "goal": "Use LoRA and QLoRA to adapt larger models on the RTX 6000.",
     "summary": "This phase makes memory, quantization, adapter rank, and target modules concrete.",
     "tasks": [],
-    "readingPaperIds": []
+    "readingPaperIds": [
+      "lora-low-rank-adaptation-of-large-language-models",
+      "qlora-efficient-finetuning-of-quantized-llms"
+    ]
   },
   {
     "id": "phase-8",
@@ -130,7 +176,11 @@
     "goal": "Build preference pairs, train a reward model, and inspect its failures.",
     "summary": "This phase shows where reward modeling helps and where it can mislead.",
     "tasks": [],
-    "readingPaperIds": []
+    "readingPaperIds": [
+      "fine-tuning-language-models-from-human-preferences",
+      "training-language-models-to-follow-instructions-with-human-feedback",
+      "constitutional-ai-harmlessness-from-ai-feedback"
+    ]
   },
   {
     "id": "phase-9",
@@ -138,6 +188,62 @@
     "status": "planned",
     "goal": "Train with DPO-style methods and compare against SFT on the same evals.",
     "summary": "This phase studies how preference optimization changes helpfulness, verbosity, and style.",
+    "tasks": [],
+    "readingPaperIds": [
+      "direct-preference-optimization-your-language-model-is-secretly-a-reward-model",
+      "orpo-monolithic-preference-optimization-without-reference-model",
+      "kto-model-alignment-as-prospect-theoretic-optimization"
+    ]
+  },
+  {
+    "id": "phase-10",
+    "title": "Phase 10: RL on Verifiable Tasks",
+    "status": "planned",
+    "goal": "Run reinforcement learning on tasks with automatic, checkable rewards.",
+    "summary": "This phase builds a verifiable-task environment and studies reward curves, pass rates, and reward hacking on math, code, and schema-validity tasks.",
+    "tasks": [],
+    "readingPaperIds": [
+      "proximal-policy-optimization-algorithms",
+      "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models",
+      "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning",
+      "training-verifiers-to-solve-math-word-problems",
+      "let-s-verify-step-by-step"
+    ]
+  },
+  {
+    "id": "phase-11",
+    "title": "Phase 11: Reasoning and Distillation",
+    "status": "planned",
+    "goal": "Generate teacher reasoning traces and distill them into a smaller student, then test whether it actually improves.",
+    "summary": "This phase explores trace generation, filtering, and distillation, and asks whether the student genuinely gains reasoning ability.",
+    "tasks": [],
+    "readingPaperIds": [
+      "star-bootstrapping-reasoning-with-reasoning",
+      "solving-math-word-problems-with-process-and-outcome-based-feedback",
+      "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning",
+      "s1-simple-test-time-scaling"
+    ]
+  },
+  {
+    "id": "phase-12",
+    "title": "Phase 12: Tool Use and Agentic Behavior",
+    "status": "planned",
+    "goal": "Train a model to emit validated tool calls and measure schema validity and task success.",
+    "summary": "This phase makes structured tool-calling and environment feedback concrete and easy to measure for real behavioral improvement.",
+    "tasks": [],
+    "readingPaperIds": [
+      "react-synergizing-reasoning-and-acting-in-language-models",
+      "toolformer-language-models-can-teach-themselves-to-use-tools",
+      "gorilla-large-language-model-connected-with-massive-apis",
+      "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis"
+    ]
+  },
+  {
+    "id": "phase-13",
+    "title": "Phase 13: Final Report",
+    "status": "planned",
+    "goal": "Write a capstone that ties together what improved, what failed, and which methods were worth the complexity.",
+    "summary": "This phase consolidates the final model card, eval tables, reading notes index, and recommended next experiments.",
     "tasks": [],
     "readingPaperIds": []
   }

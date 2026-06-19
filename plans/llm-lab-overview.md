@@ -302,32 +302,35 @@ For each phase:
 
 ## Repository Shape
 
-Suggested structure:
+The layout separates **code** (`src/microlab/`, importable and tested) from
+**data and configs** (`evals/`, `configs/`) and **generated artifacts**
+(`runs/`, which is git-ignored). Phase work adds new packages under
+`src/microlab/` and new data/config directories alongside the existing ones.
 
 ```text
 microlab/
-  plans/
+  plans/                      # project plans and setup notes
     llm-lab-overview.md
-  papers/
+    2026-06-18-phase-0-evaluation-harness-plan.md
+  papers/                     # local paper library (source of truth: manifest.json)
     README.md
     manifest.json
-    foundations/
-    tokenizers-data/
-    modern-llm-recipes/
-    architecture/
-    instruction-tuning/
-    efficient-finetuning/
-    preferences-rlhf/
-    reasoning-rl/
-    tool-use/
-    evaluation/
-  notes/
-  data/
-  tokenizers/
-  training/
-  evals/
-  runs/
-  scripts/
+    foundations/ tokenizers-data/ modern-llm-recipes/ architecture/
+    instruction-tuning/ efficient-finetuning/ preferences-rlhf/
+    reasoning-rl/ tool-use/ evaluation/
+  src/microlab/               # importable package code
+    evals/                    # Phase 0 evaluation harness
+  evals/                      # eval data (not code)
+    suites/                   # JSONL eval suites
+  configs/                    # run configs
+    eval/                     # backend/model configs for the harness
+  tests/                      # pytest suites mirroring src/
+  notes/                      # reading notes and phase write-ups
+  site/                       # Microlab Console (React) + content/
+  ops/                        # nginx/systemd deployment templates
+  scripts/                    # utility and run scripts
+  data/ tokenizers/ training/ # added in later phases
+  runs/                       # generated run artifacts (git-ignored)
 ```
 
 ## First Three Concrete Moves

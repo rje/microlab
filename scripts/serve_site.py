@@ -115,13 +115,51 @@ def load_eval_runs(project_root: Path) -> list[dict[str, Any]]:
     return runs
 
 
+def validate_state(state: dict[str, Any]) -> None:
+    """Fail loudly on broken cross-references.
+
+    The dashboard resolves ``readingPaperIds`` and synopsis keys against paper
+    ids. A typo would otherwise be silently dropped by the client, so a paper
+    would just disappear from a phase with no error. We would rather the console
+    refuse to load and say exactly what is wrong.
+    """
+    paper_ids = {str(paper["id"]) for paper in state["papers"]}
+    problems: list[str] = []
+
+    for phase in state["phases"]:
+        phase_id = phase.get("id", "<unknown phase>")
+        for paper_id in phase.get("readingPaperIds", []):
+            if paper_id not in paper_ids:
+                problems.append(
+                    f"phase '{phase_id}' references unknown paper id '{paper_id}'"
+                )
+
+    for synopsis_id, synopsis in state["synopses"].items():
+        if synopsis_id not in paper_ids:
+            problems.append(
+                f"synopsis '{synopsis_id}' does not match any paper id"
+            )
+        declared = synopsis.get("paperId")
+        if declared is not None and declared != synopsis_id:
+            problems.append(
+                f"synopsis '{synopsis_id}' has mismatched paperId '{declared}'"
+            )
+
+    if problems:
+        raise ValueError(
+            "Microlab content validation failed:\n  - " + "\n  - ".join(problems)
+        )
+
+
 def load_state(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
-    return {
+    state = {
         "phases": read_json(project_root / PHASE_CONTENT, []),
         "papers": load_papers(project_root),
         "synopses": load_synopses(project_root),
         "evalRuns": load_eval_runs(project_root),
     }
+    validate_state(state)
+    return state
 
 
 def title_from_markdown(content: str, fallback: str) -> str:
@@ -210,7 +248,12 @@ class MicrolabRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path == "/api/state":
-            self.send_json(load_state(self.project_root))
+            try:
+                state = load_state(self.project_root)
+            except ValueError as exc:
+                self.send_error_text(500, str(exc))
+                return
+            self.send_json(state)
             return
 
         if path == "/api/markdown":

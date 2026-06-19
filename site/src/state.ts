@@ -77,7 +77,8 @@ export function parseMicrolabState(value: unknown): MicrolabState {
 export async function fetchMicrolabState(): Promise<MicrolabState> {
   const response = await fetch("/api/state");
   if (!response.ok) {
-    throw new Error(`Failed to load state: ${response.status}`);
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail.trim() || `Failed to load state: ${response.status}`);
   }
   return parseMicrolabState(await response.json());
 }
