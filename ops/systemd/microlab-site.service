@@ -3,6 +3,7 @@ Description=Microlab Console local website
 After=network.target
 
 [Service]
+Environment=MICROLAB_HTTPS=1
 Type=simple
 WorkingDirectory=/home/rje/src/python/microlab
 ExecStart=/home/rje/anaconda3/bin/conda run -n microlab python scripts/serve_site.py --host 127.0.0.1 --port 8765

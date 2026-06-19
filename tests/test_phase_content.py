@@ -7,11 +7,12 @@ dropped in the UI, so these tests fail loudly at commit time instead.
 
 from __future__ import annotations
 
-import importlib.util
 import re
 from pathlib import Path
 
 import pytest
+
+from microlab.console import content
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,19 +20,10 @@ PHASE_STATUSES = {"current", "planned", "complete"}
 TASK_STATUSES = {"done", "active", "queued", "blocked"}
 
 
-def load_server_module():
-    module_path = PROJECT_ROOT / "scripts" / "serve_site.py"
-    spec = importlib.util.spec_from_file_location("serve_site", module_path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture(scope="module")
 def state():
     # load_state runs validate_state and raises on any broken cross-reference.
-    return load_server_module().load_state(PROJECT_ROOT)
+    return content.load_state(PROJECT_ROOT)
 
 
 def test_project_state_loads_and_validates(state):
