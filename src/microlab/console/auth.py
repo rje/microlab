@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import functools
+import hmac
 import json
+import secrets
 import sys
+import time
 from pathlib import Path
 
+from flask import jsonify, redirect, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 AUTH_FILENAME = "auth.json"
@@ -35,6 +40,57 @@ def verify_password(instance_path: str | Path, password: str) -> bool:
     if not stored:
         return False
     return check_password_hash(stored, password)
+
+
+# --- login rate-limiting (single-user, in-process) ---
+
+_FAILED = {"count": 0, "next_allowed": 0.0}
+
+
+def login_locked_seconds() -> float:
+    return max(0.0, _FAILED["next_allowed"] - time.monotonic())
+
+
+def record_login_failure() -> None:
+    _FAILED["count"] += 1
+    delay = min(30.0, float(2 ** min(_FAILED["count"], 5)))
+    _FAILED["next_allowed"] = time.monotonic() + delay
+
+
+def reset_login_failures() -> None:
+    _FAILED["count"] = 0
+    _FAILED["next_allowed"] = 0.0
+
+
+# --- CSRF (synchronizer token in the session) ---
+
+
+def ensure_csrf_token() -> str:
+    token = session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_token"] = token
+    return token
+
+
+def csrf_ok(submitted: str | None) -> bool:
+    expected = session.get("csrf_token", "")
+    return bool(expected) and bool(submitted) and hmac.compare_digest(submitted, expected)
+
+
+# --- login gate ---
+
+
+def login_required(view):
+    @functools.wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("authed"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "authentication required"}), 401
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+
+    return wrapped
 
 
 def _main(argv: list[str] | None = None) -> int:

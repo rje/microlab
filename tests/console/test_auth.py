@@ -19,3 +19,13 @@ def test_auth_file_is_not_plaintext(tmp_path: Path):
     auth.set_password(tmp_path, "super-secret-value")
     stored = (tmp_path / "auth.json").read_text(encoding="utf-8")
     assert "super-secret-value" not in stored
+
+
+def test_rate_limiter_backs_off_then_resets():
+    auth.reset_login_failures()
+    assert auth.login_locked_seconds() == 0.0
+    auth.record_login_failure()
+    auth.record_login_failure()
+    assert auth.login_locked_seconds() > 0.0
+    auth.reset_login_failures()
+    assert auth.login_locked_seconds() == 0.0
