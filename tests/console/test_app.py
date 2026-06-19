@@ -47,3 +47,29 @@ def test_logout_clears_session(auth_client):
     assert auth_client.get("/api/state").status_code == 200
     assert auth_client.post("/logout").status_code in (200, 302)
     assert auth_client.get("/api/state").status_code == 401
+
+
+def test_markdown_route_requires_auth(client):
+    assert client.get("/api/markdown?path=plans/note.md").status_code == 401
+
+
+def test_markdown_route_returns_document_when_authed(auth_client):
+    response = auth_client.get("/api/markdown?path=plans/note.md")
+    assert response.status_code == 200
+    assert response.get_json()["title"] == "Note"
+
+
+def test_markdown_route_rejects_unpublished_path(auth_client):
+    assert auth_client.get("/api/markdown?path=environment.yml").status_code == 400
+
+
+def test_spa_index_requires_auth(client):
+    response = client.get("/")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_spa_index_served_when_authed(auth_client):
+    response = auth_client.get("/")
+    assert response.status_code == 200
+    assert b"Console" in response.data

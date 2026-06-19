@@ -98,15 +98,67 @@ def create_app(project_root: str | Path | None = None) -> Flask:
 
 
 def register_content_routes(app: Flask) -> None:
-    from flask import jsonify
+    from flask import jsonify, send_file
 
     from microlab.console import content
+
+    root: Path = app.config["PROJECT_ROOT"]
 
     @app.route("/api/state")
     @auth.login_required
     def api_state():
         try:
-            state = content.load_state(app.config["PROJECT_ROOT"])
+            state = content.load_state(root)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 500
         return jsonify(state)
+
+    @app.route("/api/markdown")
+    @auth.login_required
+    def api_markdown():
+        requested = request.args.get("path")
+        if not requested:
+            return jsonify({"error": "missing path"}), 400
+        try:
+            return jsonify(content.load_markdown_document(root, requested))
+        except FileNotFoundError:
+            return jsonify({"error": "not found"}), 404
+        except ValueError:
+            return jsonify({"error": "bad request"}), 400
+
+    @app.route("/papers/<path:subpath>")
+    @auth.login_required
+    def papers(subpath: str):
+        try:
+            return send_file(content.resolve_safe_path(root / "papers", subpath))
+        except (ValueError, FileNotFoundError):
+            return "", 400
+
+    @app.route("/artifacts/<path:subpath>")
+    @auth.login_required
+    def artifacts(subpath: str):
+        try:
+            return send_file(content.resolve_artifact_path(root, subpath))
+        except (ValueError, FileNotFoundError):
+            return "", 400
+
+    @app.route("/")
+    @app.route("/<path:requested>")
+    @auth.login_required
+    def spa(requested: str = ""):
+        if requested.endswith(".md"):
+            try:
+                return send_file(content.resolve_markdown_path(root, requested))
+            except FileNotFoundError:
+                return "", 404
+            except ValueError:
+                return "", 400
+        dist = root / content.SITE_DIST
+        if requested:
+            try:
+                candidate = content.resolve_safe_path(dist, requested)
+            except ValueError:
+                return "", 400
+            if candidate.is_file():
+                return send_file(candidate)
+        return send_file(dist / "index.html")
