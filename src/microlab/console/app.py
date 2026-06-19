@@ -25,8 +25,9 @@ def _load_or_create_secret_key(instance_path: Path) -> str:
         return key_file.read_text(encoding="utf-8").strip()
     instance_path.mkdir(parents=True, exist_ok=True)
     key = secrets.token_hex(32)
-    key_file.write_text(key, encoding="utf-8")
-    key_file.chmod(0o600)
+    fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(key)
     return key
 
 
@@ -46,7 +47,12 @@ def create_app(project_root: str | Path | None = None) -> Flask:
     @app.route("/login", methods=["GET", "POST"])
     def login():
         next_path = request.values.get("next", "/")
-        if not next_path.startswith("/") or next_path.startswith("//") or "\\" in next_path:
+        if (
+            not next_path.startswith("/")
+            or next_path.startswith("//")
+            or "\\" in next_path
+            or not next_path.isprintable()
+        ):
             next_path = "/"
         if request.method == "GET":
             return render_template(

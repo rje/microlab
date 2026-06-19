@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import hmac
 import json
+import os
 import secrets
 import sys
 import time
@@ -21,11 +22,10 @@ def auth_file(instance_path: str | Path) -> Path:
 def set_password(instance_path: str | Path, password: str) -> None:
     path = auth_file(instance_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"password_hash": generate_password_hash(password)}) + "\n",
-        encoding="utf-8",
-    )
-    path.chmod(0o600)
+    data = json.dumps({"password_hash": generate_password_hash(password)}) + "\n"
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(data)
 
 
 def load_password_hash(instance_path: str | Path) -> str | None:

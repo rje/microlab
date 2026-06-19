@@ -84,3 +84,20 @@ def test_login_next_rejects_open_redirect(client):
     )
     assert response.status_code == 302
     assert "evil.com" not in response.headers["Location"]
+
+
+def test_login_next_rejects_crlf(client):
+    token = _csrf_from_login(client)
+    response = client.post(
+        "/login",
+        data={
+            "password": "test-password-123",
+            "csrf_token": token,
+            "next": "/x\r\nSet-Cookie: a=b",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    location = response.headers["Location"]
+    assert "\r" not in location and "\n" not in location
+    assert "a=b" not in location
