@@ -46,7 +46,7 @@ def create_app(project_root: str | Path | None = None) -> Flask:
     @app.route("/login", methods=["GET", "POST"])
     def login():
         next_path = request.values.get("next", "/")
-        if not next_path.startswith("/"):
+        if not next_path.startswith("/") or next_path.startswith("//") or "\\" in next_path:
             next_path = "/"
         if request.method == "GET":
             return render_template(

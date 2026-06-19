@@ -73,3 +73,14 @@ def test_spa_index_served_when_authed(auth_client):
     response = auth_client.get("/")
     assert response.status_code == 200
     assert b"Console" in response.data
+
+
+def test_login_next_rejects_open_redirect(client):
+    token = _csrf_from_login(client)
+    response = client.post(
+        "/login",
+        data={"password": "test-password-123", "csrf_token": token, "next": "//evil.com"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert "evil.com" not in response.headers["Location"]
