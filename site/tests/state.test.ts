@@ -69,4 +69,28 @@ describe("parseMicrolabState", () => {
   it("rejects malformed state before rendering", () => {
     expect(() => parseMicrolabState({ phases: [{ id: "phase-0" }] })).toThrow();
   });
+
+  it("accepts paper progress and a csrf token", () => {
+    const parsed = parseMicrolabState({
+      phases: [],
+      papers: [
+        {
+          id: "mmlu",
+          topic: "evaluation",
+          title: "MMLU",
+          authors: "H",
+          year: 2020,
+          sourceUrl: "https://arxiv.org/abs/2009.03300",
+          pdfUrl: "/papers/evaluation/mmlu.pdf",
+          filename: "mmlu.pdf",
+          progress: { readState: "mapped", depth: "understand" }
+        }
+      ],
+      synopses: {},
+      evalRuns: [],
+      csrfToken: "tok"
+    });
+    expect(parsed.papers[0].progress?.readState).toBe("mapped");
+    expect(parsed.csrfToken).toBe("tok");
+  });
 });

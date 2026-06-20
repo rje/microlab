@@ -18,6 +18,11 @@ const phaseSchema = z.object({
   readingPaperIds: z.array(z.string())
 });
 
+const paperProgressSchema = z.object({
+  readState: z.string(),
+  depth: z.string().nullable()
+});
+
 const paperSchema = z.object({
   id: z.string(),
   topic: z.string(),
@@ -26,7 +31,8 @@ const paperSchema = z.object({
   year: z.number(),
   sourceUrl: z.string().url(),
   pdfUrl: z.string(),
-  filename: z.string()
+  filename: z.string(),
+  progress: paperProgressSchema.optional()
 });
 
 const paperSynopsisSchema = z.object({
@@ -59,12 +65,14 @@ const microlabStateSchema = z.object({
   phases: z.array(phaseSchema),
   papers: z.array(paperSchema),
   synopses: z.record(paperSynopsisSchema),
-  evalRuns: z.array(evalRunSummarySchema)
+  evalRuns: z.array(evalRunSummarySchema),
+  csrfToken: z.string().optional()
 });
 
 export type PhaseTask = z.infer<typeof phaseTaskSchema>;
 export type Phase = z.infer<typeof phaseSchema>;
 export type Paper = z.infer<typeof paperSchema>;
+export type PaperProgress = z.infer<typeof paperProgressSchema>;
 export type PaperSynopsis = z.infer<typeof paperSynopsisSchema>;
 export type EvalRunSummary = z.infer<typeof evalRunSummarySchema>;
 export type MarkdownDocument = z.infer<typeof markdownDocumentSchema>;
@@ -93,4 +101,38 @@ export async function fetchMarkdownDocument(path: string): Promise<MarkdownDocum
     throw new Error(`Failed to load markdown: ${response.status}`);
   }
   return parseMarkdownDocument(await response.json());
+}
+
+const notesSchema = z.object({ paperId: z.string(), content: z.string() });
+
+async function mutate(path: string, csrfToken: string, body: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail.trim() || `Request failed: ${response.status}`);
+  }
+}
+
+export function saveProgress(
+  paperId: string,
+  csrfToken: string,
+  progress: { readState: string; depth: string | null }
+): Promise<void> {
+  return mutate(`/api/papers/${encodeURIComponent(paperId)}/progress`, csrfToken, progress);
+}
+
+export function saveNotes(paperId: string, csrfToken: string, content: string): Promise<void> {
+  return mutate(`/api/papers/${encodeURIComponent(paperId)}/notes`, csrfToken, { content });
+}
+
+export async function fetchNotes(paperId: string): Promise<string> {
+  const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/notes`);
+  if (!response.ok) {
+    throw new Error(`Failed to load notes: ${response.status}`);
+  }
+  return notesSchema.parse(await response.json()).content;
 }
