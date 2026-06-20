@@ -595,6 +595,12 @@ function PaperWorkspace({
 
       <div className="ws-body">
         <section className={`ws-pane ws-paper ${tab === "paper" ? "active" : ""}`}>
+          <div className="ws-paper-bar">
+            <a href={paper.pdfUrl} target="_blank" rel="noreferrer">
+              <ExternalLink aria-hidden="true" />
+              Open PDF
+            </a>
+          </div>
           <iframe title={`PDF: ${paper.title}`} className="ws-pdf" src={paper.pdfUrl} />
         </section>
         <section
