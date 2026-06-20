@@ -529,16 +529,19 @@ function PaperCard({
         </a>
       </div>
 
-      {notesOpen && (
-        <textarea
-          className="notes-editor"
-          aria-label={`Notes for ${paper.title}`}
-          value={notes}
-          placeholder="Your notes (mechanism in your own words, what not to copy, questions)…"
-          onChange={(event) => setNotes(event.target.value)}
-          rows={8}
-        />
-      )}
+      {notesOpen &&
+        (notesLoaded ? (
+          <textarea
+            className="notes-editor"
+            aria-label={`Notes for ${paper.title}`}
+            value={notes}
+            placeholder="Your notes (mechanism in your own words, what not to copy, questions)…"
+            onChange={(event) => setNotes(event.target.value)}
+            rows={8}
+          />
+        ) : (
+          <p className="notes-loading">Loading notes…</p>
+        ))}
     </article>
   );
 }

@@ -127,4 +127,21 @@ describe("App", () => {
       );
     });
   });
+
+  it("loads existing notes into the editor when opened", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      String(url).includes("/notes")
+        ? {
+            ok: true,
+            json: async () => ({ paperId: "mmlu", content: "loaded note text" }),
+            text: async () => ""
+          }
+        : { ok: true, json: async () => ({}), text: async () => "" }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("button", { name: /^notes$/i }));
+    expect(await screen.findByDisplayValue("loaded note text")).toBeInTheDocument();
+  });
 });
