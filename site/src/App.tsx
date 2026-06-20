@@ -30,6 +30,7 @@ import {
   saveProgress
 } from "./state";
 import { MarkdownDocumentView } from "./MarkdownDocumentView";
+import { PdfView } from "./PdfView";
 
 const READ_STATES = ["unread", "skimming", "mapped", "built", "mastered"];
 const DEPTHS = ["implement", "understand", "aware"];
@@ -601,7 +602,7 @@ function PaperWorkspace({
               Open PDF
             </a>
           </div>
-          <iframe title={`PDF: ${paper.title}`} className="ws-pdf" src={paper.pdfUrl} />
+          <PdfView url={paper.pdfUrl} />
         </section>
         <section
           className={`ws-pane ws-side ${tab === "summary" || tab === "notes" ? "active" : ""}`}

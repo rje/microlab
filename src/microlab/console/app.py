@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 import os
 import secrets
 from pathlib import Path
@@ -15,6 +16,9 @@ from flask import (
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from microlab.console import auth
+
+# Serve ES module workers (pdf.js) with a JS content type so browsers accept them.
+mimetypes.add_type("text/javascript", ".mjs")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
