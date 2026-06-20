@@ -64,17 +64,14 @@ describe("App", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the phase dashboard with work, reading, and result areas", () => {
+  it("renders the phase dashboard with a paper launcher", () => {
     render(<App initialState={state} />);
 
     expect(screen.getByRole("heading", { name: "Phase 0: Evaluation Harness" })).toBeInTheDocument();
     expect(screen.getByText("Environment and repo setup")).toBeInTheDocument();
     expect(screen.getByText("Measuring Massive Multitask Language Understanding")).toBeInTheDocument();
-    expect(
-      screen.getByText(/MMLU is a broad multiple-choice benchmark/i)
-    ).toBeInTheDocument();
-    expect(screen.getByText("Breadth matters.")).toBeInTheDocument();
-    expect(screen.getByText("It is the canonical broad knowledge eval.")).toBeInTheDocument();
+    expect(screen.getByText(/MMLU measures broad multitask knowledge/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /read & take notes/i })).toBeInTheDocument();
     expect(screen.getByText("Awaiting first eval run")).toBeInTheDocument();
   });
 
@@ -109,13 +106,19 @@ describe("App", () => {
     );
   });
 
-  it("shows a read-state selector and saves on change", async () => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}), text: async () => "" }));
+  it("opens the reading workspace and saves read-state from it", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      String(url).includes("/notes")
+        ? { ok: true, json: async () => ({ paperId: "mmlu", content: "" }), text: async () => "" }
+        : { ok: true, json: async () => ({}), text: async () => "" }
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App initialState={state} />);
-    const select = screen.getByLabelText(/reading state for/i) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: "mapped" } });
+    fireEvent.click(screen.getByRole("button", { name: /read & take notes/i }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^reading state$/i), { target: { value: "mapped" } });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -128,7 +131,7 @@ describe("App", () => {
     });
   });
 
-  it("loads existing notes into the editor when opened", async () => {
+  it("loads existing notes into the workspace editor", async () => {
     const fetchMock = vi.fn(async (url: string) =>
       String(url).includes("/notes")
         ? {
@@ -141,7 +144,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App initialState={state} />);
-    fireEvent.click(screen.getByRole("button", { name: /^notes$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /read & take notes/i }));
     expect(await screen.findByDisplayValue("loaded note text")).toBeInTheDocument();
   });
 });
