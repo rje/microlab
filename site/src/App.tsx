@@ -19,12 +19,19 @@ import {
   MarkdownDocument,
   MicrolabState,
   Paper,
+  PaperSynopsis,
   Phase,
   PhaseTask,
   fetchMarkdownDocument,
-  fetchMicrolabState
+  fetchMicrolabState,
+  fetchNotes,
+  saveNotes,
+  saveProgress
 } from "./state";
 import { MarkdownDocumentView } from "./MarkdownDocumentView";
+
+const READ_STATES = ["unread", "skimming", "mapped", "built", "mastered"];
+const DEPTHS = ["implement", "understand", "aware"];
 
 type AppProps = {
   initialState?: MicrolabState;
@@ -174,6 +181,7 @@ export function App({ initialState }: AppProps) {
           <ReadingPanel
             papers={readingPapers}
             synopses={state.synopses}
+            csrfToken={state.csrfToken ?? ""}
           />
           <ResultsPanel runs={phaseRuns} onOpenMarkdown={openMarkdownDocument} />
         </aside>
@@ -349,10 +357,12 @@ function TaskBoard({
 
 function ReadingPanel({
   papers,
-  synopses
+  synopses,
+  csrfToken
 }: {
   papers: Paper[];
   synopses: MicrolabState["synopses"];
+  csrfToken: string;
 }) {
   return (
     <section className="rail-section" aria-labelledby="reading-heading">
@@ -365,66 +375,171 @@ function ReadingPanel({
       </div>
 
       <div className="paper-list">
-        {papers.map((paper) => {
-          const synopsis = synopses[paper.id];
-          return (
-            <article className="paper-card" key={paper.id}>
-              <div className="paper-meta">
-                <span>{paper.topic}</span>
-                <span>{paper.year}</span>
-              </div>
-              <h3>{paper.title}</h3>
-              <p className="authors">{paper.authors}</p>
-              {synopsis && (
-                <>
-                  <p className="synopsis-lede">{synopsis.oneSentence}</p>
-                  <div className="study-notes">
-                    <div className="study-block">
-                      <strong>Summary</strong>
-                      <p>{synopsis.summary}</p>
-                    </div>
-                    <div className="study-block">
-                      <strong>Core ideas</strong>
-                      <ul className="study-list">
-                        {synopsis.coreIdeas.map((idea) => (
-                          <li key={idea}>{idea}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="study-block">
-                      <strong>Why it matters</strong>
-                      <p>{synopsis.whyItMatters}</p>
-                    </div>
-                    <div className="study-block">
-                      <strong>Phase connection</strong>
-                      <p>{synopsis.phaseConnection}</p>
-                    </div>
-                    <div className="study-block">
-                      <strong>Reading focus</strong>
-                      <ul className="study-list">
-                        {synopsis.suggestedReadingFocus.map((focus) => (
-                          <li key={focus}>{focus}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </>
-              )}
-              <div className="paper-actions">
-                <a href={paper.pdfUrl}>
-                  <FileText aria-hidden="true" />
-                  PDF
-                </a>
-                <a href={paper.sourceUrl} rel="noreferrer" target="_blank">
-                  <ExternalLink aria-hidden="true" />
-                  Source
-                </a>
-              </div>
-            </article>
-          );
-        })}
+        {papers.map((paper) => (
+          <PaperCard
+            key={paper.id}
+            paper={paper}
+            synopsis={synopses[paper.id]}
+            csrfToken={csrfToken}
+          />
+        ))}
       </div>
     </section>
+  );
+}
+
+function PaperCard({
+  paper,
+  synopsis,
+  csrfToken
+}: {
+  paper: Paper;
+  synopsis: PaperSynopsis | undefined;
+  csrfToken: string;
+}) {
+  const [readState, setReadState] = useState(paper.progress?.readState ?? "unread");
+  const [depth, setDepth] = useState<string>(paper.progress?.depth ?? "");
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [saved, setSaved] = useState("");
+
+  const persist = (next: { readState?: string; depth?: string }) => {
+    const rs = next.readState ?? readState;
+    const d = next.depth ?? depth;
+    saveProgress(paper.id, csrfToken, { readState: rs, depth: d === "" ? null : d })
+      .then(() => setSaved("saved"))
+      .catch((error: Error) => setSaved(error.message));
+  };
+
+  const toggleNotes = async () => {
+    setNotesOpen((open) => !open);
+    if (!notesLoaded) {
+      try {
+        setNotes(await fetchNotes(paper.id));
+      } catch {
+        setNotes("");
+      }
+      setNotesLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!notesLoaded) {
+      return;
+    }
+    const handle = setTimeout(() => {
+      saveNotes(paper.id, csrfToken, notes)
+        .then(() => setSaved("saved"))
+        .catch((error: Error) => setSaved(error.message));
+    }, 800);
+    return () => clearTimeout(handle);
+  }, [notes, notesLoaded, csrfToken, paper.id]);
+
+  return (
+    <article className="paper-card">
+      <div className="paper-meta">
+        <span>{paper.topic}</span>
+        <span>{paper.year}</span>
+      </div>
+      <h3>{paper.title}</h3>
+      <p className="authors">{paper.authors}</p>
+
+      <div className="progress-controls">
+        <select
+          aria-label={`Reading state for ${paper.title}`}
+          value={readState}
+          onChange={(event) => {
+            setReadState(event.target.value);
+            persist({ readState: event.target.value });
+          }}
+        >
+          {READ_STATES.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={`Depth for ${paper.title}`}
+          value={depth}
+          onChange={(event) => {
+            setDepth(event.target.value);
+            persist({ depth: event.target.value });
+          }}
+        >
+          <option value="">depth…</option>
+          {DEPTHS.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+        {saved && <span className="save-state">{saved}</span>}
+      </div>
+
+      {synopsis && (
+        <>
+          <p className="synopsis-lede">{synopsis.oneSentence}</p>
+          <div className="study-notes">
+            <div className="study-block">
+              <strong>Summary</strong>
+              <p>{synopsis.summary}</p>
+            </div>
+            <div className="study-block">
+              <strong>Core ideas</strong>
+              <ul className="study-list">
+                {synopsis.coreIdeas.map((idea) => (
+                  <li key={idea}>{idea}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="study-block">
+              <strong>Why it matters</strong>
+              <p>{synopsis.whyItMatters}</p>
+            </div>
+            <div className="study-block">
+              <strong>Phase connection</strong>
+              <p>{synopsis.phaseConnection}</p>
+            </div>
+            <div className="study-block">
+              <strong>Reading focus</strong>
+              <ul className="study-list">
+                {synopsis.suggestedReadingFocus.map((focus) => (
+                  <li key={focus}>{focus}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="paper-actions">
+        <button type="button" onClick={toggleNotes}>
+          <FileText aria-hidden="true" />
+          {notesOpen ? "Hide notes" : "Notes"}
+        </button>
+        <a href={paper.pdfUrl}>
+          <FileText aria-hidden="true" />
+          PDF
+        </a>
+        <a href={paper.sourceUrl} rel="noreferrer" target="_blank">
+          <ExternalLink aria-hidden="true" />
+          Source
+        </a>
+      </div>
+
+      {notesOpen && (
+        <textarea
+          className="notes-editor"
+          aria-label={`Notes for ${paper.title}`}
+          value={notes}
+          placeholder="Your notes (mechanism in your own words, what not to copy, questions)…"
+          onChange={(event) => setNotes(event.target.value)}
+          rows={8}
+        />
+      )}
+    </article>
   );
 }
 

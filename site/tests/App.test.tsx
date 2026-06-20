@@ -55,7 +55,8 @@ const state: MicrolabState = {
       suggestedReadingFocus: ["Subject construction", "Prompt settings"]
     }
   },
-  evalRuns: []
+  evalRuns: [],
+  csrfToken: "tok"
 };
 
 describe("App", () => {
@@ -106,5 +107,24 @@ describe("App", () => {
       "href",
       "/plans/environment-setup.md"
     );
+  });
+
+  it("shows a read-state selector and saves on change", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}), text: async () => "" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App initialState={state} />);
+    const select = screen.getByLabelText(/reading state for/i) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "mapped" } });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/papers/mmlu/progress",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ "X-CSRF-Token": "tok" })
+        })
+      );
+    });
   });
 });
