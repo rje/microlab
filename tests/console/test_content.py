@@ -93,3 +93,29 @@ def test_load_markdown_document_reads_allowed_markdown(tmp_path: Path):
     document = content.load_markdown_document(tmp_path, "plans/environment-setup.md")
     assert document["title"] == "Environment Setup"
     assert document["path"] == "plans/environment-setup.md"
+
+
+def test_valid_paper_ids_from_manifest(tmp_path: Path):
+    write_json(
+        tmp_path / "papers" / "manifest.json",
+        [
+            {
+                "topic": "architecture",
+                "title": "RoFormer",
+                "authors": "Su",
+                "year": 2021,
+                "source_url": "https://arxiv.org/abs/2104.09864",
+                "pdf_url": "https://arxiv.org/pdf/2104.09864",
+                "filename": "roformer.pdf",
+            }
+        ],
+    )
+    assert content.valid_paper_ids(tmp_path) == {"roformer"}
+
+
+def test_notes_round_trip(tmp_path: Path):
+    assert content.read_notes(tmp_path, "roformer") == ""
+    content.write_notes(tmp_path, "roformer", "# my notes\n\nRoPE rotates Q/K.\n")
+    assert "RoPE rotates" in content.read_notes(tmp_path, "roformer")
+    expected = tmp_path / "content" / "papers" / "roformer" / "notes.md"
+    assert expected.is_file()

@@ -234,3 +234,24 @@ def resolve_artifact_path(project_root: Path, requested_path: str) -> Path:
     if len(relative.parts) < 2 or relative.parts[:2] != ("runs", "evals"):
         raise ValueError("unsafe path")
     return candidate
+
+
+def valid_paper_ids(project_root: Path) -> set[str]:
+    return {paper["id"] for paper in load_papers(project_root)}
+
+
+def notes_path(project_root: Path, paper_id: str) -> Path:
+    return project_root / "content" / "papers" / paper_id / "notes.md"
+
+
+def read_notes(project_root: Path, paper_id: str) -> str:
+    path = notes_path(project_root, paper_id)
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def write_notes(project_root: Path, paper_id: str, body: str) -> None:
+    path = notes_path(project_root, paper_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(body, encoding="utf-8")
+    tmp.replace(path)
