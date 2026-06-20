@@ -106,9 +106,10 @@ def create_app(project_root: str | Path | None = None) -> Flask:
 def register_content_routes(app: Flask) -> None:
     from flask import jsonify, send_file
 
-    from microlab.console import content
+    from microlab.console import content, store
 
     root: Path = app.config["PROJECT_ROOT"]
+    db_path = root / "microlab.db"
 
     @app.route("/api/state")
     @auth.login_required
@@ -117,6 +118,12 @@ def register_content_routes(app: Flask) -> None:
             state = content.load_state(root)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 500
+        progress = store.get_all_progress(db_path)
+        for paper in state["papers"]:
+            paper["progress"] = progress.get(
+                paper["id"], {"readState": "unread", "depth": None}
+            )
+        state["csrfToken"] = auth.ensure_csrf_token()
         return jsonify(state)
 
     @app.route("/api/markdown")
@@ -131,6 +138,38 @@ def register_content_routes(app: Flask) -> None:
             return jsonify({"error": "not found"}), 404
         except ValueError:
             return jsonify({"error": "bad request"}), 400
+
+    @app.route("/api/papers/<paper_id>/progress", methods=["POST"])
+    @auth.login_required
+    def set_progress(paper_id: str):
+        if not auth.csrf_ok(request.headers.get("X-CSRF-Token")):
+            return jsonify({"error": "bad csrf token"}), 403
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        data = request.get_json(silent=True) or {}
+        try:
+            store.upsert_progress(db_path, paper_id, data.get("readState"), data.get("depth"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify({"ok": True})
+
+    @app.route("/api/papers/<paper_id>/notes")
+    @auth.login_required
+    def get_notes(paper_id: str):
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        return jsonify({"paperId": paper_id, "content": content.read_notes(root, paper_id)})
+
+    @app.route("/api/papers/<paper_id>/notes", methods=["POST"])
+    @auth.login_required
+    def post_notes(paper_id: str):
+        if not auth.csrf_ok(request.headers.get("X-CSRF-Token")):
+            return jsonify({"error": "bad csrf token"}), 403
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        data = request.get_json(silent=True) or {}
+        content.write_notes(root, paper_id, str(data.get("content", "")))
+        return jsonify({"ok": True})
 
     @app.route("/papers/<path:subpath>")
     @auth.login_required

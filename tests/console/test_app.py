@@ -101,3 +101,89 @@ def test_login_next_rejects_crlf(client):
     location = response.headers["Location"]
     assert "\r" not in location and "\n" not in location
     assert "a=b" not in location
+
+
+def _login(client):
+    token = _csrf_from_login(client)
+    client.post("/login", data={"password": "test-password-123", "csrf_token": token})
+    return client.get("/api/state").get_json()["csrfToken"]
+
+
+def _seed_mmlu(project_root):
+    import json
+
+    (project_root / "papers" / "manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "topic": "evaluation",
+                    "title": "Measuring Massive Multitask Language Understanding",
+                    "authors": "H",
+                    "year": 2020,
+                    "source_url": "https://arxiv.org/abs/2009.03300",
+                    "pdf_url": "https://arxiv.org/pdf/2009.03300",
+                    "filename": "mmlu.pdf",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_state_includes_progress_and_csrf(auth_client):
+    body = auth_client.get("/api/state").get_json()
+    assert "csrfToken" in body and body["csrfToken"]
+    assert isinstance(body["papers"], list)
+
+
+def test_progress_requires_csrf(auth_client):
+    resp = auth_client.post("/api/papers/mmlu/progress", json={"readState": "mapped"})
+    assert resp.status_code == 403
+
+
+def test_progress_round_trip(client, project_root):
+    _seed_mmlu(project_root)
+    csrf = _login(client)
+    resp = client.post(
+        "/api/papers/mmlu/progress",
+        json={"readState": "mapped", "depth": "understand"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    papers = client.get("/api/state").get_json()["papers"]
+    mmlu = next(p for p in papers if p["id"] == "mmlu")
+    assert mmlu["progress"] == {"readState": "mapped", "depth": "understand"}
+
+
+def test_progress_rejects_unknown_paper(client):
+    csrf = _login(client)
+    resp = client.post(
+        "/api/papers/not-a-paper/progress",
+        json={"readState": "mapped"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 404
+
+
+def test_progress_rejects_bad_read_state(client, project_root):
+    _seed_mmlu(project_root)
+    csrf = _login(client)
+    resp = client.post(
+        "/api/papers/mmlu/progress",
+        json={"readState": "banana"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 400
+
+
+def test_notes_round_trip_endpoint(client, project_root):
+    _seed_mmlu(project_root)
+    csrf = _login(client)
+    assert client.get("/api/papers/mmlu/notes").get_json()["content"] == ""
+    resp = client.post(
+        "/api/papers/mmlu/notes",
+        json={"content": "RoPE rotates Q/K."},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200
+    assert "RoPE rotates" in client.get("/api/papers/mmlu/notes").get_json()["content"]
