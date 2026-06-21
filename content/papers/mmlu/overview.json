@@ -1,0 +1,43 @@
+{
+  "paperId": "mmlu",
+  "generatedAt": "2026-06-21",
+  "depthSuggestion": "understand",
+  "tldr": "MMLU is a 57-subject, 15,908-question multiple-choice benchmark that measures the breadth and depth of knowledge a model absorbed during pretraining, scored zero-/few-shot with no fine-tuning.",
+  "overview": "MMLU tests models across STEM, the humanities, social science, and professional subjects (elementary to expert level), deliberately formatted unlike pretraining so it probes acquired knowledge rather than a fitted train/test distribution. At publication the smaller models scored near the 25% random baseline; only GPT-3 175B rose meaningfully (43.9% few-shot), and a fine-tuned UnifiedQA reached 48.9% with far fewer parameters — all far below ~90% expert humans. The sharper findings are qualitative: capability is lopsided (strong on a few subjects, near-random on others), weakest on calculation-heavy STEM and on socially important subjects like law and morality, and models are poorly calibrated — confidence is off by up to 24% and they often don't know when they're wrong.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Prior benchmarks (GLUE/SuperGLUE, commonsense suites) are near-saturated yet miss broad understanding. The authors propose a test for the knowledge models acquire during pretraining, evaluated zero-/few-shot like a human exam across 57 subjects from elementary to professional level."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Pretrained models act partly as knowledge bases, and few-shot learning (GPT-3) removes the need for large task-specific fine-tuning sets. Existing commonsense benchmarks test what almost any child knows; MMLU instead targets harder specialized subjects people must study for."
+    },
+    {
+      "title": "3. A Multitask Test",
+      "summary": "57 subjects (humanities, social science, STEM, other) and 15,908 hand-collected questions, split into a 5-per-subject few-shot dev set, a 1,540 validation set, and a 14,079 test set. Non-expert humans score 34.5%; estimated expert accuracy is ~89.8%. The format differs from pretraining so the test probes acquired knowledge, not a fitted distribution."
+    },
+    {
+      "title": "4.1 Experiments — Setup",
+      "summary": "Models are scored by classification accuracy over choices A–D. They evaluate GPT-3 at four sizes (2.7B / 6.7B / 13B / 175B) few-shot, and UnifiedQA (a fine-tuned T5) for transfer. Few-shot prompts prepend up to 5 demonstrations per subject."
+    },
+    {
+      "title": "4.2 Results",
+      "summary": "The three smaller GPT-3 models are near random (~25%); GPT-3 175B reaches 43.9% few-shot, and UnifiedQA hits 48.9% with far fewer parameters (fine-tuning helps too). Performance is lopsided — up to ~70% on a best subject, near-random elsewhere — and worst on calculation-heavy STEM and on law/morality. GPT-3 'knows' declarative facts (e.g. the PEMDAS acronym) but can't reliably apply them, and is badly calibrated (confidence off by up to 24%)."
+    },
+    {
+      "title": "5. Discussion",
+      "summary": "Frames internet pretraining as the real 'training set' and argues evaluation should mirror how humans learn — read broadly, then get tested. Limits: weak on math and on socially important subjects, uncalibrated, and subhuman on every subject. Scaling alone may not suffice: a 10x model increase needs ~5x more data (Kaplan et al.), and text on esoteric subjects is scarce."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "MMLU evaluates language understanding with more breadth and depth than prior benchmarks, exposing lopsided, uncalibrated models that are especially weak on calculation and on morally/legally relevant subjects — a tool to pinpoint shortcomings as models improve."
+    }
+  ],
+  "readingFocus": [
+    "Why the test format is deliberately different from pretraining — it probes acquired knowledge, not a fitted train/test distribution.",
+    "The lopsided-capability and calibration findings: models can be confidently wrong and don't know what they don't know.",
+    "The declarative-vs-procedural gap (knows PEMDAS, can't apply it) and why calculation-heavy subjects lag.",
+    "How the dev/val/test splits and few-shot prompting are constructed — this directly informs your own Phase 0 eval harness."
+  ]
+}

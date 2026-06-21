@@ -31,3 +31,6 @@ site/coverage/
 
 instance/
 *.db
+
+# Reader's personal notes are local data, not committed. AI overviews ARE tracked.
+content/papers/*/notes.md
