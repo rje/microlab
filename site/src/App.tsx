@@ -20,12 +20,14 @@ import {
   MarkdownDocument,
   MicrolabState,
   Paper,
+  PaperOverview,
   PaperSynopsis,
   Phase,
   PhaseTask,
   fetchMarkdownDocument,
   fetchMicrolabState,
   fetchNotes,
+  fetchOverview,
   saveNotes,
   saveProgress
 } from "./state";
@@ -466,6 +468,7 @@ function PaperWorkspace({
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [saved, setSaved] = useState("");
   const [tab, setTab] = useState<"paper" | "summary" | "notes">("paper");
+  const [overview, setOverview] = useState<PaperOverview | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -481,6 +484,18 @@ function PaperWorkspace({
           setNotesLoaded(true);
         }
       });
+    return () => {
+      active = false;
+    };
+  }, [paper.id]);
+
+  useEffect(() => {
+    let active = true;
+    fetchOverview(paper.id).then((data) => {
+      if (active) {
+        setOverview(data);
+      }
+    });
     return () => {
       active = false;
     };
@@ -608,7 +623,35 @@ function PaperWorkspace({
           className={`ws-pane ws-side ${tab === "summary" || tab === "notes" ? "active" : ""}`}
         >
           <div className={`ws-summary ${tab === "summary" ? "active" : ""}`}>
-            {synopsis ? (
+            {overview ? (
+              <>
+                <p className="synopsis-lede">{overview.tldr}</p>
+                {overview.overview && <p>{overview.overview}</p>}
+                {overview.sections.length > 0 && (
+                  <div className="study-block">
+                    <strong>Section guide</strong>
+                    <div className="overview-sections">
+                      {overview.sections.map((section) => (
+                        <div className="overview-section" key={section.title}>
+                          <h4>{section.title}</h4>
+                          <p>{section.summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {overview.readingFocus.length > 0 && (
+                  <div className="study-block">
+                    <strong>Reading focus</strong>
+                    <ul className="study-list">
+                      {overview.readingFocus.map((focus) => (
+                        <li key={focus}>{focus}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : synopsis ? (
               <>
                 <p className="synopsis-lede">{synopsis.oneSentence}</p>
                 <div className="study-block">

@@ -147,4 +147,31 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /read & take notes/i }));
     expect(await screen.findByDisplayValue("loaded note text")).toBeInTheDocument();
   });
+
+  it("renders the AI overview in the summary tab when present", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/overview")) {
+        return {
+          ok: true,
+          json: async () => ({
+            paperId: "mmlu",
+            tldr: "Overview TL;DR line.",
+            sections: [{ title: "1. Intro", summary: "Intro summary." }],
+            readingFocus: []
+          }),
+          text: async () => ""
+        };
+      }
+      if (String(url).includes("/notes")) {
+        return { ok: true, json: async () => ({ paperId: "mmlu", content: "" }), text: async () => "" };
+      }
+      return { ok: true, json: async () => ({}), text: async () => "" };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("button", { name: /read & take notes/i }));
+    expect(await screen.findByText("Overview TL;DR line.")).toBeInTheDocument();
+    expect(await screen.findByText("1. Intro")).toBeInTheDocument();
+  });
 });

@@ -45,6 +45,16 @@ const paperSynopsisSchema = z.object({
   suggestedReadingFocus: z.array(z.string())
 });
 
+const paperOverviewSchema = z.object({
+  paperId: z.string(),
+  generatedAt: z.string().optional(),
+  depthSuggestion: z.string().optional(),
+  tldr: z.string(),
+  overview: z.string().optional(),
+  sections: z.array(z.object({ title: z.string(), summary: z.string() })).default([]),
+  readingFocus: z.array(z.string()).default([])
+});
+
 const evalRunSummarySchema = z.object({
   id: z.string(),
   phaseId: z.string(),
@@ -74,6 +84,7 @@ export type Phase = z.infer<typeof phaseSchema>;
 export type Paper = z.infer<typeof paperSchema>;
 export type PaperProgress = z.infer<typeof paperProgressSchema>;
 export type PaperSynopsis = z.infer<typeof paperSynopsisSchema>;
+export type PaperOverview = z.infer<typeof paperOverviewSchema>;
 export type EvalRunSummary = z.infer<typeof evalRunSummarySchema>;
 export type MarkdownDocument = z.infer<typeof markdownDocumentSchema>;
 export type MicrolabState = z.infer<typeof microlabStateSchema>;
@@ -135,4 +146,16 @@ export async function fetchNotes(paperId: string): Promise<string> {
     throw new Error(`Failed to load notes: ${response.status}`);
   }
   return notesSchema.parse(await response.json()).content;
+}
+
+export async function fetchOverview(paperId: string): Promise<PaperOverview | null> {
+  try {
+    const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/overview`);
+    if (!response.ok) {
+      return null;
+    }
+    return paperOverviewSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
 }

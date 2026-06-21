@@ -883,3 +883,7 @@ svg {
   .ws-notes { display: none; }
   .ws-notes.active { display: flex; }
 }
+
+.overview-sections { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.4rem; }
+.overview-section h4 { margin: 0 0 0.15rem; font-size: 0.86rem; }
+.overview-section p { margin: 0; }
