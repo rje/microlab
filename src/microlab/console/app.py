@@ -175,6 +175,16 @@ def register_content_routes(app: Flask) -> None:
         content.write_notes(root, paper_id, str(data.get("content", "")))
         return jsonify({"ok": True})
 
+    @app.route("/api/papers/<paper_id>/overview")
+    @auth.login_required
+    def get_overview(paper_id: str):
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        data = content.read_overview(root, paper_id)
+        if data is None:
+            return jsonify({"error": "no overview"}), 404
+        return jsonify(data)
+
     @app.route("/papers/<path:subpath>")
     @auth.login_required
     def papers(subpath: str):

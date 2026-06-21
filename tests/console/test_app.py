@@ -187,3 +187,29 @@ def test_notes_round_trip_endpoint(client, project_root):
     )
     assert resp.status_code == 200
     assert "RoPE rotates" in client.get("/api/papers/mmlu/notes").get_json()["content"]
+
+
+def test_overview_404_when_unknown_paper(auth_client):
+    assert auth_client.get("/api/papers/not-a-paper/overview").status_code == 404
+
+
+def test_overview_404_when_absent(client, project_root):
+    _seed_mmlu(project_root)
+    _login(client)
+    assert client.get("/api/papers/mmlu/overview").status_code == 404
+
+
+def test_overview_returns_json_when_present(client, project_root):
+    import json
+
+    _seed_mmlu(project_root)
+    overview = project_root / "content" / "papers" / "mmlu" / "overview.json"
+    overview.parent.mkdir(parents=True, exist_ok=True)
+    overview.write_text(
+        json.dumps({"paperId": "mmlu", "tldr": "hi", "sections": []}),
+        encoding="utf-8",
+    )
+    _login(client)
+    body = client.get("/api/papers/mmlu/overview").get_json()
+    assert body["paperId"] == "mmlu"
+    assert body["tldr"] == "hi"

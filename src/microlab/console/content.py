@@ -255,3 +255,14 @@ def write_notes(project_root: Path, paper_id: str, body: str) -> None:
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(body, encoding="utf-8")
     tmp.replace(path)
+
+
+def overview_path(project_root: Path, paper_id: str) -> Path:
+    return project_root / "content" / "papers" / paper_id / "overview.json"
+
+
+def read_overview(project_root: Path, paper_id: str) -> dict[str, Any] | None:
+    path = overview_path(project_root, paper_id)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))

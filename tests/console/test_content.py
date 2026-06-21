@@ -119,3 +119,17 @@ def test_notes_round_trip(tmp_path: Path):
     assert "RoPE rotates" in content.read_notes(tmp_path, "roformer")
     expected = tmp_path / "content" / "papers" / "roformer" / "notes.md"
     assert expected.is_file()
+
+
+def test_read_overview_returns_none_when_absent(tmp_path: Path):
+    assert content.read_overview(tmp_path, "mmlu") is None
+
+
+def test_read_overview_returns_parsed_json(tmp_path: Path):
+    write_json(
+        tmp_path / "content" / "papers" / "mmlu" / "overview.json",
+        {"paperId": "mmlu", "tldr": "x", "sections": []},
+    )
+    data = content.read_overview(tmp_path, "mmlu")
+    assert data["paperId"] == "mmlu"
+    assert data["tldr"] == "x"
