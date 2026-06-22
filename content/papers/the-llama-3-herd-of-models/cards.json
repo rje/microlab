@@ -1,0 +1,60 @@
+{
+  "paperId": "the-llama-3-herd-of-models",
+  "cards": [
+    {
+      "id": "the-llama-3-herd-of-models#1",
+      "question": "What are the three design levers Meta identified as the keys to Llama 3's quality, and what concrete tradeoffs did they make under each?",
+      "answer": "Data (15T multilingual tokens with rigorous filtering and mixing), scale (405B parameters, 3.8×10²⁵ FLOPs, 16K H100 GPUs), and managing complexity (standard dense Transformer + simple SFT/RS/DPO rather than MoE or PPO). The complexity tradeoff sacrifices peak expressivity for training stability and easier scaling."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#2",
+      "question": "Describe the four-stage web data deduplication pipeline Llama 3 applies before any model-based filtering.",
+      "answer": "URL-level deduplication (keep most recent version per URL), document-level global MinhHash near-dedup, then aggressive line-level deduplication (remove any line appearing more than 6 times within each 30M-document bucket, similar to ccNet). Only after these three structural stages are heuristic filters (n-gram coverage ratio, dirty-word counts, KL-divergence on token distributions) applied to catch low-quality outliers."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#3",
+      "question": "How did Meta determine the final pre-training data mix proportions, and what are those proportions?",
+      "answer": "They used a knowledge classifier to downsample over-represented web categories, then ran scaling-law experiments on small models across candidate mixes to predict large-model performance, selecting the best-performing candidate. The final mix is roughly 50% general knowledge, 25% math and reasoning, 17% code, and 8% multilingual tokens."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#4",
+      "question": "What two-step methodology did Llama 3 use to make scaling laws predict downstream benchmark accuracy (not just loss)?",
+      "answer": "Step 1: fit IsoFLOP curves from models trained between 6×10¹⁸ and 10²² FLOPs, identify the compute-optimal (minimum-loss) model at each budget, and fit a power law N*(C) = AC^α to find α = 0.53, A = 0.29. Step 2: correlate the compute-optimal models' normalized negative log-likelihood on benchmark tasks with task accuracy via a sigmoidal fit, using both the small scaling-law models and Llama 2 models at higher FLOPs. This two-step extrapolation predicted Llama 3 405B's ARC Challenge score before pre-training began."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#5",
+      "question": "Describe the three sequential stages of Llama 3's pre-training recipe, including the key hyperparameter changes across stages.",
+      "answer": "Stage 1 (initial pre-training): AdamW, peak LR 8×10⁻⁵, cosine decay over 1.2M steps; batch size grows from 4M tokens at seq-len 4,096 to 16M tokens at seq-len 8,192 across two progressive doublings. Stage 2 (long-context pre-training): context window extended from 8K to 128K tokens in six incremental stages over ~800B tokens, with each step verified by short-context recovery and needle-in-haystack passing. Stage 3 (annealing): LR linearly decayed to zero over the final 40M tokens while upsampling high-quality code and math sources; Polyak checkpoint averaging at the end produces the final pre-trained model."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#6",
+      "question": "What is the full post-training loop for Llama 3, and how many times does it iterate?",
+      "answer": "Six iterative rounds, each consisting of: (1) train a reward model (RM) on human preference data with edited > chosen > rejected triples, (2) rejection sampling — generate K=10–30 outputs per prompt from the latest chat model, select the best via the RM, (3) supervised fine-tuning (SFT) at LR 10⁻⁵ for 8.5K–9K steps on the selected outputs and synthetic data, (4) Direct Preference Optimization (DPO) at LR 10⁻⁵ with β=0.1 on the latest preference batches. Each round collects fresh preference annotations from the improved model, so both data and model improve together."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#7",
+      "question": "What two algorithmic modifications did Llama 3 make to vanilla DPO, and why is each necessary?",
+      "answer": "First, formatting tokens (header and termination tokens) are masked out of the DPO loss for both chosen and rejected responses. Without this, common tokens shared across both responses create a conflicting gradient signal — the model must simultaneously increase and decrease their probability — leading to tail repetition and premature termination. Second, an NLL regularization term with coefficient 0.2 is added on the chosen sequences to prevent the log-probability of chosen responses from decreasing during DPO optimization, stabilizing formatting."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#8",
+      "question": "How does Llama 3's code synthetic data pipeline use execution feedback to improve SFT data quality?",
+      "answer": "For each synthetically generated coding problem, the model's solution is run through a parser and linter (static analysis) and then unit tests generated by the model are executed in a containerized environment. If the solution fails, the model is prompted to self-correct using the original problem, the faulty code, and stdout/stderr/return-code feedback. Only dialogs that pass all checks enter the SFT dataset. Approximately 20% of solutions were initially incorrect but self-corrected, and the pipeline generated over one million such dialogues."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#9",
+      "question": "Why did Llama 3 avoid training smaller models at their compute-optimal point, and what did it do instead?",
+      "answer": "IsoFLOP curves become flatter around the minimum as compute increases, meaning the optimal token/parameter trade-off is not sharp. More importantly, a model that is inference-budget-optimal — trained on many more tokens than compute-optimal — outperforms the compute-optimal model at the same inference cost. Llama 3 therefore intentionally over-trains the 8B and 70B models beyond their compute-optimal point, using the 405B model's higher-quality outputs during post-training (distillation-style rejection sampling) to further improve them."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#10",
+      "question": "How does Llama 3's math and reasoning post-training address the problem of incorrect intermediate reasoning steps?",
+      "answer": "Two complementary mechanisms: (1) Outcome and stepwise reward models trained to detect faulty intermediate steps filter out training traces where reasoning is invalid, ensuring only chains with correct step-by-step reasoning reach SFT. (2) For hard problems, Monte Carlo Tree Search (MCTS) guided by the learned stepwise reward models is used to search for valid reasoning traces, substantially expanding the set of solvable problems for data generation."
+    },
+    {
+      "id": "the-llama-3-herd-of-models#11",
+      "question": "What is Llama 3's knowledge-probing pipeline for factuality, and what training signal does it produce?",
+      "answer": "A six-step pipeline: extract a data snippet from the pre-training corpus, prompt Llama 3 to generate a factual question about it, sample multiple responses, score each response's correctness using the original snippet as reference (Llama 3 as judge), score informativeness, then generate a refusal response for questions where all model generations are consistently wrong or uninformative. This teaches the model to refuse questions it genuinely cannot answer, rather than confabulating, using the model's own pre-training knowledge as the ground truth."
+    }
+  ]
+}

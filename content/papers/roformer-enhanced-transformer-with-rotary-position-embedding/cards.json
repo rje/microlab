@@ -1,0 +1,65 @@
+{
+  "paperId": "roformer-enhanced-transformer-with-rotary-position-embedding",
+  "cards": [
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#1",
+      "question": "What is the core design constraint RoPE is built to satisfy, and why does that constraint matter?",
+      "answer": "The constraint is that the inner product of position-encoded query and key must equal g(x_m, x_n, m−n) — a function of the word embeddings and the relative offset only, never of absolute positions. This ensures attention scores encode relative distance, so the model is not limited by the fixed sequence length seen during training."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#2",
+      "question": "Why do previous relative position encoding schemes (Shaw, Dai, Raffel, He) conflict with linear attention?",
+      "answer": "They all work by decomposing q_m^T k_n into additive cross-terms and replacing absolute position vectors with relative ones or trainable biases. This additive decomposition breaks the associativity trick (reordering key–value accumulation) that linear attention O(N) complexity depends on. RoPE is multiplicative, so it preserves that associativity."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#3",
+      "question": "How does RoPE encode position for the 2D case, and what does the inner product then depend on?",
+      "answer": "For d=2, the linearly projected query at position m is multiplied by the complex exponential e^{imθ}: f_q(x_m, m) = (W_q x_m)e^{imθ}, and similarly for the key. Their inner product becomes Re[(W_q x_m)(W_k x_n)* e^{i(m−n)θ}], which depends only on the content vectors and the relative offset m−n."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#4",
+      "question": "What is the d-dimensional block-diagonal rotation matrix R^d_{Θ,m} and what are its angle parameters?",
+      "answer": "The d-dimensional space is divided into d/2 independent 2D sub-spaces. R^d_{Θ,m} is a block-diagonal matrix where each 2×2 block is the standard rotation matrix [[cos mθ_i, −sin mθ_i],[sin mθ_i, cos mθ_i]], with θ_i = 10000^{−2(i−1)/d} for i = 1, …, d/2. These are the same geometric-sequence frequencies as the sinusoidal encoding of Vaswani et al."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#5",
+      "question": "How does applying R^d_{Θ,m} to queries and keys produce an attention score that depends only on relative position?",
+      "answer": "Equation 16: q_m^T k_n = (R^d_{Θ,m} W_q x_m)^T (R^d_{Θ,n} W_k x_n) = x^T W_q R^d_{Θ,n−m} W_k x_n, because (R^d_{Θ,m})^T R^d_{Θ,n} = R^d_{Θ,n−m} — rotations compose by subtracting angles, so only the relative offset n−m survives."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#6",
+      "question": "What is the efficient element-wise implementation of R^d_{Θ,m} x, and why is it preferred over the matrix form?",
+      "answer": "Rather than forming the sparse d×d rotation matrix, the implementation splits the vector x into consecutive pairs and uses element-wise operations (Eq. 34): R^d_{Θ,m} x = x ⊗ [cos mθ_1, cos mθ_1, …, cos mθ_{d/2}] + [−x_2, x_1, −x_4, x_3, …] ⊗ [sin mθ_1, sin mθ_1, …, sin mθ_{d/2}]. This avoids allocating the d×d matrix entirely and maps directly to vectorized hardware ops."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#7",
+      "question": "How is the long-term decay property of RoPE proved, and what does it imply practically?",
+      "answer": "The RoPE inner product can be written as Re[Σ_{i=0}^{d/2−1} q_{[2i:2i+1]} k*_{[2i:2i+1]} e^{i(m−n)θ_i}]. Applying Abel summation (Eq. 36–37), the absolute value is bounded by (max_i |h_{i+1}−h_i|) · Σ|S_{i+1}|, where S_j = Σ_{i<j} e^{i(m−n)θ_i}. Setting θ_i = 10000^{−2i/d} makes (1/d/2) Σ|S_i| decay as |m−n| grows (Figure 2), encoding the inductive bias that distant tokens should attend less to each other."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#8",
+      "question": "How is RoPE integrated into linear attention, and what constraint must the feature map satisfy?",
+      "answer": "In linear attention, sim(q_m, k_n) is replaced by φ(q_m)^T φ(k_n) so the sum over n can be reordered for O(N) complexity. RoPE is applied after the feature map: the rotation matrix multiplies φ(q_m) and φ(k_n). Because RoPE is norm-preserving (the rotation matrix is orthogonal), it does not alter the non-negativity or boundedness of the feature map outputs, so the associativity trick still holds (Eq. 19)."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#9",
+      "question": "Why does the theoretical derivation of RoPE conclude that the rotation angle must be a linear function of position?",
+      "answer": "In the 2D derivation, the angular component φ(m) must satisfy φ(m+1) − φ(m) = constant (Eq. 29), because the RHS depends only on the relative offset and not on m itself. A function with constant successive differences over integers is an arithmetic progression, so φ(m) = mθ + γ; setting γ=0 gives the final formula f_q(x_m, m) = (W_q x_m) e^{imθ}."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#10",
+      "question": "What advantage does RoPE confer on long-sequence tasks, and what evidence from the paper supports it?",
+      "answer": "RoPE has no maximum-length cap (unlike trainable absolute embeddings) and its long-term decay inductive bias is strongest when sequences are long. On CAIL2019-SCM (Chinese legal matching, documents >512 chars), RoFormer-1024 reaches 69.79% test accuracy versus 68.10% for WoBERT-512, a +1.7 pp gain that exceeds its advantage at length 512 (~0.2 pp), directly showing the gap widens with sequence length."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#11",
+      "question": "How does RoFormer compare to BERT on GLUE fine-tuning, and where does it fall short?",
+      "answer": "RoFormer outperforms BERT on MRPC (89.5 vs 88.9 F1), STS-B (87.0 vs 85.8 Spearman), and QQP (86.4 vs 71.2 F1), but trails on SST-2 (90.7 vs 93.5), QNLI (88.0 vs 90.5), and MNLI (80.2/79.8 vs 84.6/83.4). The gains are concentrated on tasks measuring semantic similarity between sentence pairs, likely because relative position encoding helps more when cross-sentence alignment matters."
+    },
+    {
+      "id": "roformer-enhanced-transformer-with-rotary-position-embedding#12",
+      "question": "What does RoPE share with sinusoidal absolute position encoding, and how does it differ fundamentally?",
+      "answer": "Both use frequencies θ_i = 10000^{−2i/d} arranged geometrically across head dimensions. The difference is in how position is injected: sinusoidal encoding adds a position vector to the token embedding before projection, making the attention score a mix of content and absolute-position terms. RoPE instead multiplies the already-projected query and key by rotation matrices, so position enters multiplicatively and the dot product encodes only the relative offset."
+    }
+  ]
+}

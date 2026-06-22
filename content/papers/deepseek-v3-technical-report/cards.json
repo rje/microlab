@@ -1,0 +1,60 @@
+{
+  "paperId": "deepseek-v3-technical-report",
+  "cards": [
+    {
+      "id": "deepseek-v3-technical-report#1",
+      "question": "What is the core memory-saving trick in Multi-head Latent Attention (MLA), and what exactly gets cached during autoregressive generation?",
+      "answer": "MLA down-projects keys and values into a single low-rank latent vector c_t^KV (dimension d_c << d_h * n_h) via W^DKV, then recovers full-rank keys/values at attention time via up-projections W^UK and W^UV. During generation only c_t^KV and a separately-computed decoupled RoPE key k_t^R are cached — not the full per-head KV tensors — drastically shrinking KV-cache size compared to standard MHA."
+    },
+    {
+      "id": "deepseek-v3-technical-report#2",
+      "question": "How does DeepSeekMoE compute gating values for its routed experts, and why does it use sigmoid rather than softmax for the affinity scores?",
+      "answer": "For each token, the affinity score s_{i,t} = Sigmoid(u_t^T e_i) is computed for all N_r routed experts. The top-K_r experts by score are selected and their scores are normalised among the selected set to produce gating values g_{i,t}. Sigmoid (instead of softmax over all experts) allows the scores to be computed independently per expert, supporting the fine-grained top-K selection without cross-expert normalisation distorting unselected scores. DeepSeek-V3 uses K_r = 8 activated routed experts plus 1 always-on shared expert per token."
+    },
+    {
+      "id": "deepseek-v3-technical-report#3",
+      "question": "How does auxiliary-loss-free load balancing steer expert load, and what is the role of the bias update speed hyperparameter γ?",
+      "answer": "A per-expert bias term b_i is added to the affinity score before top-K routing (routing uses s_{i,t} + b_i for selection, but gating values are still derived from the raw s_{i,t}). At the end of each training step the full-batch expert load is inspected: if expert i is overloaded b_i is decreased by γ, and if underloaded b_i is increased by γ. This dynamic adjustment brings load into balance without the performance penalty of a large auxiliary loss. γ is set to 0.001 for the first 14.3T tokens and 0.0 for the final 500B."
+    },
+    {
+      "id": "deepseek-v3-technical-report#4",
+      "question": "What is the MTP training objective, and how does the MTP module for prediction depth k combine information?",
+      "answer": "Each MTP module k takes the token representation from depth k-1 (h_i^{k-1}) and the embedding of the (i+k)-th token, normalises both with RMSNorm, concatenates them, projects through M_k ∈ R^{d x 2d}, then passes through a Transformer block TRM_k to produce h_i^k. A shared output head computes the cross-entropy loss L^k_MTP over the (i+k+1)-th target token. The overall MTP loss is the average over all D depths weighted by λ (set to 0.3 for the first 10T tokens). D=1 is used for DeepSeek-V3, so each position predicts one additional future token beyond the standard next-token target."
+    },
+    {
+      "id": "deepseek-v3-technical-report#5",
+      "question": "How does FP8 training handle the precision problem in FP8 GEMM accumulation on H800 GPUs?",
+      "answer": "The H800 Tensor Core accumulates FP8 GEMM results with only ~14-bit precision, which causes large relative errors when the inner dimension K is large. DeepSeek-V3 mitigates this by promoting partial sums to CUDA Core FP32 registers every N_C = 128 MMA elements: Tensor Cores accumulate 128 FP8 products at low precision, then the partial result is copied to FP32 registers on CUDA Cores for full-precision accumulation before the next interval begins. N_C = 128 was found to be the minimum interval that significantly improves precision without substantial overhead."
+    },
+    {
+      "id": "deepseek-v3-technical-report#6",
+      "question": "Why does DeepSeek-V3's FP8 framework use tile-wise quantization for activations but block-wise for weights, and what are the granularities?",
+      "answer": "Activations have outliers at specific channels, so scaling at the full-tensor level degrades accuracy. The fine-grained strategy scales activations on 1x128 tiles (per token per 128 channels) and weights on 128x128 blocks (per 128 input channels per 128 output channels). Using block-wise (rather than tile-wise) scaling for activations causes training instability because the non-transposed tile layout needed for the backward pass introduces extra quantization error — a problem detailed in Appendix B.2. The E4M3 format is used throughout all three GEMMs (Fprop, Dgrad, Wgrad)."
+    },
+    {
+      "id": "deepseek-v3-technical-report#7",
+      "question": "Why does auxiliary-loss-free load balancing produce sharper expert specialization than auxiliary-loss-based balancing?",
+      "answer": "Auxiliary loss enforces balance at the sequence level, penalizing any sequence-level skew and preventing experts from specializing heavily to specific domains within a sequence. The bias-based approach only enforces balance at the batch level, so a single sequence can route heavily to a small set of experts without penalty as long as balance holds across the full batch. This batch-level flexibility allows experts to develop stronger domain-specific routing patterns, as confirmed by expert load heat maps showing markedly sharper specialization across Wikipedia, GitHub, and DM Mathematics domains."
+    },
+    {
+      "id": "deepseek-v3-technical-report#8",
+      "question": "What are DeepSeek-V3's key architectural hyperparameters?",
+      "answer": "61 Transformer layers; hidden dimension 7168; 128 attention heads with d_h = 128; KV compression dimension d_c = 512; query compression dimension d_c' = 1536; decoupled RoPE per-head dimension d_h^R = 64; 256 routed experts + 1 shared expert per MoE layer with intermediate hidden dimension 2048; 8 routed experts activated per token; node-limited routing M = 4; MTP depth D = 1; total 671B parameters, 37B activated per token."
+    },
+    {
+      "id": "deepseek-v3-technical-report#9",
+      "question": "How does DeepSeek-V3's GRPO reinforcement learning estimate advantages without a separate critic model?",
+      "answer": "Group Relative Policy Optimization (GRPO) samples a group of G outputs {o_1, ..., o_G} from the old policy for each question q, then estimates the advantage for output o_i as A_i = (r_i - mean(r_1,...,r_G)) / std(r_1,...,r_G). The policy is updated to maximize a clipped ratio objective (like PPO) with a KL-divergence penalty against a reference model. By computing advantages within-group, GRPO eliminates the critic model that would otherwise need to be as large as the policy."
+    },
+    {
+      "id": "deepseek-v3-technical-report#10",
+      "question": "What is the full training cost of DeepSeek-V3, and how does it break down across stages?",
+      "answer": "Total cost is 2.788M H800 GPU hours (~$5.576M at $2/GPU-hour). The breakdown is: pre-training on 14.8T tokens — 2664K GPU hours ($5.328M); two-stage context length extension to 128K — 119K GPU hours ($0.238M); post-training (SFT + RL) — 5K GPU hours ($0.01M). Pre-training alone amounts to 180K GPU hours per trillion tokens, making it substantially cheaper than training dense models of comparable scale."
+    },
+    {
+      "id": "deepseek-v3-technical-report#11",
+      "question": "How does MTP speculative decoding work at inference time, and what acceptance rate does it achieve?",
+      "answer": "Although MTP modules are discarded during standard inference, they can instead be repurposed as a speculative decoding draft head: the MTP module proposes the next-next token in parallel with the main model's next-token generation, and if the main model accepts the draft the decoded length doubles. DeepSeek-V3's single MTP module achieves a 85–90% acceptance rate across generation topics, yielding a 1.8x improvement in decoding throughput (tokens per second) with no change to output quality."
+    }
+  ]
+}

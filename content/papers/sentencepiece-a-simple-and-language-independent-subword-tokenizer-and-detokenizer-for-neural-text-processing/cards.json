@@ -1,0 +1,65 @@
+{
+  "paperId": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing",
+  "cards": [
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#1",
+      "question": "Why can't existing subword tools like subword-nmt be used as a drop-in for languages like Japanese or Chinese?",
+      "answer": "They assume whitespace-pre-tokenized input and produce output that cannot be losslessly detokenized. Non-segmented languages have no whitespace boundaries, so a word segmenter must be run first — an external, language-specific dependency that breaks end-to-end pipelines."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#2",
+      "question": "What is the lossless tokenization guarantee SentencePiece provides, stated as an equation?",
+      "answer": "Decode(Encode(Normalize(text))) = Normalize(text). The Decoder is defined as the inverse of the Encoder, so the full pipeline is reversible up to normalization. This holds because whitespace is preserved as a symbol in the encoded sequence rather than discarded."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#3",
+      "question": "How does SentencePiece encode whitespace so that detokenization is unambiguous, and what is the Python one-liner to detokenize?",
+      "answer": "Before encoding, every whitespace character is escaped to the meta-symbol _ (U+2581, the lower one-eighth block). The token sequence then contains _ as an ordinary symbol, so detokenization is: detok = ''.join(tokens).replace('_', ' '). Because _ is part of the token, consecutive whitespace can be represented and there is no ambiguity."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#4",
+      "question": "Why does subword-nmt's @@ boundary marker fail to provide lossless tokenization?",
+      "answer": "The @@ marker indicates an intra-word boundary after a fragment, but whitespace itself is never stored in the token sequence. This means consecutive whitespace characters cannot be represented, and the original spacing cannot always be reconstructed — detokenization requires language-specific heuristics."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#5",
+      "question": "What algorithmic trick does SentencePiece use to bring BPE training from O(N^2) down to O(N log N), and what does N represent?",
+      "answer": "N is the length of the input sentence (or word). Naively, BPE scans every adjacent symbol pair each iteration, which is O(N^2). SentencePiece maintains the merge candidates in a binary heap (priority queue), so each iteration costs O(log N) to find and update the best pair, giving O(N log N) overall. Unigram language model training and segmentation are linear in input size."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#6",
+      "question": "How does SentencePiece specify vocabulary size, and why is this approach algorithm-agnostic compared to subword-nmt?",
+      "answer": "SentencePiece uses a single --vocab_size flag that sets the final vocabulary count regardless of algorithm. subword-nmt specifies the number of BPE merge operations, which is a BPE-specific parameter with no equivalent for the unigram language model. Fixing the target vocabulary size works uniformly for both BPE and unigram modes."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#7",
+      "question": "Which special token ids does SentencePiece reserve by default, and how can a practitioner add custom virtual tokens?",
+      "answer": "SentencePiece reserves ids for <unk> (unknown), <s> (BOS), </s> (EOS), and <pad>. Their actual ids are set via command-line flags. Custom virtual tokens — for example language-indicator tags like <2ja> or <2de> for multilingual models — can be added as user-defined meta symbols."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#8",
+      "question": "What normalization does SentencePiece apply by default, and how is it implemented internally for efficiency?",
+      "answer": "NFKC Unicode normalization is applied by default (selectable via --normalization_rule_name=nfkc). The normalization rules — including any user-supplied TSV rules — are compiled into a finite state transducer (Aho-Corasick automaton) embedded in the model file. When multiple rules match, the longest match is applied."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#9",
+      "question": "What is stored in a SentencePiece model file, and why does this matter for reproducibility?",
+      "answer": "The model file (Protocol Buffer binary) embeds the vocabulary, segmentation parameters, and the pre-compiled normalization finite state transducer. Behavior is determined solely by this file with no external dependencies, so the same model file produces identical output regardless of system, Unicode version, or library version."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#10",
+      "question": "How does integrating SentencePiece as a library API (rather than an offline script) enable subword regularization during training?",
+      "answer": "The library API (C++, Python, TensorFlow) lets the NMT framework call sp.SampleEncodeAsPieces(text, nbest_size, alpha) inside the training loop, sampling a different segmentation of the same sentence on each step. This is only possible with on-the-fly processing; an offline-preprocessed dataset has a fixed segmentation and cannot inject this noise dynamically."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#11",
+      "question": "What did the KFTT experiments reveal about whether pre-tokenization improves NMT quality?",
+      "answer": "On English-Japanese KFTT (440k sentences, GNMT with 512-unit 6-layer LSTM), SentencePiece without pre-tokenization matched or exceeded the pre-tokenized baseline. For en→ja, pre-tokenization actually degraded BLEU (21.62 without vs. 20.86 with). Pre-tokenization constrains the vocabulary search space for non-segmented languages and removes the benefit of unsupervised segmentation from raw input."
+    },
+    {
+      "id": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing#12",
+      "question": "By how much did SentencePiece outperform subword-nmt in segmentation speed on raw Japanese, and what explains the gap on English?",
+      "answer": "On raw Japanese input, SentencePiece segmented in 5.9 s vs. subword-nmt's 216 s — roughly 38x faster (the overview rounds to 380x, which reflects the full pipeline including training). On pre-tokenized English, speeds are comparable because English is already whitespace-segmented and the search space for vocabulary extraction is much smaller."
+    }
+  ]
+}

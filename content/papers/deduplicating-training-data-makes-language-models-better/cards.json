@@ -1,0 +1,65 @@
+{
+  "paperId": "deduplicating-training-data-makes-language-models-better",
+  "cards": [
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#1",
+      "question": "What are the four concrete advantages of deduplicating LM training data that Lee et al. demonstrate?",
+      "answer": "Memorization of training data drops ~10x; train-test leakage (affecting >4% of standard validation sets) is removed; perplexity is equal or lower on unique validation examples (never worse); and training is faster because deduplicated datasets are smaller (up to ~19% reduction)."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#2",
+      "question": "How does ExactSubstr build its data structure, and why a suffix array rather than a suffix tree?",
+      "answer": "It concatenates the full dataset into a single byte sequence S, then builds a suffix array A = argsort(all_suffixes(S)) in linear time using the SA-IS algorithm (parallelised Rust implementation). Suffix arrays are preferred because they are 10–100x more memory-efficient than suffix trees, requiring only 8 bytes per input token."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#3",
+      "question": "How does ExactSubstr identify and remove duplicates once the suffix array is built?",
+      "answer": "It linearly scans adjacent entries in the suffix array and records any pair that shares a common prefix of at least 50 BPE tokens (i.e., S_{i..i+|s|} == S_{j..j+|s|}). Adjacent entries in the suffix array that match appear at indices i and j in the original sequence; the repeated substring is then removed from one of the two examples. The scan is embarrassingly parallel."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#4",
+      "question": "How was the 50-BPE-token threshold for ExactSubstr chosen, and what is its memory cost at C4 scale?",
+      "answer": "The threshold was chosen empirically by plotting match-length frequency and selecting the 'bend in the knee' of the curve (Appendix B). At C4 scale (~350 GB of text), constructing the suffix array requires ~1.5 TB of memory — approximately 8x the raw dataset size."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#5",
+      "question": "How does NearDup represent documents and estimate similarity between them?",
+      "answer": "Each document is represented by a MinHash signature built from its 5-grams: the k smallest hashed 5-grams are kept, producing a signature of size 9,000. The Jaccard index between two documents d_i and d_j (|d_i ∩ d_j| / |d_i ∪ d_j|) is approximated from these signatures. Two documents are flagged as a potential match with probability Pr = 1 − (1 − s^r)^b, where b=20 buckets and r=450 rows are user-settable parameters."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#6",
+      "question": "What secondary filter does NearDup apply after MinHash collision, and how are duplicate clusters formed?",
+      "answer": "Candidate pairs flagged by MinHash are re-scored using edit similarity: EditSim(x_i, x_j) = 1 − EditDistance(x_i, x_j) / max(|x_i|, |x_j|). A pair is confirmed as a duplicate only if edit similarity exceeds 0.8. Confirmed pairs form edges in a graph; connected components in that graph define duplicate clusters, and one document per cluster is retained."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#7",
+      "question": "Why are ExactSubstr and NearDup complementary rather than redundant?",
+      "answer": "ExactSubstr catches repeated substrings within documents (e.g. a boilerplate paragraph copied into otherwise different documents) but misses documents that are near-identical except for a few swapped words. NearDup catches those templated near-identical documents (e.g. travel-booking pages differing only in city names) but cannot detect partial intra-document repetition. 77% of examples NearDup removes from C4 do have a verbatim length-50 match, confirming substantial overlap, but the methods target different duplication structures."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#8",
+      "question": "How is memorization measured in the generation experiments, and what is the key result?",
+      "answer": "100k sequences of 512 tokens are generated without any prompt. A token is considered memorized if it belongs to a verbatim 50-token substring that appears in the training data. XL-Original emits >1% of tokens as memorized (1.926% after 1 epoch, 1.571% after 2); XL-NearDup and XL-ExactSubstr drop this to ~0.1–0.2%, a roughly 10x reduction."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#9",
+      "question": "How does train-test leakage manifest in published model perplexities, and what numbers illustrate it?",
+      "answer": "Validation sets contain examples that have near-duplicates in the training set. Models overfit to those duplicates, so their perplexity on the 'duplicate' validation subset is artificially low. For Transformer-XL on LM1B the difference is stark: perplexity ~10 on the duplicate subset vs. ~23 on the unique subset. For GROVER-Mega on RealNews, 1.38% of all tokens in a 25k-sequence sample are verbatim 50-token matches to training data."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#10",
+      "question": "What fraction of C4 and RealNews validation examples are leaked into their respective training sets, and why does this matter for eval harness design?",
+      "answer": "4.60% of C4 validation examples and 14.35% of RealNews validation examples have a near-duplicate in the training set (Table 2). This means reported perplexities on standard benchmarks are upward-biased by memorization; any eval harness that uses web-crawl text for both training and evaluation must flag or remove these overlapping examples, or reported metrics will be inflated."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#11",
+      "question": "When prompted from a duplicate training example, how often does XL-Original reproduce the correct continuation, and does deduplication fully fix this?",
+      "answer": "When prompted with the first 32 tokens of a duplicate training example, XL-Original reproduces the ground-truth continuation (edit similarity >0.8) over 40% of the time. XL-NearDup and XL-ExactSubstr reduce this substantially but do not reach zero — they still copy more often from duplicate prompts than from unique prompts, suggesting more stringent deduplication may be needed."
+    },
+    {
+      "id": "deduplicating-training-data-makes-language-models-better#12",
+      "question": "Does ExactSubstr or NearDup remove more total content from C4, and why?",
+      "answer": "ExactSubstr removes more tokens overall — 7.18% of C4 tokens contain a repeated 50-token substring — even though it removes fewer whole documents than NearDup (3.04% of documents). This is because ExactSubstr removes substrings within documents rather than entire documents. The exception is LM1B, where ExactSubstr removes 8x less than NearDup because 90% of LM1B documents are under 50 tokens and therefore cannot contain a qualifying match."
+    }
+  ]
+}

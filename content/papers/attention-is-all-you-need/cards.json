@@ -1,0 +1,65 @@
+{
+  "paperId": "attention-is-all-you-need",
+  "cards": [
+    {
+      "id": "attention-is-all-you-need#1",
+      "question": "What fundamental limitation of recurrent models motivated the Transformer, and how does the Transformer eliminate it?",
+      "answer": "Recurrent models compute hidden states sequentially (h_t depends on h_{t-1}), preventing parallelization across time steps. The Transformer replaces recurrent layers entirely with self-attention, which relates all positions in a single matrix operation, making computation fully parallelizable across the sequence."
+    },
+    {
+      "id": "attention-is-all-you-need#2",
+      "question": "Write the scaled dot-product attention formula and explain what each term contributes.",
+      "answer": "Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) V. QK^T computes compatibility scores between all query-key pairs; dividing by sqrt(d_k) prevents the scores from growing large enough to push softmax into near-zero-gradient regions; the softmax output is used as weights over the value matrix V."
+    },
+    {
+      "id": "attention-is-all-you-need#3",
+      "question": "Why is scaling by 1/sqrt(d_k) necessary in scaled dot-product attention?",
+      "answer": "For large d_k, dot products between random unit-variance vectors have variance d_k, so their magnitude grows with dimension. Large dot products push softmax into saturation regions where gradients vanish. Dividing by sqrt(d_k) normalizes the variance back to 1, keeping gradients healthy."
+    },
+    {
+      "id": "attention-is-all-you-need#4",
+      "question": "Write out the multi-head attention computation, including the projection dimensions used in the base Transformer.",
+      "answer": "MultiHead(Q, K, V) = Concat(head_1, ..., head_h) W^O, where head_i = Attention(Q W_i^Q, K W_i^K, V W_i^V). Each projection W_i^Q, W_i^K is d_model x d_k and W_i^V is d_model x d_v; W^O is hd_v x d_model. The base model uses h=8 heads with d_k = d_v = d_model/h = 64."
+    },
+    {
+      "id": "attention-is-all-you-need#5",
+      "question": "Why does multi-head attention offer an advantage over single-head attention at full d_model dimensionality?",
+      "answer": "A single attention head averages over all positions, losing the ability to focus on different representation subspaces simultaneously. Multiple heads each project into a lower-dimensional subspace, allowing the model to jointly attend to information from different positions and representation aspects. Total compute remains comparable because each head operates at dimension d_model/h."
+    },
+    {
+      "id": "attention-is-all-you-need#6",
+      "question": "What are the sub-layer differences between an encoder layer and a decoder layer, and how is auto-regression enforced in the decoder?",
+      "answer": "Each encoder layer has two sub-layers: multi-head self-attention and a position-wise FFN, both wrapped with residual connection + LayerNorm. Each decoder layer adds a third sub-layer — cross-attention over the encoder output — inserted between the masked self-attention and the FFN. Auto-regression is enforced by masking future positions in the decoder's self-attention: illegal positions are set to -infinity before softmax so they receive zero weight."
+    },
+    {
+      "id": "attention-is-all-you-need#7",
+      "question": "Write the position-wise feed-forward network formula and give its input/output and inner dimensions.",
+      "answer": "FFN(x) = max(0, xW_1 + b_1)W_2 + b_2. It is applied identically and independently to each position. Input and output dimension is d_model = 512; the inner layer has dimension d_ff = 2048. Parameters differ across layers but are shared across positions within a layer."
+    },
+    {
+      "id": "attention-is-all-you-need#8",
+      "question": "Write the sinusoidal positional encoding formulas and explain why sinusoids were chosen over learned embeddings.",
+      "answer": "PE(pos, 2i) = sin(pos / 10000^(2i/d_model)) and PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model)). Sinusoids were chosen because for any fixed offset k, PE(pos+k) can be expressed as a linear function of PE(pos), potentially allowing the model to attend by relative position. They also allow extrapolation to sequence lengths longer than those seen during training; learned embeddings produced nearly identical results in ablations."
+    },
+    {
+      "id": "attention-is-all-you-need#9",
+      "question": "Write the Transformer's learning rate schedule formula and describe its shape over training.",
+      "answer": "lrate = d_model^(-0.5) * min(step_num^(-0.5), step_num * warmup_steps^(-1.5)), with warmup_steps = 4000. The rate increases linearly for the first 4000 steps, then decays proportionally to the inverse square root of the step number. Adam optimizer was used with beta_1=0.9, beta_2=0.98, epsilon=10^-9."
+    },
+    {
+      "id": "attention-is-all-you-need#10",
+      "question": "How does the Transformer share parameters between embedding layers and the output projection, and why?",
+      "answer": "The same weight matrix is shared among the input embedding, the output embedding (decoder), and the pre-softmax linear projection. Embedding weights are additionally scaled by sqrt(d_model) before use. This weight tying reduces parameter count and ensures the embedding and output spaces are consistent."
+    },
+    {
+      "id": "attention-is-all-you-need#11",
+      "question": "How does self-attention compare to recurrent and convolutional layers in maximum path length and sequential operations, and why does path length matter?",
+      "answer": "Self-attention has O(1) sequential operations and O(1) maximum path length between any two positions. Recurrent layers require O(n) sequential operations and O(n) path length; convolutional layers need O(log_k(n)) path length with stacked dilated convolutions. Shorter paths make it easier to learn long-range dependencies because gradients have fewer steps to traverse."
+    },
+    {
+      "id": "attention-is-all-you-need#12",
+      "question": "What BLEU scores did the Transformer achieve on WMT 2014 EN-DE and EN-FR, and what made the result notable beyond raw quality?",
+      "answer": "The big Transformer achieved 28.4 BLEU on EN-DE (over 2 points above all prior models including ensembles) and 41.8 BLEU on EN-FR (a new single-model state of the art). What made it notable was cost: the base model alone beat all prior single models at 3.3 x 10^18 FLOPs — orders of magnitude cheaper than competitors — and the big model trained in 3.5 days on 8 P100 GPUs."
+    }
+  ]
+}

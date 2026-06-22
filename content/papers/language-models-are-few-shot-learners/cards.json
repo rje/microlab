@@ -1,0 +1,65 @@
+{
+  "paperId": "language-models-are-few-shot-learners",
+  "cards": [
+    {
+      "id": "language-models-are-few-shot-learners#1",
+      "question": "What is the central claim of the GPT-3 paper, and what property of scale does it highlight?",
+      "answer": "Scaling a language model to 175B parameters dramatically improves in-context (zero-, one-, and few-shot) learning, sometimes reaching parity with fine-tuned systems — without any gradient updates at test time. Larger models become increasingly efficient meta-learners: the gap between zero-shot and few-shot performance grows with model size."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#2",
+      "question": "How does the few-shot prompt format work in GPT-3? What exactly is placed in the context window and what is not allowed?",
+      "answer": "For few-shot evaluation, K examples are drawn from the task's training set and placed in the context as conditioning, delimited by 1 or 2 newlines. Each example is a (context, completion) pair. K is typically 10–100, bounded by the 2048-token context window. No weight updates occur — the model only performs forward passes."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#3",
+      "question": "What distinguishes zero-shot, one-shot, and few-shot in GPT-3's evaluation protocol?",
+      "answer": "Zero-shot gives only a natural language task description, no demonstrations. One-shot adds exactly one example in context. Few-shot adds K examples (typically 10–100) in context. In all three settings no gradient updates are performed; the difference is solely how many demonstrations appear before the final prompt."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#4",
+      "question": "How does GPT-3 score multiple-choice tasks, and what normalization trick improves results on some datasets?",
+      "answer": "GPT-3 scores each candidate completion by computing its per-token log-likelihood given the context. For most tasks this is sufficient, but on ARC, OpenBookQA, and RACE, normalizing by the completion's unconditional log-probability (i.e. P(completion|context) / P(completion|answer_context), where answer_context is 'Answer: ' or 'A: ') provides additional benefit, as measured on the development set."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#5",
+      "question": "What are the eight GPT-3 model sizes and the key architectural parameters of the largest?",
+      "answer": "The eight models range from 125M to 175B parameters. GPT-3 175B (the flagship) has 96 layers, d_model = 12288, 96 attention heads, d_head = 128, and uses a 2048-token context window with alternating dense and locally banded sparse attention. All models share the same GPT-2 architecture with modified initialization and pre-normalization."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#6",
+      "question": "What training data mixture is used for GPT-3, and why are datasets sampled out of proportion to their size?",
+      "answer": "The mix is: Common Crawl filtered (60%), WebText2 (22%), Books1 (8%), Books2 (8%), Wikipedia (3%), totaling ~400B tokens. Higher-quality datasets (WebText2, Books, Wikipedia) are upsampled so GPT-3 sees them 2–3 times during the 300B-token training run, trading a small amount of overfitting for better data quality."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#7",
+      "question": "How does GPT-3's contamination analysis work, and what is the operational definition of a 'clean' example?",
+      "answer": "For each benchmark, examples are flagged as potentially contaminated if they share a 13-gram overlap with any document in the pretraining data (or a 2-gram overlap for very short tasks like anagram reversal). A 'clean' subset is produced by removing all flagged examples. GPT-3 is then evaluated on both the full set and the clean subset; a substantial performance drop on the clean subset signals genuine contamination."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#8",
+      "question": "Which benchmarks were found to have meaningful contamination effects, and how were they handled?",
+      "answer": "PIQA (29% flagged, 3 pp absolute performance drop on clean subset) and Winograd (45% flagged, 2.6% drop) showed evidence of contamination and are marked with asterisks in the results. Wikipedia-based language modeling benchmarks were almost entirely in the training data and are not reported at all. LAMBADA had high overlap but the fill-in-the-blank format prevented direct memorization, so it was reported with a note."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#9",
+      "question": "Why does GPT-3 struggle on NLI and pairwise sentence-comparison tasks despite strong few-shot performance elsewhere?",
+      "answer": "Tasks like ANLI and WiC require comparing or relating two separate sentences — a structure that benefits from bidirectional attention over the full pair. GPT-3's left-to-right autoregressive objective sees only left context, making it structurally ill-suited to pairwise comparison. GPT-3 175B scores near random (49.4%) on WiC and closes only about half the gap to SOTA on ANLI Round 3."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#10",
+      "question": "How does prompt framing affect few-shot results on LAMBADA, and what does this illustrate about in-context learning?",
+      "answer": "In standard open-ended generation, GPT-3 achieves 76.2% zero-shot on LAMBADA. By reformatting examples as fill-in-the-blank ('Alice was friends with Bob. Alice went to visit her friend _____.'), few-shot accuracy jumps to 86.4% — 18 points above prior SOTA. This illustrates that the framing of demonstrations, not just their content, shapes what task the model infers from context."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#11",
+      "question": "On closed-book QA, what does GPT-3 achieve on TriviaQA few-shot and why is this result notable?",
+      "answer": "GPT-3 few-shot achieves 71.2% on TriviaQA, matching the state-of-the-art open-domain fine-tuned retrieval system at the time — without any external retrieval, fine-tuning, or task-specific training data. This suggests the 175B parameters absorb factual knowledge during pretraining at a scale sufficient to compete with retrieval-augmented systems."
+    },
+    {
+      "id": "language-models-are-few-shot-learners#12",
+      "question": "What open question does the paper raise about whether few-shot learning truly learns tasks at inference time?",
+      "answer": "The paper acknowledges it cannot determine whether GPT-3's few-shot performance reflects learning a new task 'from scratch' at inference time or merely recognizing and retrieving patterns absorbed during pretraining. Synthetic tasks like word-scrambling and arithmetic seem more likely to require genuine inference-time adaptation, while translation clearly requires pretraining knowledge — but the boundary is unresolved and task-dependent."
+    }
+  ]
+}

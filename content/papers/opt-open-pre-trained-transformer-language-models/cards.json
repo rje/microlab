@@ -1,0 +1,65 @@
+{
+  "paperId": "opt-open-pre-trained-transformer-language-models",
+  "cards": [
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#1",
+      "question": "What is the primary novel contribution of the OPT paper beyond the model weights themselves?",
+      "answer": "The training logbook and the open metaseq codebase. The logbook documents the hardware failures, loss divergences, and mid-flight hyperparameter changes that were required to reach convergence — details routinely omitted from closed-model papers — making the real cost and instability of large-scale training visible."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#2",
+      "question": "How does OPT-175B's training carbon footprint compare to GPT-3's, and what explains the difference?",
+      "answer": "OPT-175B required an estimated 75 tons of CO2eq versus GPT-3's estimated 500 tons — roughly 1/7th the footprint. The gap comes from training on a newer generation of hardware (992 80GB A100 GPUs) achieving 147 TFLOP/s per GPU, plus the use of mixed-precision (FP16 weights, FP32 Adam state) and Fully Sharded Data Parallel with Tensor Parallelism."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#3",
+      "question": "What are OPT's exact weight initialization conventions, and why are output layers treated differently?",
+      "answer": "All weights are initialized from a normal distribution with mean 0 and standard deviation 0.006 (following Megatron-LM). Output projection layers are scaled by 1/sqrt(2L), where L is the total number of layers, to prevent variance from growing as depth increases — the same convention used in GPT-3."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#4",
+      "question": "What optimizer and learning rate schedule does OPT use, and what are the exact hyperparameter values?",
+      "answer": "AdamW with beta1=0.9, beta2=0.95, and weight decay 0.1. The schedule is a linear warmup from 0 to the peak LR over the first 2000 steps (OPT-175B), then cosine decay to 10% of the peak LR over 300B tokens. Gradient clipping is set to 1.0 initially, later reduced to 0.3 mid-run. Dropout is 0.1 throughout but not applied to embeddings."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#5",
+      "question": "How did the OPT team handle hardware failures during the OPT-175B training run, and at what scale did they occur?",
+      "answer": "Hardware failures caused at least 35 manual restarts and required cycling over 100 hosts across 2 months of training. For each manual restart, the training run was paused, diagnostics were run to identify problematic nodes, flagged nodes were cordoned off, and training resumed from the last saved checkpoint. The team estimates 70+ additional automatic restarts occurred on top of the manual ones."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#6",
+      "question": "What two signals did the OPT team use to identify a healthy checkpoint to roll back to after a loss divergence?",
+      "answer": "They looked for checkpoints where (1) the dynamic loss scalar was still >= 1.0 (indicating FP16 gradients had not underflowed), and (2) the l2-norm of the final layer's activations was bounded and trending downward rather than spiking unboundedly. A crashing dynamic loss scalar or spiking activation norms were the primary early-warning signs of an impending divergence."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#7",
+      "question": "What mid-flight optimizer changes did the OPT team make to recover from loss divergences, and which ones worked?",
+      "answer": "Three changes were tried: (1) lowering the learning rate and restarting from a healthy checkpoint — the primary recovery mechanism; (2) resetting the dynamic loss scalar — helped recover some but not all divergences; (3) briefly switching to vanilla SGD — optimization plateaued quickly and they reverted to AdamW. Upgrading to a newer version of Megatron also helped by reducing pressure on activation norms and improving throughput."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#8",
+      "question": "Why does the empirical OPT-175B learning rate schedule look like a staircase rather than a clean cosine curve?",
+      "answer": "Each step down in the staircase corresponds to a manual learning rate reduction made mid-flight in response to a loss divergence or training instability. The team lowered the LR rather than simply rolling back further because each reduction helped stabilize the run going forward. The cosine decay target was the intended schedule; the staircase shape reflects the real instability overhead."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#9",
+      "question": "How does OPT deduplicate its pre-training corpus, and why is this especially important for the Pile subset?",
+      "answer": "Deduplication is performed using MinHashLSH with a Jaccard similarity threshold of >= 0.95 — documents above that threshold are considered duplicates and removed. The Pile was found to be particularly full of duplicate documents, so the team specifically advises future researchers using the Pile to perform additional deduplication processing before training."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#10",
+      "question": "Why were some subsets of the Pile excluded from OPT's pre-training corpus?",
+      "answer": "Subsets were eliminated if they were found to increase the risk of training instabilities, specifically by causing spikes in gradient norms when tested at the 1.3B scale, or if they were otherwise deemed unsuitable. The retained Pile subsets are CommonCrawl, OpenWebText2, Wikipedia, USPTO, Project Gutenberg, HackerNews, OpenSubtitles, and DM Mathematics."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#11",
+      "question": "How does OPT score zero-shot NLP tasks, and which two tasks are excluded from aggregate averages and why?",
+      "answer": "Tasks are scored by accuracy (not F1), following GPT-3's prompting and evaluation setup exactly. MultiRC and WIC are excluded from aggregate zero-shot averages because they were found to systematically favor either GPT-3 or OPT disproportionately — their inclusion would skew the aggregate comparison and obscure the true parity between the two model families."
+    },
+    {
+      "id": "opt-open-pre-trained-transformer-language-models#12",
+      "question": "Under what license are OPT models released, and who is granted access to OPT-175B specifically?",
+      "answer": "All models between 125M and 66B are released publicly under a non-commercial research license. OPT-175B is provided upon request to academic researchers, those affiliated with government or civil society organizations, and those in industry research laboratories — not released as a fully open download, to allow for responsible access control while still enabling broad research use."
+    }
+  ]
+}

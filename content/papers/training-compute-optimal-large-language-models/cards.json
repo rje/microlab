@@ -1,0 +1,65 @@
+{
+  "paperId": "training-compute-optimal-large-language-models",
+  "cards": [
+    {
+      "id": "training-compute-optimal-large-language-models#1",
+      "question": "What is the Chinchilla equal-scaling rule, and how does it differ from Kaplan et al. (2020)?",
+      "answer": "For a fixed compute budget C, both model size N and training tokens D should scale as C^0.5 — i.e., in equal proportion. Kaplan et al. estimated N should scale as C^0.73 and D only as C^0.27, biasing toward larger models trained on less data."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#2",
+      "question": "Why did Kaplan et al.'s fixed learning-rate schedule methodology bias their scaling estimates toward larger models?",
+      "answer": "Kaplan et al. used a single fixed cosine schedule length (130B tokens) for all models. For shorter training runs (D << 130B tokens), this overestimates the loss at lower data volumes, making models trained on less data look worse than they really are — which causes the optimizer to prefer larger N over more D."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#3",
+      "question": "Describe Approach 1 (training curve envelope) for estimating the compute-optimal frontier.",
+      "answer": "Train models from 70M to 10B parameters, each for 4 different cosine cycle lengths. Smooth and interpolate each training loss curve, then for each FLOP count C select the model that achieves the lowest loss. Fit power laws N_opt ∝ C^a and D_opt ∝ C^b to these minima. The cosine schedule for each run is set to decay 10x over approximately D tokens. This approach finds a = 0.50, b = 0.50."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#4",
+      "question": "Describe Approach 2 (IsoFLOP profiles) for estimating the compute-optimal frontier.",
+      "answer": "Fix 9 FLOP budgets ranging from 6×10^18 to 3×10^21 FLOPs. For each budget, sweep model sizes (up to 16B parameters), setting training tokens so that FLOPs(N, D) = C. Record the final training loss for each point, fit a parabola to find the loss-minimizing model size, then fit power laws to the resulting (C, N_opt) and (C, D_opt) pairs. This yields a = 0.49, b = 0.51."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#5",
+      "question": "Describe Approach 3 (parametric loss fit) and the functional form it uses.",
+      "answer": "Fit a parametric function L̂(N, D) = E + A/N^α + B/D^β to all final losses from Approaches 1 and 2. The three terms represent: the entropy of natural text (E), the gap from a finite model (A/N^α), and the gap from finite training data (B/D^β). Parameters (A, B, E, α, β) are estimated by minimizing Huber loss (δ = 10^−3) between log L̂ and log L using L-BFGS, with a grid of initialisations to avoid local minima. This yields a = 0.46, b = 0.54."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#6",
+      "question": "What does the parametric loss model's efficient frontier look like, and how are the optimal N and D derived from it?",
+      "answer": "Under the constraint FLOPs(N, D) ≈ 6ND, minimizing L̂(N, D) analytically yields N_opt(C) = G(C/6)^a and D_opt(C) = G^{-1}(C/6)^b, where G = (αA/βB)^{1/(α+β)}, a = β/(α+β), b = α/(α+β). This gives a closed-form formula for optimal model size and token count given a compute budget."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#7",
+      "question": "What does Table 3 tell you about compute-optimal token requirements, and what are the key lookup values?",
+      "answer": "Table 3 gives FLOPs and token counts needed for a model to lie on the compute-optimal frontier (from Approach 1). Key values: 400M params → 8.0B tokens; 1B params → 20.2B tokens; 10B params → 205.1B tokens; 67B params → 1.5T tokens; 280B params → 5.9T tokens; 1T params → 21.2T tokens. The rule of thumb: tokens should be roughly 20× the parameter count."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#8",
+      "question": "Why is a compute-optimal model also better for inference and fine-tuning, not just pretraining?",
+      "answer": "A compute-optimal model is smaller than an undertrained model for the same compute budget — Chinchilla (70B) versus Gopher (280B) used the same FLOPs but Chinchilla is 4× smaller. This directly reduces memory footprint and per-token inference cost. Since fine-tuning and serving dominate cost over a model's lifecycle, the savings compound well beyond pretraining."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#9",
+      "question": "What are Chinchilla's key training differences from Gopher, and why was AdamW chosen over Adam?",
+      "answer": "Chinchilla uses AdamW instead of Adam (improving language modelling loss and downstream fine-tuning performance), a slightly modified SentencePiece tokenizer without NFKC normalisation (sharing 94.15% vocabulary with Gopher), and a cosine schedule matched to the longer 1.4T-token training run. Batch size starts at 1.5M and doubles midway; forward/backward passes use bfloat16, with a float32 copy in the distributed optimiser state."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#10",
+      "question": "What benchmark results demonstrate that Chinchilla outperforms Gopher despite being 4× smaller?",
+      "answer": "Chinchilla achieves 67.6% on MMLU 5-shot (vs. 60.0% for Gopher, a 7.6% improvement), 65.1% average on BIG-bench (vs. 54.4% for Gopher), 35.5% on Natural Questions 64-shot closed-book (vs. 28% for Gopher), and 77.4% on LAMBADA zero-shot (vs. 74.5%). It outperforms Gopher on all subsets of The Pile."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#11",
+      "question": "What are the key limitations the paper flags on how far the scaling law can be trusted?",
+      "answer": "Three limitations: (1) only two large-scale validation points (Chinchilla and Gopher), so the frontier is poorly constrained empirically at large compute budgets; (2) observed concavity in log(N_opt) at high compute budgets (Appendix E) suggests optimal model size may be overestimated at very large C; (3) all training runs use less than one epoch of data — the analysis does not cover multi-epoch regimes."
+    },
+    {
+      "id": "training-compute-optimal-large-language-models#12",
+      "question": "How does the paper frame the problem of compute-optimal training mathematically, and what is the core objective?",
+      "answer": "Given a compute budget C (in FLOPs), minimise the pre-training loss L(N, D) over model size N and training tokens D subject to the constraint FLOPs(N, D) = C. Formally: N_opt(C), D_opt(C) = argmin_{N,D s.t. FLOPs(N,D)=C} L(N, D). Because FLOPs ≈ 6ND, fixing C creates a one-dimensional trade-off curve between N and D."
+    }
+  ]
+}

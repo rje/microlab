@@ -1,0 +1,65 @@
+{
+  "paperId": "llama-open-and-efficient-foundation-language-models",
+  "cards": [
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#1",
+      "question": "What is the inference-budget argument LLaMA uses to justify training smaller models longer than Chinchilla-optimal?",
+      "answer": "Chinchilla scaling laws optimize for training compute, but the preferred model for deployment is the cheapest one at inference time, not the fastest to train. Given a fixed performance target, a smaller model trained on more tokens than compute-optimal is cheaper to serve — for example, LLaMA-7B continues to improve past 1T tokens even though Hoffmann et al. recommend stopping a 10B model at 200B tokens."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#2",
+      "question": "Where in the transformer does LLaMA apply RMSNorm, and why was pre-normalization chosen over post-normalization?",
+      "answer": "LLaMA normalizes the input to each transformer sub-layer (pre-normalization), rather than normalizing the output as in the original transformer. This improves training stability. The specific function used is RMSNorm, introduced by Zhang and Sennrich (2019), following GPT-3 practice."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#3",
+      "question": "What does LLaMA's SwiGLU activation replace, and what hidden dimension is used?",
+      "answer": "SwiGLU replaces the ReLU non-linearity in the feed-forward sub-layers. LLaMA uses a hidden dimension of (2/3) * 4d instead of the 4d used in PaLM. The change was adopted from PaLM (Shazeer 2020) to improve performance."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#4",
+      "question": "Where in the network does LLaMA add rotary positional embeddings (RoPE), and what do they replace?",
+      "answer": "RoPE is added at each layer of the network, replacing the absolute positional embeddings used in the original transformer. Introduced by Su et al. (2021), RoPE encodes position by rotating query and key vectors, giving it better extrapolation properties. The attribution in the paper is to GPTNeo/RoFormer."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#5",
+      "question": "What are the seven data sources in LLaMA's pre-training mix and their approximate sampling proportions?",
+      "answer": "CommonCrawl 67%, C4 15%, GitHub 4.5%, Wikipedia 4.5%, Gutenberg and Books3 4.5%, ArXiv 2.5%, StackExchange 2%. The total tokenized dataset is approximately 1.4T tokens. Most tokens are seen only once; Wikipedia and Books are seen roughly twice."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#6",
+      "question": "How does LLaMA filter the CommonCrawl data, and what quality signal does it use to remove low-quality pages?",
+      "answer": "LLaMA preprocesses five CCNet CommonCrawl dumps (2017–2020) using the CCNet pipeline: it deduplicates at the line level, runs fastText language ID to remove non-English pages, and filters low-quality content with an n-gram language model. A linear classifier trained to distinguish Wikipedia-reference pages from random pages discards pages not classified as references."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#7",
+      "question": "How does LLaMA score multiple-choice benchmarks, and what normalization variant is used for datasets like BoolQ and OpenBookQA?",
+      "answer": "For multiple-choice tasks LLaMA selects the completion with the highest likelihood given the context. For most benchmarks the likelihood is normalized by the number of characters in the completion (following Gao et al. 2021). For BoolQ and OpenBookQA, the paper instead uses the likelihood normalized by the likelihood of the completion given 'Answer:' as context: P(completion|context) / P(completion|'Answer:')."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#8",
+      "question": "What efficiency techniques does LLaMA use to reduce memory and speed up training, and what throughput does the 65B model achieve?",
+      "answer": "LLaMA uses a FlashAttention-style causal attention (xformers library) that avoids storing attention weights and skips masked key/query score computation. Activation checkpointing saves expensive activations (e.g., linear layer outputs) rather than recomputing them in the backward pass. Model and sequence parallelism reduce memory. At 65B scale, training processes approximately 380 tokens/sec/GPU on 2048 A100-80GB GPUs, completing 1.4T tokens in about 21 days."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#9",
+      "question": "LLaMA-65B trails Chinchilla-70B on MMLU (63.4% vs 67.5%). What does the paper say explains this gap?",
+      "answer": "The paper attributes the MMLU gap to LLaMA using a limited amount of books and academic papers — ArXiv, Gutenberg, and Books3 sum to only 177 GB — while Chinchilla and Gopher were trained on up to 2 TB of books. Data composition, not model size, is the identified cause."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#10",
+      "question": "What does a brief instruction-tuning experiment (LLaMA-I) show about the base LLaMA-65B model's MMLU score?",
+      "answer": "Fine-tuning LLaMA-65B on instructions following the same protocol as Flan (Chung et al. 2022) boosts MMLU from 63.4% to 68.9%, outperforming other instruction-tuned models of moderate size. This is still below GPT code-davinci-002 at 77.4%, but shows that a small instruction-tuning step substantially closes the gap with larger proprietary models."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#11",
+      "question": "What optimizer and key hyperparameters does LLaMA use, and how does the learning rate schedule work?",
+      "answer": "LLaMA uses AdamW with beta1=0.9, beta2=0.95. The cosine learning rate schedule decays to 10% of the peak learning rate. Weight decay is 0.1, gradient clipping is 1.0, and there are 2000 warmup steps. Batch size and peak learning rate vary by model size (e.g., lr=3e-4 for 7B and 13B, lr=1.5e-4 for 33B and 65B; all use batch size 4M tokens)."
+    },
+    {
+      "id": "llama-open-and-efficient-foundation-language-models#12",
+      "question": "Why does LLaMA-13B outperforming GPT-3 175B on most benchmarks matter, and on which benchmark does LLaMA-65B notably fall short of PaLM-540B?",
+      "answer": "LLaMA-13B matching GPT-3 despite being 10x smaller validates the inference-budget framing: the smaller model can run on a single GPU, making it far cheaper to serve. LLaMA-65B falls short of PaLM-540B on BoolQ and WinoGrande in the common-sense reasoning suite, and on MMLU (63.4% vs PaLM-540B's 69.3%)."
+    }
+  ]
+}

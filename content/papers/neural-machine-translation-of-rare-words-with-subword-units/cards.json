@@ -1,0 +1,65 @@
+{
+  "paperId": "neural-machine-translation-of-rare-words-with-subword-units",
+  "cards": [
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#1",
+      "question": "What core problem does the BPE paper solve, and why is back-off-dictionary the inadequate prior approach?",
+      "answer": "NMT vocabularies are fixed, so rare and unseen words become UNK tokens. Back-off dictionaries require a 1-to-1 source–target word correspondence that does not hold for morphologically rich languages or when transliteration is needed — the subword approach handles all of these within the model itself."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#2",
+      "question": "Walk through the BPE training loop (Algorithm 1) step by step.",
+      "answer": "1. Build a frequency dictionary of words, each split into characters with a special end-of-word marker '·' appended to the final character. 2. Count all adjacent symbol pairs across the weighted dictionary. 3. Find the most frequent pair (A, B). 4. Merge every occurrence of that pair into a new symbol 'AB' and record the merge operation. 5. Repeat steps 2–4 for a fixed number of iterations (num_merges). The final symbol vocabulary size equals the initial character vocabulary size plus num_merges."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#3",
+      "question": "What is the end-of-word marker in BPE, what symbol does the paper use, and why is it necessary?",
+      "answer": "A special symbol '·' (rendered as '</w>' in the code) is appended to the last character of every word before splitting into characters. It lets the algorithm distinguish word-final from word-internal positions, and allows the original whitespace-based tokenization to be restored after merges are applied."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#4",
+      "question": "How are learned BPE merge operations applied at inference time to an unknown word?",
+      "answer": "Split the word into individual characters (appending the end-of-word marker to the last one), then apply the learned merge operations in the order they were learned — greedily merging the highest-priority pair at each step. This guarantees no unknown symbols as long as individual characters were seen during training; any word can be encoded."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#5",
+      "question": "What is the vocabulary-size/sequence-length trade-off controlled by the number of BPE merge operations?",
+      "answer": "More merge operations produce fewer, longer tokens (shorter sequences, larger vocabulary); fewer operations produce more character-like tokens (longer sequences, smaller vocabulary). The final vocabulary size is exactly the initial character-vocabulary size plus the number of merge operations. Longer sequences increase decoding cost because encoder-decoder time complexity is at least linear in sequence length."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#6",
+      "question": "What is joint BPE, and why does it produce better translations than learning separate BPE vocabularies per language?",
+      "answer": "Joint BPE is learned on the concatenated source and target text (simply concatenate both sides of the parallel corpus). This forces consistent segmentation across languages — cognates and loanwords with the same surface form are split the same way — making it easier for the model to learn cross-lingual mappings. Separate BPE can segment the same string differently on each side, introducing spurious character-level errors in transliteration."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#7",
+      "question": "For EN→RU joint BPE, the paper transliterates the Russian vocabulary to Latin before learning BPE. Why?",
+      "answer": "Russian uses the Cyrillic alphabet, so Russian and English characters are disjoint — joint BPE on the raw text would never merge cross-lingual pairs. Transliterating Russian to Latin with ISO-9 makes the character sets overlap, so the joint BPE merge loop can learn consistent segmentations for cognates and names across the two languages. The learned merges are then mapped back to Cyrillic before being applied to the actual Russian training text."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#8",
+      "question": "What three word categories motivate the subword approach, and what is the translation strategy for each?",
+      "answer": "Named entities: copy or transliterate (character-level correspondence). Compounds: decompose and translate morphemes independently (e.g., Sonnensystem = Sonne + System). Cognates and loanwords: apply character-level phonological rules (e.g., claustrophobia→Klaustrophobie). All three are handled by the same BPE segmentation without any special-casing."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#9",
+      "question": "How does BPE with 59 500 merge operations (BPE-60k) compare to the back-off dictionary baseline (WDict) on EN→DE newstest2015?",
+      "answer": "BPE-60k ensemble scores 24.5 BLEU vs. 24.2 for WDict, with unigram F1 on OOV words at 29.3% vs. 36.8% for WDict. WDict has higher OOV F1 because copying names works well when alphabets are shared. Joint BPE-J90k (90 000 vocabulary) is the best overall system: 24.7 BLEU ensemble and CHRF3 54.1, versus WDict's 24.2 BLEU and 52.4 CHRF3."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#10",
+      "question": "Why do subword models show larger gains over WDict on EN→RU than on EN→DE?",
+      "answer": "For EN→RU, alphabets differ — the WDict baseline can only copy source names, achieving just 9.2% OOV precision and 5.2% recall. Subword models can transliterate names, raising OOV precision to 21.9% and recall to 15.6%. For EN→DE, alphabets are shared, so copying names works well and WDict already handles OOVs reasonably."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#11",
+      "question": "What does the unigram F1 vs. training-frequency-rank plot reveal about subword versus word-level models?",
+      "answer": "Word-level models (WUnk, WDict) show sharply declining unigram F1 as word frequency rank increases into the rare range, with a spike for OOVs (mostly copyable names for EN→DE). Subword models maintain flatter, more stable F1 across all frequency ranks, confirming that BPE's benefit is primarily for rare and unseen words rather than common ones."
+    },
+    {
+      "id": "neural-machine-translation-of-rare-words-with-subword-units#12",
+      "question": "What causes character-level errors in BPE-60k transliterations (e.g. spurious insertions or deletions), and how does joint BPE fix this?",
+      "answer": "Separate BPE (BPE-60k) can segment the same surface form differently on source and target (e.g., Mirzayeva is split as Mirz|ayeva on one side and Mir|za|yeva on the other), giving the model inconsistent alignment evidence and causing it to insert or delete characters. Joint BPE (BPE-J90k) forces a single consistent segmentation for both sides, so the model sees a cleaner character-level mapping and produces fewer transliteration errors."
+    }
+  ]
+}

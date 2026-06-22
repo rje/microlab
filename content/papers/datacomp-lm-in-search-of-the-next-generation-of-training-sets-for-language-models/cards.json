@@ -1,0 +1,65 @@
+{
+  "paperId": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models",
+  "cards": [
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#1",
+      "question": "What core methodological problem does DCLM solve that plagued prior dataset comparisons?",
+      "answer": "Prior work compared datasets by training models with different architectures, hyperparameters, and compute budgets, making it impossible to attribute performance differences to the data alone. DCLM fixes the training recipe and compute scale so that only the data varies, enabling controlled apples-to-apples ablations."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#2",
+      "question": "What are the five DCLM competition scales, and what does each scale's token count equal?",
+      "answer": "The five scales are 400M-1x, 1B-1x, 3B-1x, 7B-1x, and 7B-2x. Each scale specifies a model size N and a Chinchilla multiplier; training tokens D = 20 × N × multiplier. Train FLOPs are estimated as 6ND. The 400M-1x scale trains on 8.2B tokens; the 7B-2x scale trains on 276B tokens."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#3",
+      "question": "How is DCLM's Core centered accuracy metric computed, and why is it preferred over raw accuracy at small scales?",
+      "answer": "Core centered accuracy is the average accuracy on 22 low-variance tasks (e.g., HellaSwag, ARC-E), linearly rescaled so that random-guessing performance maps to 0 and perfect accuracy maps to 1. Centering reduces noise from tasks with high random-chance baselines, giving a more reliable signal at small model scales."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#4",
+      "question": "What is the fastText classifier recipe that produced DCLM-Baseline, and which threshold was chosen?",
+      "answer": "A fastText binary classifier is trained on ~400k documents split equally between positive and negative classes. Positive examples are OpenHermes 2.5 instruction-formatted data plus high-scoring r/ExplainLikeImFive (ELI5) subreddit posts; negatives are a random sample from the RefinedWeb reproduction. The top-10% threshold (strictest tested) is applied to DCLM-Pool, retaining only documents the classifier ranks in the top decile."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#5",
+      "question": "Why does choosing top-10% over top-15% or top-20% thresholds matter for fastText filtering?",
+      "answer": "At the 7B-1x scale, OH-2.5+ELI5 with a 10% threshold achieves Core 41.0 and MMLU 29.2, versus 39.8/27.2 at 15% and 38.7/24.2 at 20%. The stricter threshold retains higher-quality documents even though it discards more data, and the remaining volume is still sufficient to cover the training token budget."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#6",
+      "question": "What does the rank-correlation result across DCLM scales justify for practitioners with limited compute?",
+      "answer": "The Pearson correlation between dataset rankings at small scales (400M-1x, 1B-1x, 3B-1x) and the 7B-1x scale reaches r = 0.838, 0.956, and 0.982 respectively. This means curation decisions can be prototyped cheaply at small scale without needing to commit to 7B training runs, enabling fast iteration on filtering strategies."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#7",
+      "question": "How is DCLM-Pool constructed from Common Crawl, and what does it contain?",
+      "answer": "HTML is re-extracted from all Common Crawl snapshots prior to 2023 using resiliparse (rather than the pre-extracted WET files), yielding 200 billion documents (370 TB after gzip). The resulting unfiltered corpus totals 240 trillion GPT-NeoX tokens. resiliparse was chosen over trafilatura because both yield comparable downstream quality but resiliparse is 8× faster."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#8",
+      "question": "What are the two DCLM benchmark tracks, and what distinguishes them?",
+      "answer": "In the filtering track, participants apply selection algorithms to documents drawn from DCLM-Pool (a scale-specific random subset), producing a curated dataset from Common Crawl alone. In the mixing track, participants may additionally incorporate documents from any external source (e.g., Wikipedia dumps, StackExchange, a custom crawl) alongside or instead of DCLM-Pool data."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#9",
+      "question": "What is the non-obvious finding from the dataset-mixing experiments, and why does it challenge a common assumption?",
+      "answer": "Adding Wikipedia, Books, StackExchange, arXiv, and GitHub at Llama/RPJ mixing ratios hurts DCLM-Baseline by 1.2 Core points at the 1B-1x scale, even though the same additions help weaker baselines like C4 and RefinedWeb. The result shows that aggressive quality filtering can make the filtered web data better than the curated additions, so mixing is only beneficial when the web component is of lower quality."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#10",
+      "question": "How does DCLM's decontamination procedure work, and what did retraining with it reveal?",
+      "answer": "Pages containing a question string together with at least one corresponding answer option from MMLU or HellaSwag are flagged; for MMLU only the last sentence of each question is checked to reduce false positives. All matched question and option strings are removed from those pages. Retraining a 7B-2x model on the decontaminated dataset does not decrease MMLU or HellaSwag scores, confirming that DCLM-Baseline's gains are not artifacts of benchmark contamination."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#11",
+      "question": "What is DCLM-Baseline's final recipe for the trillion-token 7B model, and what performance does it reach?",
+      "answer": "3.8T DCLM-Baseline tokens are combined with StarCoder and ProofPile2 to form a 4.1T-token dataset. A 7B decoder-only Transformer is trained for 2.5T tokens using two separate cool-down phases (each on a tighter fastText threshold + 30% math data), then the two cool-down checkpoints are merged via model soup. Continual pretraining extends context from 2048 to 8192 tokens for 100B more tokens. The final model achieves 64% MMLU 5-shot and 57.1 Core, matching Mistral-7B-v0.3 and Llama 3 8B while using up to 6.6× less compute."
+    },
+    {
+      "id": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models#12",
+      "question": "Across the seven model-based quality filters DCLM tested, why did fastText outperform approaches like perplexity filtering and AskLLM?",
+      "answer": "fastText (OH-2.5+ELI5, top-10%) scored Core 30.2 / Extended 15.4 at 1B-1x, versus perplexity filtering at 29.0/15.0 and AskLLM at 28.6/14.3. The paper attributes fastText's advantage to its positive-example quality: instruction-formatted and ELI5 data encode writing clarity and pedagogical style that transfers well to general language understanding, whereas perplexity and logit-based methods use a fixed 154M reference LM that may not capture the same quality signal. Human quality judgments were found to have only limited value as a filtering signal."
+    }
+  ]
+}

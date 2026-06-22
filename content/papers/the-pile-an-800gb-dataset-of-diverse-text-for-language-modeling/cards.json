@@ -1,0 +1,65 @@
+{
+  "paperId": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling",
+  "cards": [
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#1",
+      "question": "What is the core argument for why the Pile outperforms CC-100 despite CC-100 being more carefully filtered?",
+      "answer": "CC-100's quality filter trains a language model on Wikipedia and discards any data with perplexity too high or too low relative to that model, which effectively removes anything too dissimilar from Wikipedia. This preserves quality but destroys diversity. The Pile's deliberately multi-source design means its 1.3B-parameter models achieve better BPB than CC-100 on all 22 Pile components, while CC-100 wins only on LAMBADA — a task where its Wikipedia-heavy bias helps."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#2",
+      "question": "How does the Pile convert each component's raw size into an effective training size, and what determines the weight each component contributes?",
+      "answer": "Each component is assigned an epoch count (how many passes are made over it per full Pile epoch) and a weight (the percentage of bytes it occupies in the final dataset). Effective Size = Raw Size × Epochs. Higher-quality sources receive more epochs: Wikipedia gets 3 epochs, PubMed Central 2, Books3 1.5, and Pile-CC 1. The weight column in Table 1 reflects the resulting proportion of bytes; Pile-CC at 18.11% is the largest single contributor despite its epoch count of only 1."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#3",
+      "question": "What is the BPB metric and why does the Pile use it instead of perplexity or bits-per-character?",
+      "answer": "BPB (bits per UTF-8 encoded byte) is computed as BPB = (L_T / L_B) × log₂(e^ℓ) = (L_T / L_B) × ℓ / ln(2), where ℓ is the negative log-likelihood loss, L_T is the dataset length in tokens, and L_B is its length in UTF-8 bytes. It is preferred over bits-per-token because it is invariant to tokenization scheme differences across models, and over bits-per-character because Unicode character boundaries are ambiguous. Perplexity is computed per document independently rather than over a concatenated corpus, to avoid boundary effects."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#4",
+      "question": "How are the Pile's train, validation, and test splits constructed, and why are they large enough to be useful despite being only 0.1% each?",
+      "answer": "Validation and test sets each contain 0.1% of the data, sampled uniformly at random from the full corpus. Although 0.1% is far smaller than typical dataset splits, the 825 GiB total size means each split still exceeds 1 GiB, providing over 1 GiB of held-out evaluation data per split. The paper also notes deduplication was applied within the Pile, though some cross-split duplicates may remain."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#5",
+      "question": "What are the five largest Pile components by effective size, and roughly what fraction of the corpus do they account for together?",
+      "answer": "The five largest by effective size are Pile-CC (227.12 GiB, 18.11%), PubMed Central (180.55 GiB, 14.40%), Books3 (151.44 GiB, 12.07%), OpenWebText2 (125.54 GiB, 10.01%), and ArXiv (112.42 GiB, 8.96%). Together they account for about 63.5% of the 1,254.20 GiB effective corpus, leaving roughly a third spread across the remaining 17 sources."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#6",
+      "question": "How does the relative component-wise GPT-3 performance metric (Δ_set) work, and what does it reveal about GPT-3's weaknesses?",
+      "answer": "Δ_set = (L_set^GPT3 − L_owt2^GPT3) − (L_set^GPT2Pile − L_owt2^GPT2Pile). It measures how much harder a component is for GPT-3 than for a GPT-2 model trained on the Pile, normalized against OpenWebText2 so that dataset-specific difficulty is factored out. A high Δ_set means GPT-3 underperforms relative to expectation. The metric reveals GPT-3 struggles most on academic writing (PubMed Central, ArXiv), legal text (FreeLaw), code (GitHub), and mathematical content (DM Mathematics) — all domains underrepresented in its web-based training data."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#7",
+      "question": "How does the Pile use mean bytes-per-GPT-2-token as a structural diagnostic, and what does it indicate about a component?",
+      "answer": "Since the GPT-2 BPE tokenizer was trained on WebText, a component's mean bytes per token is a proxy for how syntactically similar it is to typical web text. Components close to web text (NIH ExPorter, OpenWebText2, Books3) have the highest bytes-per-token values. Components with the lowest bytes-per-token — GitHub, ArXiv, DM Mathematics, EuroParl — contain non-English characters, code symbols, or mathematical notation that the WebText-trained tokenizer splits into many small tokens, signalling structural divergence."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#8",
+      "question": "How does the Pile document topical divergence between components, and which components diverge most from Pile-CC?",
+      "answer": "The authors trained 16-topic LDA models using Gensim on each component of the validation set, then computed the perplexity of the Pile-CC topic model on the documents of every other component. High perplexity indicates topical divergence from Common Crawl. EuroParl, Enron Emails, and Ubuntu IRC show the greatest divergence; GitHub, PhilPapers, and NIH ExPorter are also notably high. OpenWebText2 sits close to the Pile-CC baseline as expected, since it was constructed from filtered web data."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#9",
+      "question": "What three-tier framework does the Pile use to classify the consent status of its constituent datasets?",
+      "answer": "Public data: freely and readily available on the internet, excluding paywalled content. Terms of Service (ToS) compliant data: obtained and used in a manner consistent with the data host's ToS. Data with authorial consent: the original authors explicitly consented to use of their work, or a reasonable person would expect it to be used for research. The authors note that ToS compliance and authorial consent are distinct: people typically do not read ToS, so ToS compliance does not entail authorial consent. Five datasets (including Books3 and OpenSubtitles) lack authorial consent."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#10",
+      "question": "Why does the Pile choose to document potentially harmful content rather than filter it out, and what documentation tools does it use?",
+      "answer": "The authors argue that directly filtering undesirable content from training data is unlikely to prevent harmful model outputs given the complexity of the relationship between training data and model behavior. Thorough documentation is therefore the best available response: it lets downstream researchers make informed decisions. They implement two frameworks — the datasheets methodology (Gebru et al., 2018) and data statements methodology (Bender and Friedman, 2018) — and supplement these with LDA topic analysis, profanity-rate breakdowns per component, and co-occurrence bias analysis for gender, religion, and race."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#11",
+      "question": "How does the size-controlled evaluation in Section 4 work, and what does it show about the Pile vs. CC-100 vs. raw Common Crawl?",
+      "answer": "Three architecturally identical 1.3B-parameter GPT-2-style models are trained on subsamples of each dataset, each downsampled to approximately 40 GiB to hold dataset size constant. Evaluation sets are decontaminated using 13-gram overlap filtering (as in Brown et al. 2020). The Pile model achieves the best BPB on all 22 held-out component test sets and the best WikiText perplexity (5.59 PPL); CC-100 wins on LAMBADA accuracy (11.78 PPL / 49.7% ACC); raw Common Crawl performs worst on both standard benchmarks despite being far larger than CC-100 at 45,927 GiB."
+    },
+    {
+      "id": "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling#12",
+      "question": "What distinguishes the 14 newly introduced Pile datasets from the 8 existing ones, and which new sources contribute the most data?",
+      "answer": "The 14 new sources were either newly scraped/processed by the Pile authors or are significantly extended versions of prior datasets. The largest new sources by effective size are Pile-CC (227.12 GiB) — a Common Crawl subset re-extracted using JusText for higher quality — PubMed Central (180.55 GiB), OpenWebText2 (125.54 GiB), GitHub (95.16 GiB), and FreeLaw (76.73 GiB). The 8 existing sources include Books3, Project Gutenberg (PG-19), OpenSubtitles, Wikipedia, DM Mathematics, EuroParl, BookCorpus2, and Enron Emails."
+    }
+  ]
+}
