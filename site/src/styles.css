@@ -890,4 +890,26 @@ svg {
 
 .task-status-select { display: inline-block; margin: 6px 0 2px; }
 .task-status-select select { background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 6px; padding: 0.2rem 0.4rem; font-size: 0.78rem; }
+
+.recall-due { display: flex; align-items: baseline; gap: 0.4rem; margin: 0.4rem 0 0.7rem; }
+.recall-due strong { font-size: 1.6rem; color: #116466; }
+.recall-due span { color: #6f675c; font-size: 0.85rem; }
+.recall-start { width: 100%; padding: 0.55rem; border: 0; border-radius: 8px; background: #116466; color: #fff; font-weight: 600; cursor: pointer; }
+.recall-start:disabled { background: #cdd6d2; color: #6f675c; cursor: default; }
+
+.recall-overlay { position: fixed; inset: 0; z-index: 70; background: rgba(20, 20, 16, 0.55); display: grid; place-items: center; padding: 1rem; }
+.recall-modal { width: min(640px, 100%); background: #fffdf8; border: 1px solid #ddd6c5; border-radius: 14px; padding: 1.2rem 1.4rem 1.5rem; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.recall-modal-head { display: flex; justify-content: space-between; align-items: center; color: #6f675c; font-size: 0.8rem; }
+.recall-close { background: none; border: 1px solid #ddd6c5; border-radius: 7px; padding: 0.25rem 0.4rem; cursor: pointer; }
+.recall-paper { margin: 0.8rem 0 0.2rem; color: #116466; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.recall-question { font-size: 1.15rem; line-height: 1.45; color: #1f1e1a; margin: 0.2rem 0 1rem; }
+.recall-answer { background: #f4f9f7; border: 1px solid #cfe3de; border-radius: 10px; padding: 0.8rem 0.9rem; color: #2d2b27; line-height: 1.55; margin-bottom: 1rem; }
+.recall-reveal { width: 100%; padding: 0.6rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fff; font-weight: 600; cursor: pointer; }
+.recall-grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+.recall-grades button { padding: 0.55rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fff; font-weight: 600; cursor: pointer; }
+.recall-grades button:hover { background: #f0f6f4; }
+.recall-done { text-align: center; padding: 1.5rem 0; }
+.recall-done strong { display: block; font-size: 1.1rem; margin-bottom: 0.4rem; }
+.recall-done button { margin-top: 1rem; padding: 0.5rem 1rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fff; cursor: pointer; }
+.recall-error { color: #b3261e; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

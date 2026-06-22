@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowUpRight,
   BookOpen,
+  Brain,
   CheckCircle2,
   Circle,
   Clock3,
@@ -16,6 +17,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  DueCard,
   EvalRunSummary,
   MarkdownDocument,
   MicrolabState,
@@ -24,13 +26,15 @@ import {
   PaperSynopsis,
   Phase,
   PhaseTask,
+  fetchDueCards,
   fetchMarkdownDocument,
   fetchMicrolabState,
   fetchNotes,
   fetchOverview,
   saveNotes,
   saveProgress,
-  saveTaskStatus
+  saveTaskStatus,
+  submitReview
 } from "./state";
 import { MarkdownDocumentView } from "./MarkdownDocumentView";
 import { PdfView } from "./PdfView";
@@ -109,6 +113,7 @@ export function App({ initialState }: AppProps) {
   const [markdownError, setMarkdownError] = useState<string | null>(null);
   const [markdownLoadingPath, setMarkdownLoadingPath] = useState<string | null>(null);
   const [activePaperId, setActivePaperId] = useState<string | null>(null);
+  const [recallOpen, setRecallOpen] = useState(false);
 
   useEffect(() => {
     if (initialState) {
@@ -218,6 +223,7 @@ export function App({ initialState }: AppProps) {
           />
         </main>
         <aside className="right-rail">
+          <RecallPanel onStart={() => setRecallOpen(true)} />
           <ReadingPanel
             papers={readingPapers}
             synopses={state.synopses}
@@ -240,6 +246,9 @@ export function App({ initialState }: AppProps) {
           onClose={() => setActivePaperId(null)}
           onProgressChange={updatePaperProgress}
         />
+      )}
+      {recallOpen && (
+        <RecallSession csrfToken={state.csrfToken ?? ""} onClose={() => setRecallOpen(false)} />
       )}
     </>
   );
@@ -744,6 +753,115 @@ function PaperWorkspace({
             )}
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function RecallPanel({ onStart }: { onStart: () => void }) {
+  const [total, setTotal] = useState(0);
+  useEffect(() => {
+    let active = true;
+    fetchDueCards()
+      .then((d) => active && setTotal(d.total ?? 0))
+      .catch(() => active && setTotal(0));
+    return () => {
+      active = false;
+    };
+  }, []);
+  return (
+    <section className="rail-section" aria-labelledby="recall-heading">
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Recall</p>
+          <h2 id="recall-heading">Flashcards</h2>
+        </div>
+        <Brain aria-hidden="true" />
+      </div>
+      <div className="recall-due">
+        <strong>{total}</strong>
+        <span>cards due</span>
+      </div>
+      <button type="button" className="recall-start" disabled={total === 0} onClick={onStart}>
+        {total === 0 ? "All caught up" : "Start review"}
+      </button>
+    </section>
+  );
+}
+
+function RecallSession({ csrfToken, onClose }: { csrfToken: string; onClose: () => void }) {
+  const [cards, setCards] = useState<DueCard[] | null>(null);
+  const [idx, setIdx] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchDueCards()
+      .then((d) => active && setCards(d.cards))
+      .catch((e: Error) => active && setError(e.message));
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const card = cards && idx < cards.length ? cards[idx] : null;
+  const grade = (g: number) => {
+    if (!card) {
+      return;
+    }
+    submitReview(card.id, card.paperId, csrfToken, g).catch(() => {});
+    setRevealed(false);
+    setIdx((i) => i + 1);
+  };
+
+  return (
+    <div className="recall-overlay" role="dialog" aria-modal="true" aria-label="Flashcard review">
+      <div className="recall-modal">
+        <header className="recall-modal-head">
+          <span>{cards ? (card ? `${idx + 1} / ${cards.length}` : "Done") : "Loading"}</span>
+          <button type="button" className="recall-close" onClick={onClose} aria-label="Close review">
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        {error && <p className="recall-error">{error}</p>}
+        {cards && !card && (
+          <div className="recall-done">
+            <strong>All reviewed.</strong>
+            <p>Come back tomorrow for the next batch.</p>
+            <button type="button" onClick={onClose}>Close</button>
+          </div>
+        )}
+        {card && (
+          <>
+            <p className="recall-paper">{card.paperTitle}</p>
+            <div className="recall-question">{card.question}</div>
+            {revealed ? (
+              <>
+                <div className="recall-answer">{card.answer}</div>
+                <div className="recall-grades">
+                  <button type="button" onClick={() => grade(1)}>Again</button>
+                  <button type="button" onClick={() => grade(3)}>Hard</button>
+                  <button type="button" onClick={() => grade(4)}>Good</button>
+                  <button type="button" onClick={() => grade(5)}>Easy</button>
+                </div>
+              </>
+            ) : (
+              <button type="button" className="recall-reveal" onClick={() => setRevealed(true)}>
+                Show answer
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

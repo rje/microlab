@@ -172,3 +172,29 @@ export async function fetchOverview(paperId: string): Promise<PaperOverview | nu
     return null;
   }
 }
+
+export type DueCard = {
+  id: string;
+  paperId: string;
+  paperTitle: string;
+  question: string;
+  answer: string;
+  status: string;
+};
+
+export async function fetchDueCards(): Promise<{ cards: DueCard[]; total: number }> {
+  const response = await fetch("/api/recall/due");
+  if (!response.ok) {
+    throw new Error(`Failed to load due cards: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function submitReview(
+  cardId: string,
+  paperId: string,
+  csrfToken: string,
+  grade: number
+): Promise<void> {
+  return mutate("/api/recall/review", csrfToken, { cardId, paperId, grade });
+}
