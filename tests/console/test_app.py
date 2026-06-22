@@ -259,11 +259,11 @@ def test_static_assets_served_without_auth(client, project_root):
 def _seed_phase_task(project_root):
     import json
 
+    task = {"id": "t1", "title": "Task one", "status": "queued", "why": "w", "links": []}
     (project_root / "site" / "content" / "phases.json").write_text(
         json.dumps([
             {"id": "phase-0", "title": "Phase 0", "status": "current", "goal": "g",
-             "tasks": [{"id": "t1", "title": "Task one", "status": "queued", "why": "w", "links": []}],
-             "readingPaperIds": []}
+             "tasks": [task], "readingPaperIds": []}
         ]),
         encoding="utf-8",
     )

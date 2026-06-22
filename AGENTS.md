@@ -82,3 +82,25 @@ Before training runs, verify CUDA from inside the environment:
 ```
 
 `nvidia-smi` may require a server reboot after NVIDIA driver updates if the loaded kernel module and user-space NVML library versions differ.
+
+## Testing Guardrail
+
+Every phase's tests live in one suite that must stay green, so later work cannot
+silently break earlier work. Run the full guardrail (lint + python tests + spa
+tests + build) before pushing:
+
+```bash
+scripts/check.sh
+```
+
+Enable the pre-commit hook once per clone so the fast checks run automatically on
+every commit (bypass a work-in-progress commit with `git commit --no-verify`):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+When you add a component, add its tests to the same suite. From-scratch
+implementations should also ship a reference cross-check (compare against a
+known-correct library/brute-force result) and, for training code, an
+overfit-a-single-batch smoke test.

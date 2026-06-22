@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Microlab pre-commit guardrail.
+#
+# Runs the fast regression checks (lint + python tests + spa tests) before every
+# commit so a change that breaks earlier work can't get committed. The slower
+# vite build is left to scripts/check.sh (run before pushing).
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Bypass for a WIP commit:  git commit --no-verify
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+CONDA=/home/rje/anaconda3/bin/conda
+fail=0
+
+run() {
+  echo "pre-commit: $1"
+  shift
+  "$@" >/tmp/microlab-precommit.log 2>&1 || { echo "  FAILED — see /tmp/microlab-precommit.log"; fail=1; }
+}
+
+run "ruff"   $CONDA run -n microlab ruff check .
+run "pytest" $CONDA run -n microlab pytest -q
+run "vitest" bash -c 'cd site && npx vitest run'
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-commit guardrail FAILED — commit aborted. Run scripts/check.sh for details, or commit --no-verify to bypass."
+  exit 1
+fi
