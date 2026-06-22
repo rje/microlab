@@ -3,43 +3,63 @@
   "cards": [
     {
       "id": "mmlu#1",
-      "question": "Why is MMLU's test format deliberately different from typical pretraining data?",
-      "answer": "The format is designed so the test probes acquired knowledge rather than a fitted train/test distribution. If the format matched pretraining, high scores would reflect pattern-matching on seen text rather than genuine understanding."
+      "question": "How does MMLU score a multiple-choice question? Walk through the mechanism the eval harness uses.",
+      "answer": "The model is fed the full prompt ending with \"Answer: \". It then produces probabilities for the four answer tokens \"A\", \"B\", \"C\", and \"D\". Whichever token has the highest probability is taken as the model's prediction, and that prediction is compared to the ground-truth letter to compute classification accuracy."
     },
     {
       "id": "mmlu#2",
-      "question": "How is MMLU structured in terms of subjects, questions, and splits?",
-      "answer": "It covers 57 subjects across STEM, humanities, social science, and professional domains, with 15,908 total questions split into a 5-per-subject few-shot dev set, a 1,540-question validation set, and a 14,079-question test set."
+      "question": "What is the exact few-shot prompt format MMLU uses for GPT-3, and how does zero-shot differ?",
+      "answer": "Every prompt begins with \"The following are multiple choice questions (with answers) about [subject].\" For few-shot evaluation, up to 5 demonstration question-answer pairs are prepended before the new question; all prompts end with \"Answer: \". For zero-shot evaluation only the question itself is appended — no demonstrations are added."
     },
     {
       "id": "mmlu#3",
-      "question": "What were the key results for GPT-3 at publication, and what did they reveal about scale?",
-      "answer": "The three smaller GPT-3 models (up to 13B parameters) scored near the 25% random baseline, while GPT-3 175B reached only 43.9% few-shot — far below the ~89.8% estimated expert human level — suggesting scale alone was insufficient at the time."
+      "question": "What are MMLU's three dataset splits, how large is each, and what is each split used for?",
+      "answer": "There is a dev set of 5 questions per subject (used as the few-shot demonstration examples), a validation set of 1,540 questions (available for hyperparameter selection), and a test set of 14,079 questions (used to compute final accuracy). Each subject has at least 100 test examples."
     },
     {
       "id": "mmlu#4",
-      "question": "Why did fine-tuned UnifiedQA outperform the much larger GPT-3 175B on MMLU?",
-      "answer": "UnifiedQA, a fine-tuned T5 model, reached 48.9% despite having far fewer parameters than GPT-3 175B (43.9%), showing that task-specific fine-tuning can compensate for smaller model size on this type of benchmark."
+      "question": "What are the human accuracy baselines on MMLU, and why is the gap between them significant?",
+      "answer": "Non-expert crowd workers (Amazon Mechanical Turk) score 34.5%, while estimated expert-level accuracy is approximately 89.8% — a gap of over 55 points. This gap defines the ceiling models need to reach and shows the benchmark has headroom far beyond what any model at publication time achieved."
     },
     {
       "id": "mmlu#5",
-      "question": "What does 'lopsided capability' mean in MMLU's results, and which subject areas were weakest?",
-      "answer": "Models scored up to ~70% on their best subjects but near-random on others, meaning capability was uneven across domains. The weakest areas were calculation-heavy STEM subjects and socially important topics like law and morality."
+      "question": "What does 'lopsided capability' mean in MMLU's results, and what numbers support it?",
+      "answer": "Lopsided capability means a model performs well on some subjects while scoring near-random on others, rather than having uniform competence. GPT-3 X-Large ranges from ~69% on its best subject (US Foreign Policy) down to ~26% on College Chemistry, despite averaging 43.9% — it never excels at every subject simultaneously."
     },
     {
       "id": "mmlu#6",
-      "question": "What is the declarative-versus-procedural gap exposed by MMLU?",
-      "answer": "Models could recall declarative facts (e.g., knowing the PEMDAS acronym) but could not reliably apply them to solve problems. This gap explains why calculation-heavy subjects lagged even when relevant facts appeared in pretraining data."
+      "question": "What is the declarative-vs-procedural knowledge gap, and how does MMLU's PEMDAS example illustrate it?",
+      "answer": "GPT-3 can recall declarative facts (it correctly completes 'The order of operations or PEMDAS is Parentheses Exponents Multiplication Division Addition Subtraction') but fails to apply that knowledge procedurally (it gives wrong answers to arithmetic questions requiring PEMDAS). The model knows the rule as text but cannot reliably execute it."
     },
     {
       "id": "mmlu#7",
-      "question": "How poorly calibrated were models on MMLU, and why does calibration matter for an eval harness?",
-      "answer": "Model confidence was off by up to 24%, meaning models were often wrong while appearing confident and did not know what they didn't know. For an eval harness, poor calibration means raw accuracy scores can mask systematic blind spots that require per-subject breakdown to detect."
+      "question": "How poorly calibrated is GPT-3 on MMLU, and what does that mean for trusting its outputs?",
+      "answer": "In the zero-shot setting, GPT-3's average confidence can be up to 24% higher than its actual accuracy on a subject — confidence is only weakly correlated with correctness. The zero-shot RMS calibration error for subjects like Elementary Mathematics reaches 19.4%. Models are somewhat more calibrated in the few-shot setting, but still substantially miscalibrated."
     },
     {
       "id": "mmlu#8",
-      "question": "What does MMLU's construction suggest about the limits of scaling for improving performance on rare subjects?",
-      "answer": "The discussion notes that a 10x model size increase requires roughly 5x more data (per Kaplan et al.), and text on esoteric subjects is scarce on the internet, so scaling alone may not close the gap on specialized or underrepresented topics."
+      "question": "Why do GPT-3 models smaller than 175B parameters fail on MMLU, and what does the scaling result suggest?",
+      "answer": "The three smaller GPT-3 variants (2.7B, 6.7B, 13B parameters) all score around 25% — essentially random chance — on the few-shot test. Only the 175B X-Large model rises meaningfully to 43.9%. The paper notes that a 10x increase in model size requires roughly a 5x increase in training data (per Kaplan et al.), and text on esoteric subjects is scarce, so scaling alone may not be sufficient to reach expert-level performance."
+    },
+    {
+      "id": "mmlu#9",
+      "question": "How does UnifiedQA compare to GPT-3 X-Large on MMLU, and what makes the comparison interesting?",
+      "answer": "UnifiedQA (11B parameters, fine-tuned T5) achieves 48.9% accuracy — outperforming GPT-3 X-Large (175B, 43.9%) with roughly an order of magnitude fewer parameters. UnifiedQA is evaluated under distribution shift (no fine-tuning on MMLU), showing that fine-tuning on other QA datasets transfers usefully and that model size alone is not the deciding factor."
+    },
+    {
+      "id": "mmlu#10",
+      "question": "Why does MMLU deliberately use a format that differs from pretraining data, and what problem does this solve?",
+      "answer": "Using an evaluation format unlike pretraining corpora ensures the benchmark probes genuinely acquired knowledge rather than a fitted train/test distribution. It avoids 'spurious cue' exploitation — where a model achieves high scores by pattern-matching surface features of the training format rather than understanding the content."
+    },
+    {
+      "id": "mmlu#11",
+      "question": "Why do calculation-heavy STEM subjects consistently produce the lowest accuracy scores on MMLU?",
+      "answer": "These subjects require procedural knowledge — actually executing multi-step computations — rather than recalling facts expressed as text. GPT-3 acquires declarative knowledge more readily than procedural knowledge during pretraining, so 9 of the 10 lowest-accuracy tasks are STEM subjects emphasising calculation (e.g. Elementary Mathematics, College Chemistry, College Physics)."
+    },
+    {
+      "id": "mmlu#12",
+      "question": "What is MMLU's scope as a benchmark, and why does it represent a different difficulty tier from prior NLP benchmarks?",
+      "answer": "MMLU covers 57 subjects spanning STEM, humanities, social science, and professional domains (law, medicine, accounting) with 15,908 questions ranging from elementary to expert level. Prior benchmarks like GLUE and commonsense suites were near-saturated by large models; MMLU targets specialized knowledge that requires years of human study, making random-chance performance the realistic baseline for all but the largest models at publication."
     }
   ]
 }

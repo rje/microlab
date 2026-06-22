@@ -3,43 +3,63 @@
   "cards": [
     {
       "id": "humaneval-codex#1",
-      "question": "Why does the HumanEval paper reject BLEU score as a metric for code generation, and what does it use instead?",
-      "answer": "BLEU is rejected because the distributions of BLEU scores for correct and incorrect Codex solutions overlap significantly, meaning BLEU improvement does not reliably predict whether generated code is actually correct. The paper uses functional correctness instead: a solution is correct if and only if it passes all unit tests associated with the problem."
+      "question": "Why is BLEU score an unreliable metric for evaluating code generation?",
+      "answer": "The distributions of BLEU scores for correct and incorrect Codex solutions overlap significantly (Figure 8), so a model can improve its BLEU score while generating functionally inequivalent programs. BLEU cannot account for the large space of programs that are functionally equivalent to a reference solution but textually different."
     },
     {
       "id": "humaneval-codex#2",
-      "question": "What is the HumanEval benchmark, and what are its key statistics?",
-      "answer": "HumanEval is a set of 164 hand-written Python programming problems, each paired with a docstring prompt and unit tests (averaging 7.7 unit tests per problem). The problems were written by hand to avoid contamination with training data, and correctness is judged by passing all associated unit tests."
+      "question": "Why does the paper use functional correctness — unit test pass/fail — instead of match-based metrics to evaluate code generation?",
+      "answer": "Unit tests directly capture the standard by which human developers judge code: test-driven development defines correctness as passing a test suite, not textual similarity to a reference. Match-based metrics like BLEU are insensitive to semantic equivalence and cannot detect functionally wrong programs that happen to look similar to a correct one."
     },
     {
       "id": "humaneval-codex#3",
-      "question": "What is the pass@k metric, and why is the naive estimator biased?",
-      "answer": "pass@k is the probability that at least one of k sampled solutions for a problem passes all unit tests. The naive estimator (1 minus (1 minus p-hat)^k) is biased because the empirical pass rate p-hat is itself a random variable; the unbiased estimator instead generates n >= k samples, counts c correct ones, and computes 1 - C(n-c, k) / C(n, k)."
+      "question": "What is the unbiased pass@k estimator formula, and how is it computed in practice?",
+      "answer": "Generate n ≥ k samples per problem, count c correct ones, then compute: pass@k = 1 − C(n−c, k) / C(n, k). The paper uses n=200 and k≤100. Because computing the binomial ratio directly causes numerical overflow, the numerically stable implementation evaluates the product term-by-term: `1.0 - np.prod(1.0 - k / np.arange(n−c+1, n+1))`. The naive estimator 1−(1−p̂)^k is biased and is not used."
     },
     {
       "id": "humaneval-codex#4",
-      "question": "How is the unbiased pass@k estimator computed, and what values of n and k does the paper use?",
-      "answer": "Given n samples per problem with c passing all tests, the unbiased estimate of pass@k is 1 - C(n-c, k) / C(n, k). The paper uses n=200 samples per problem and evaluates k up to 100, a choice that keeps estimator variance low."
+      "question": "Why is the naive pass@k estimator — 1 − (1 − p̂)^k where p̂ = c/n — biased?",
+      "answer": "p̂ = c/n is an unbiased estimate of the per-sample pass probability, but 1−(1−p̂)^k is a nonlinear function of p̂, so by Jensen's inequality the expectation of the transformed estimate does not equal the transform of the expectation. The combinatorial estimator 1 − C(n−c, k)/C(n, k) is exactly unbiased."
     },
     {
       "id": "humaneval-codex#5",
-      "question": "What are Codex-12B's pass@1 and pass@100 results on HumanEval, and how do they compare to GPT-3?",
-      "answer": "Codex-12B achieves pass@1 of 28.8% and pass@100 of 72.3% on HumanEval. GPT-3, despite being the base model, achieves approximately 0% pass@1, demonstrating that code fine-tuning is essential for functional correctness."
+      "question": "What sampling temperature should you use for pass@1 vs pass@100, and why?",
+      "answer": "Use T*=0.2 for pass@1 and T*=0.8 for pass@100. Low temperature concentrates probability mass on the model's single best guess, which maximises quality of one sample. High temperature introduces diversity across the 100 samples, and pass@100 only requires any one of them to be correct — so diversity matters more than individual sample quality."
     },
     {
       "id": "humaneval-codex#6",
-      "question": "What is Codex-S, how is it trained, and how much does it improve over Codex?",
-      "answer": "Codex-S is produced by further fine-tuning Codex on roughly 10,000 correctly implemented standalone functions sourced from competitive programming sites and CI repositories. This supervised fine-tuning improves pass@1 by approximately 6.5 percentage points and pass@100 by approximately 15 percentage points over the base Codex across model sizes."
+      "question": "How was the HumanEval benchmark constructed, and why were the problems hand-written rather than sourced from existing datasets?",
+      "answer": "HumanEval contains 164 Python programming problems, each with a function signature, docstring, body, and an average of 7.7 unit tests. All problems were hand-written specifically to avoid contamination: Codex is trained on a large fraction of GitHub, which already contains solutions to popular problem sets like Codeforces, so any automatically sourced problems risked being in the training data."
     },
     {
       "id": "humaneval-codex#7",
-      "question": "Why does the optimal sampling temperature differ between pass@1 and pass@100 evaluation?",
-      "answer": "For pass@1, a low temperature (T*=0.2) is optimal because you want the single most likely correct solution. For pass@100, a higher temperature (T*=0.8) is optimal because diversity across samples matters more than individual sample quality — a wider spread increases the chance that at least one of the 100 samples is correct."
+      "question": "What sandbox infrastructure does the paper use to safely execute untrusted generated code, and what threats does it address?",
+      "answer": "The paper uses gVisor as the container runtime host-protection layer: it emulates host resources to enforce a security boundary between the host and containers, preventing a malicious container from compromising the host. Network-adjacent hosts are protected by eBPF-based firewall rules that block all inbound and outbound connections except those required for the experiment. The goals are to prevent generated programs from modifying the environment, gaining persistence, accessing sensitive resources, or exfiltrating data."
     },
     {
       "id": "humaneval-codex#8",
-      "question": "What sandboxing approach does the paper use to safely execute untrusted generated code, and what is the key limitation Codex shows on compositional tasks?",
-      "answer": "The paper uses gVisor (with an eBPF firewall) to safely execute untrusted generated programs against unit tests. On compositional tasks, Codex's pass rate drops by a factor of 2-3 for each additional chained operation in a sequence, showing it struggles to correctly bind multiple sequential operations to variables."
+      "question": "What are the key pass@1 results for Codex-12B, GPT-3, and GPT-J on HumanEval?",
+      "answer": "Codex-12B achieves 28.8% pass@1; all GPT-3 sizes achieve near 0%; GPT-J 6B achieves 11.4%. The gap demonstrates that code-specific fine-tuning on GitHub Python (159 GB) is essential — scale alone on general text data does not produce functional code generation."
+    },
+    {
+      "id": "humaneval-codex#9",
+      "question": "What is Codex-S, how was it trained, and how does it compare to Codex on pass@1?",
+      "answer": "Codex-S is Codex further fine-tuned on approximately 10,000 correctly implemented standalone functions drawn from competitive programming sites and CI repositories. Training minimises negative log-likelihood of the reference solution, masking loss on prompt tokens. Codex-S improves pass@1 by an average of 6.5 percentage points and pass@100 by 15.1 percentage points over Codex across model sizes; Codex-S-12B reaches 37.7% pass@1 and 77.5% pass@100."
+    },
+    {
+      "id": "humaneval-codex#10",
+      "question": "How does Codex's training data collection and filtering work?",
+      "answer": "The corpus was collected in May 2020 from 54 million GitHub public Python repositories, starting at 179 GB of unique Python files under 1 MB. Files were filtered out if they were likely auto-generated, had average line length greater than 100, maximum line length greater than 1000, or contained a high proportion of alphanumeric characters. After filtering the corpus totalled 159 GB."
+    },
+    {
+      "id": "humaneval-codex#11",
+      "question": "What compositional limitation does Codex exhibit, and how was it measured?",
+      "answer": "Codex struggles with docstrings that describe long chains of operations and with binding operations to variables across steps. In synthetic benchmarks the pass rate drops by a factor of 2–3 for each additional chained component in the problem description, showing the difficulty is compositional rather than a matter of any single operation being hard."
+    },
+    {
+      "id": "humaneval-codex#12",
+      "question": "How does repeated sampling compare to single-sample generation as a practical strategy, and what heuristic can substitute for an oracle?",
+      "answer": "Repeated sampling is highly effective: Codex-S-12B solves 77.5% of HumanEval problems when allowed 100 samples with oracle selection. Without an oracle, selecting the sample with the highest mean token log-probability achieves 44.5% pass@1, outperforming random sample selection (≈28.8%) by a substantial margin. This means mean log-probability is a useful proxy for correctness when unit tests are unavailable at inference time."
     }
   ]
 }

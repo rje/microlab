@@ -3,43 +3,58 @@
   "cards": [
     {
       "id": "chatbot-arena#1",
-      "question": "Why does Chatbot Arena use pairwise preference rather than ground-truth accuracy to rank LLMs?",
-      "answer": "Open-ended assistant prompts have no single gold answer, so ground-truth accuracy cannot be computed. Pairwise preference lets users judge which response is better without needing a reference answer, making it applicable exactly where automated accuracy metrics stop working."
+      "question": "Why can't ground-truth accuracy measure open-ended LLM quality, and what does this imply for eval design?",
+      "answer": "Open-ended prompts have no single correct answer, so there is no gold label to compare against — the ground-truth accuracy metric simply cannot be computed. This is the boundary where automated evals stop: once tasks require subjective or creative judgment, you must collect human (or proxy-human) preference instead of checking correctness."
     },
     {
       "id": "chatbot-arena#2",
-      "question": "How does the Bradley-Terry model convert pairwise battle outcomes into a ranked leaderboard?",
-      "answer": "Each model is assigned a BT coefficient; the probability that one model beats another follows a logistic function of the difference in their coefficients. All coefficients are estimated jointly by maximum-likelihood (minimising binary cross-entropy over observed battles), yielding a total ranking with statistically valid confidence intervals."
+      "question": "What two-dimensional framework does the paper use to classify LLM benchmarks, and where does Chatbot Arena sit in it?",
+      "answer": "Benchmarks are classified by question source (static vs. live) and evaluation metric (ground truth vs. human preference). Arena occupies the live-human-preference quadrant — the only large-scale open platform there — while MMLU/GSM-8K are static-ground-truth and MT-Bench/AlpacaEval are static-human-preference."
     },
     {
       "id": "chatbot-arena#3",
-      "question": "Why did Chatbot Arena switch from Elo scores to Bradley-Terry coefficients?",
-      "answer": "BT coefficients are better suited to statistical estimation than Elo scores — they are fit by maximum-likelihood over the full history of battles, supporting confidence intervals and hypothesis tests that Elo's incremental update rule does not naturally provide."
+      "question": "Why is a model's Chatbot Arena rank not a universal quality score, and what should you adjust for when interpreting it?",
+      "answer": "Arena's rank is computed over its actual prompt distribution, which skews toward LLM hobbyists and researchers asking coding and reasoning questions. A model tuned for production customer-service or a specialized domain may rank differently on that distribution, so the rank is relative to the crowd's use-case mix, not absolute quality."
     },
     {
       "id": "chatbot-arena#4",
-      "question": "What is the active sampling rule in Chatbot Arena, and why does it matter?",
-      "answer": "The active sampling rule selects model pairs proportionally to the expected reduction in confidence-interval width, concentrating battles on closely matched pairs. This required 5–54% fewer votes than random sampling to reach the same ranking precision, showing that even with human voters you should spend comparisons efficiently."
+      "question": "Why does Arena use pairwise comparison ('A vs B') rather than asking users to rate each model on an absolute scale?",
+      "answer": "Collecting a consistent absolute rubric across thousands of independent users is impractical — different people anchor scales differently. Pairwise comparison only requires a relative judgment ('which is better?'), which is easier, faster, and more consistent across a crowd, and it still yields a total ranking via the Bradley-Terry model."
     },
     {
       "id": "chatbot-arena#5",
-      "question": "How does Chatbot Arena guard against coordinated or anomalous voting?",
-      "answer": "A Fisher-combination anomaly detector flags IP addresses whose vote distributions diverge significantly from the historical population. In small-scale tests it achieved roughly a 90% true-positive rate."
+      "question": "What is the crowd-vs-expert agreement rate in Chatbot Arena, and what mainly explains the gap?",
+      "answer": "Crowd users agree with expert raters at 72–83%, which is close to the inter-expert agreement of 79–90%. The 5–10% gap between crowd and expert is attributed mainly to crowd users occasionally overlooking factual errors in model responses — they prefer a fluent but incorrect answer more often than experts do."
     },
     {
       "id": "chatbot-arena#6",
-      "question": "What did the comparison between crowd voters and expert raters reveal about the reliability of crowdsourced preferences?",
-      "answer": "Re-labeling 160 battles showed crowd-user agreement with experts at 72–83%, comparable to inter-expert agreement of 79–90%. The gap is attributed mainly to crowd users occasionally overlooking factual errors, meaning crowdsourced preference is noisy but not random."
+      "question": "What does 72–83% crowd-expert agreement tell you about using crowdsourced preference data for model ranking?",
+      "answer": "It shows that crowdsourced votes are noisy but not random: they carry real signal about model quality and are broadly trustworthy for ranking, but they are not a perfect substitute for careful expert evaluation. Rankings built on crowd votes should be treated as approximately correct, with known failure modes around factual accuracy."
     },
     {
       "id": "chatbot-arena#7",
-      "question": "How does Chatbot Arena's prompt distribution limit the generalisability of its model rankings?",
-      "answer": "The user base is skewed toward LLM hobbyists and researchers who tend to ask coding and reasoning questions, biasing the prompt distribution away from production or specialised-domain usage. A model's rank is therefore relative to that distribution — no benchmark is distribution-free."
+      "question": "How does the Bradley-Terry model convert a sparse table of pairwise wins into a ranked list of models?",
+      "answer": "Each model m is assigned a scalar BT coefficient ξ_m. The probability that m beats m′ is modeled as a logistic function of their coefficient difference: P(m beats m′) = 1/(1 + exp(ξ_{m′} − ξ_m)). The M coefficients are estimated by reweighted maximum-likelihood — minimizing binary cross-entropy over all observed battles — with one coefficient fixed to zero for identifiability."
     },
     {
       "id": "chatbot-arena#8",
-      "question": "What evidence does Chatbot Arena provide that its crowd-sourced prompts are diverse and discriminating?",
-      "answer": "BERTopic clustering identified 600 topic clusters with no single cluster exceeding 1% of prompts, confirming long-tail diversity. Separately, Arena Bench — constructed from crowd prompts — revealed larger performance gaps between proprietary and open models than MT-Bench did, showing the prompts are also discriminating."
+      "question": "How are confidence intervals computed for the BT coefficients, and what does the 'sandwich' estimator buy you?",
+      "answer": "The paper uses sandwich-robust standard errors (Huber 1967) rather than standard ML standard errors. The sandwich estimator remains valid even when the logistic model is misspecified — i.e., when true win rates don't exactly follow the BT parametric form — because it corrects the covariance matrix for model misspecification, giving asymptotically correct coverage."
+    },
+    {
+      "id": "chatbot-arena#9",
+      "question": "How does Arena's active sampling rule decide which model pair to show next, and how much more efficient is it?",
+      "answer": "Each pair a is selected with probability proportional to the expected reduction in confidence-interval width from one more battle on that pair (Equation 9 in the paper). This concentrates battles on closely matched pairs where uncertainty is highest. In experiments, active sampling requires 5–54% fewer votes than uniform random sampling to reach the same ranking precision."
+    },
+    {
+      "id": "chatbot-arena#10",
+      "question": "What prompt-diversity evidence does the paper provide, and why does it matter for trusting Arena rankings?",
+      "answer": "BERTopic clustering of user prompts found 600 topic clusters with no single cluster exceeding 1% of prompts, confirming a long-tail distribution of topics. This matters because a benchmark dominated by a few task types would give inflated rankings to specialists; the long-tail spread means Arena rankings reflect broad assistant capability rather than a narrow skill."
+    },
+    {
+      "id": "chatbot-arena#11",
+      "question": "Why did Arena switch from Elo scores to Bradley-Terry coefficients for its leaderboard?",
+      "answer": "Elo was designed for online sequential updates in chess and lacks a principled statistical estimation framework for batch preference data. BT coefficients are estimated by maximum-likelihood on all observed battles simultaneously, which is better suited to producing statistically valid confidence intervals and the sandwich-robust variance estimates needed for the approximate ranking system."
     }
   ]
 }

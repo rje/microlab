@@ -3,43 +3,63 @@
   "cards": [
     {
       "id": "helm#1",
-      "question": "Why does HELM argue that prior benchmarks make meaningful model comparison impossible?",
-      "answer": "Prior benchmarks are fragmented: different models are evaluated on different datasets, under different prompting conditions, and almost always on accuracy alone. Without a shared measurement system, you cannot tell whether one model truly outperforms another or simply had an easier evaluation setup."
+      "question": "Why does HELM argue that prior LM benchmarks make fair comparison impossible?",
+      "answer": "Models were evaluated on different datasets, under different prompting conditions, and almost always on accuracy alone. Before HELM, models shared on average only 17.9% of core scenarios, so results across models could not be meaningfully compared even when they nominally used the same dataset."
     },
     {
       "id": "helm#2",
-      "question": "What are HELM's three core design principles for evaluation?",
-      "answer": "Broad scenario coverage with explicit acknowledgment of what is not covered; multi-metric measurement (accuracy, calibration, robustness, fairness, bias, toxicity, and efficiency together for every scenario); and standardization — all models evaluated under identical few-shot prompting conditions on the same scenarios."
+      "question": "What are HELM's three design principles for holistic evaluation?",
+      "answer": "Broad coverage with explicit recognition of incompleteness (a taxonomy that names what is missing, not just what is covered); multi-metric measurement (all 7 metric categories applied to every scenario); and standardization (all 30 models evaluated under the same 5-shot prompting conditions on the same scenarios)."
     },
     {
       "id": "helm#3",
-      "question": "How does HELM define the three components of an evaluation run, and why must all three be recorded together?",
-      "answer": "A run is a tuple of scenario (a task/domain/language triple), adaptation (the prompting procedure that turns a language model into a system for that scenario), and metrics (the desiderata measured on completions). Recording all three together is required to reproduce or compare results — changing any one component produces a different measurement."
+      "question": "What is a HELM run record, and what three components must be recorded together to make a run reproducible?",
+      "answer": "A run is defined by the triple (scenario, adaptation method, metrics). The scenario specifies what the model must do (a list of input-reference instances); adaptation specifies how the LM is turned into a system for that scenario (here, few-shot prompting with exact prompt text and decoding parameters); and metrics specify which desiderata are measured on the resulting completions. All three must be recorded together — along with the raw prompts and completions — to reproduce or compare results."
     },
     {
       "id": "helm#4",
-      "question": "Why does HELM measure seven metric categories rather than accuracy alone?",
-      "answer": "Measuring only accuracy hides important trade-offs: the most accurate model is often not the most robust or most fair, and calibration can move in the opposite direction from accuracy depending on the scenario. Measuring all seven together makes these trade-offs visible and prevents non-accuracy metrics from being treated as second-class concerns."
+      "question": "What are the seven metric categories HELM measures for every core scenario, and why measure them all together?",
+      "answer": "Accuracy (exact match, F1, ROUGE, MRR/NDCG depending on task), calibration (ECE), robustness (worst-case accuracy under input perturbations such as typos), fairness (accuracy gaps across dialect/demographic groups), bias and stereotypes (demographic representation and stereotypical association in model generations), toxicity (Perspective API scores), and efficiency (training energy/CO2 and inference runtime). Measuring all seven in the same scenarios makes trade-offs visible and prevents non-accuracy metrics from being treated as second-class citizens."
     },
     {
       "id": "helm#5",
-      "question": "What does the jump from 17.9% to 96.0% shared scenario coverage reveal about standardization?",
-      "answer": "Before HELM, models shared on average only 17.9% of core evaluation scenarios, meaning almost no direct head-to-head comparisons were possible. By fixing the prompting strategy and scenarios for all 30 models, HELM raised shared coverage to 96.0%, showing how much comparative information is lost when models are evaluated under different conditions."
+      "question": "How does HELM compute calibration, and what two complementary scores does it report?",
+      "answer": "HELM computes Expected Calibration Error (ECE) using 10 equal-sized bins: for each bin it takes the absolute difference between the bin's mean predicted probability and the fraction of correct predictions, then takes a weighted average across bins. It also reports selective classification accuracy — the accuracy on the C-fraction of examples where the model assigns the highest probability, with the model abstaining on the remaining 1-C examples — evaluated at C=0.1 and as the area under the coverage-accuracy curve."
     },
     {
       "id": "helm#6",
-      "question": "What is HELM's taxonomy-plus-incompleteness approach, and why is explicitly naming gaps a design principle?",
-      "answer": "HELM operates at two levels: an abstract taxonomy that maps the full design space of scenarios and metrics (including what is absent), and a concrete implemented subset. Explicitly stating what your benchmark does not cover — such as non-English languages or non-text modalities — is treated as equally important as stating what it does cover, because unstated gaps mislead users into thinking coverage is complete."
+      "question": "How does HELM operationalize robustness, and what two types of perturbation does it apply?",
+      "answer": "Robustness is measured as worst-case accuracy across a set of input transformations. Invariance perturbations are semantics-preserving (typos, capitalization changes, common misspellings) and the model's prediction should be unchanged. Equivariance perturbations change the target output (e.g. gender substitution via contrast sets); the model's prediction should shift accordingly. Both are restricted to text classification, QA, and information retrieval scenarios where the gold-standard change is well-defined."
     },
     {
       "id": "helm#7",
-      "question": "How does HELM's finding on upstream perplexity challenge a common assumption about language model evaluation?",
-      "answer": "HELM finds that upstream perplexity on The Pile is a poor predictor of downstream task accuracy across model families. This undermines the assumption that a lower perplexity language model will automatically perform better on user-facing tasks, motivating direct task-level evaluation rather than relying on pre-training metrics as a proxy."
+      "question": "Why does HELM record the exact prompt used in every evaluation run?",
+      "answer": "Prompt formatting has a large causal effect on accuracy: HELM's prompting analysis (finding 22) shows accuracy swings of tens of percentage points depending on the choice of in-context examples, their number, and their formatting. Recording the exact prompt is therefore necessary to reproduce any result and to fairly attribute differences between models to model quality rather than prompting differences."
     },
     {
       "id": "helm#8",
-      "question": "Why does HELM treat prompt sensitivity as a reason to record the exact prompt alongside every result?",
-      "answer": "HELM finds that accuracy can swing by tens of percentage points depending on in-context example choice and prompt formatting. Because the prompt is a variable that directly determines the outcome, omitting it from the evaluation record makes results irreproducible and comparisons unreliable."
+      "question": "For multiple-choice scenarios, what two adaptation strategies does HELM consider, and how large is the accuracy gap between them?",
+      "answer": "The joint strategy presents all answer choices together in a single prompt (as in a multiple-choice exam); the separate strategy presents each answer choice in its own prompt and compares log probabilities. For OPT (175B) on HellaSwag, joint 5-shot prompting yields 79.1% accuracy, while the separate 0-shot prompt drops it to 30.2% — near random chance — showing that the adaptation method alone can swing accuracy by nearly 50 points."
+    },
+    {
+      "id": "helm#9",
+      "question": "What does HELM find about upstream perplexity as a predictor of downstream task accuracy?",
+      "answer": "Bits-per-byte on The Pile (a more tokenization-comparable measure than perplexity) is a poor predictor of downstream accuracy when comparing across model families. Even models with low bits-per-byte do not reliably achieve high task accuracy, suggesting that language modeling objectives capture something different from the task-specific capabilities measured by HELM's core scenarios."
+    },
+    {
+      "id": "helm#10",
+      "question": "What does HELM find about the effect of instruction tuning on accuracy, robustness, and fairness?",
+      "answer": "Instruction-tuned models — text-davinci-002 and Anthropic-LM v4-s3 (52B) — lead on accuracy, robustness, and fairness across core scenarios, and Anthropic-LM v4-s3 is in the top 3 for all three metrics despite being more than 10x smaller in parameter count than TNLG v2 (530B). This suggests instruction tuning provides broad advantages beyond raw scale."
+    },
+    {
+      "id": "helm#11",
+      "question": "What does HELM find about the accuracy gap between open and closed/limited-access models?",
+      "answer": "A consistent gap exists across all core scenarios: the top performers are closed (Anthropic-LM v4-s3) or limited-access (text-davinci-002, TNLG v2) models. For 6 of the 9 QA scenarios, no open model appears among the top 3. The gap reflects the benchmark snapshot at the time of evaluation and could shrink as newer open models are released."
+    },
+    {
+      "id": "helm#12",
+      "question": "What is HELM's taxonomy-plus-incompleteness approach, and why is explicitly naming gaps a design practice worth copying?",
+      "answer": "HELM starts top-down with a full taxonomy of scenarios (task × domain × language) and metrics before selecting which subset to implement. It then explicitly documents what is missing — non-English scenarios, missing metrics, uncovered domains — in a dedicated 'What is missing' section. This makes the benchmark's blind spots legible to users and future builders, which is more honest and more useful than a benchmark that implies full coverage by silence."
     }
   ]
 }
