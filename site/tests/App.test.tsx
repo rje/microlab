@@ -148,6 +148,20 @@ describe("App", () => {
     expect(await screen.findByDisplayValue("loaded note text")).toBeInTheDocument();
   });
 
+  it("changes a task status from the board and persists it", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}), text: async () => "" }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App initialState={state} />);
+    const select = screen.getByLabelText(/status for Evaluation schema and suite loader/i);
+    fireEvent.change(select, { target: { value: "done" } });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/phases/phase-0/tasks/eval-schema/status",
+        expect.objectContaining({ method: "POST", headers: expect.objectContaining({ "X-CSRF-Token": "tok" }) })
+      );
+    });
+  });
+
   it("renders the AI overview in the summary tab when present", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (String(url).includes("/overview")) {

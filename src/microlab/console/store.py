@@ -6,6 +6,7 @@ from pathlib import Path
 
 READ_STATES = {"unread", "skimming", "mapped", "built", "mastered"}
 DEPTHS = {"implement", "understand", "aware"}
+TASK_STATUSES = {"done", "active", "queued", "blocked"}
 
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
@@ -28,6 +29,17 @@ def init_db(db_path: str | Path) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS task_status (
+                phase_id   TEXT NOT NULL,
+                task_id    TEXT NOT NULL,
+                status     TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (phase_id, task_id)
+            )
+            """
+        )
         conn.commit()
     finally:
         conn.close()
@@ -45,6 +57,40 @@ def get_all_progress(db_path: str | Path) -> dict[str, dict[str, str | None]]:
         row["paper_id"]: {"readState": row["read_state"], "depth": row["depth"]}
         for row in rows
     }
+
+
+def get_all_task_status(db_path: str | Path) -> dict[str, dict[str, str]]:
+    if not Path(db_path).exists():
+        return {}
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT phase_id, task_id, status FROM task_status").fetchall()
+    finally:
+        conn.close()
+    result: dict[str, dict[str, str]] = {}
+    for row in rows:
+        result.setdefault(row["phase_id"], {})[row["task_id"]] = row["status"]
+    return result
+
+
+def set_task_status(db_path: str | Path, phase_id: str, task_id: str, status: str) -> None:
+    if status not in TASK_STATUSES:
+        raise ValueError(f"invalid task status: {status!r}")
+    init_db(db_path)
+    conn = _connect(db_path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO task_status (phase_id, task_id, status, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phase_id, task_id) DO UPDATE SET
+                status = excluded.status, updated_at = excluded.updated_at
+            """,
+            (phase_id, task_id, status, datetime.now(UTC).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def upsert_progress(

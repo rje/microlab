@@ -151,6 +151,12 @@ def register_content_routes(app: Flask) -> None:
             paper["progress"] = progress.get(
                 paper["id"], {"readState": "unread", "depth": None}
             )
+        task_overrides = store.get_all_task_status(db_path)
+        for phase in state["phases"]:
+            overrides = task_overrides.get(phase["id"], {})
+            for task in phase.get("tasks", []):
+                if task["id"] in overrides:
+                    task["status"] = overrides[task["id"]]
         state["csrfToken"] = auth.ensure_csrf_token()
         return jsonify(state)
 
@@ -177,6 +183,27 @@ def register_content_routes(app: Flask) -> None:
         data = request.get_json(silent=True) or {}
         try:
             store.upsert_progress(db_path, paper_id, data.get("readState"), data.get("depth"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify({"ok": True})
+
+    @app.route("/api/phases/<phase_id>/tasks/<task_id>/status", methods=["POST"])
+    @auth.login_required
+    def set_task_status_route(phase_id: str, task_id: str):
+        if not auth.csrf_ok(request.headers.get("X-CSRF-Token")):
+            return jsonify({"error": "bad csrf token"}), 403
+        try:
+            state = content.load_state(root)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 500
+        phase = next((p for p in state["phases"] if p["id"] == phase_id), None)
+        if phase is None:
+            return jsonify({"error": "unknown phase"}), 404
+        if not any(t["id"] == task_id for t in phase.get("tasks", [])):
+            return jsonify({"error": "unknown task"}), 404
+        data = request.get_json(silent=True) or {}
+        try:
+            store.set_task_status(db_path, phase_id, task_id, data.get("status"))
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         return jsonify({"ok": True})

@@ -29,7 +29,8 @@ import {
   fetchNotes,
   fetchOverview,
   saveNotes,
-  saveProgress
+  saveProgress,
+  saveTaskStatus
 } from "./state";
 import { MarkdownDocumentView } from "./MarkdownDocumentView";
 import { PdfView } from "./PdfView";
@@ -179,6 +180,20 @@ export function App({ initialState }: AppProps) {
         : prev
     );
   };
+  const updateTaskStatus = (phaseId: string, taskId: string, status: string) => {
+    setState((prev) =>
+      prev
+        ? {
+            ...prev,
+            phases: prev.phases.map((ph) =>
+              ph.id === phaseId
+                ? { ...ph, tasks: ph.tasks.map((t) => (t.id === taskId ? { ...t, status: status as PhaseTask["status"] } : t)) }
+                : ph
+            )
+          }
+        : prev
+    );
+  };
   const activePaper = activePaperId
     ? state.papers.find((p) => p.id === activePaperId) ?? null
     : null;
@@ -194,7 +209,13 @@ export function App({ initialState }: AppProps) {
         <main className="workspace">
           <PhaseHeader phase={activePhase} />
           <ProgressBand phase={activePhase} papers={readingPapers} runs={phaseRuns} />
-          <TaskBoard tasks={activePhase.tasks} onOpenMarkdown={openMarkdownDocument} />
+          <TaskBoard
+            tasks={activePhase.tasks}
+            phaseId={activePhase.id}
+            csrfToken={state.csrfToken ?? ""}
+            onOpenMarkdown={openMarkdownDocument}
+            onChangeStatus={updateTaskStatus}
+          />
         </main>
         <aside className="right-rail">
           <ReadingPanel
@@ -321,10 +342,16 @@ function MetricTile({ label, value, tone }: { label: string; value: string; tone
 
 function TaskBoard({
   tasks,
-  onOpenMarkdown
+  phaseId,
+  csrfToken,
+  onOpenMarkdown,
+  onChangeStatus
 }: {
   tasks: PhaseTask[];
+  phaseId: string;
+  csrfToken: string;
   onOpenMarkdown: (href: string) => void;
+  onChangeStatus: (phaseId: string, taskId: string, status: string) => void;
 }) {
   const groupedTasks = useMemo(() => {
     const order: PhaseTask["status"][] = ["active", "queued", "done", "blocked"];
@@ -353,6 +380,22 @@ function TaskBoard({
                 <div>
                   <h4>{task.title}</h4>
                   <p>{task.why}</p>
+                  <label className="task-status-select">
+                    <span className="visually-hidden">Status for {task.title}</span>
+                    <select
+                      aria-label={`Status for ${task.title}`}
+                      value={task.status}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        onChangeStatus(phaseId, task.id, next);
+                        saveTaskStatus(phaseId, task.id, csrfToken, next).catch(() => {});
+                      }}
+                    >
+                      {(["queued", "active", "done", "blocked"] as const).map((s) => (
+                        <option key={s} value={s}>{taskStatusLabel[s]}</option>
+                      ))}
+                    </select>
+                  </label>
                   {task.links.length > 0 && (
                     <div className="inline-links">
                       {task.links.map((link) => (

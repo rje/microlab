@@ -254,3 +254,52 @@ def test_static_assets_served_without_auth(client, project_root):
     resp = client.get("/assets/x.js")
     assert resp.status_code == 200
     assert client.get("/assets/../../secret.txt").status_code in (400, 404)
+
+
+def _seed_phase_task(project_root):
+    import json
+
+    (project_root / "site" / "content" / "phases.json").write_text(
+        json.dumps([
+            {"id": "phase-0", "title": "Phase 0", "status": "current", "goal": "g",
+             "tasks": [{"id": "t1", "title": "Task one", "status": "queued", "why": "w", "links": []}],
+             "readingPaperIds": []}
+        ]),
+        encoding="utf-8",
+    )
+
+
+def test_task_status_override_in_state(client, project_root):
+    _seed_phase_task(project_root)
+    csrf = _login(client)
+    resp = client.post(
+        "/api/phases/phase-0/tasks/t1/status",
+        json={"status": "done"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    state = client.get("/api/state").get_json()
+    task = state["phases"][0]["tasks"][0]
+    assert task["status"] == "done"
+
+
+def test_task_status_requires_csrf(auth_client, project_root):
+    _seed_phase_task(project_root)
+    resp = auth_client.post("/api/phases/phase-0/tasks/t1/status", json={"status": "done"})
+    assert resp.status_code == 403
+
+
+def test_task_status_rejects_unknown_phase_or_task(client, project_root):
+    _seed_phase_task(project_root)
+    csrf = _login(client)
+    assert client.post("/api/phases/nope/tasks/t1/status", json={"status": "done"},
+                       headers={"X-CSRF-Token": csrf}).status_code == 404
+    assert client.post("/api/phases/phase-0/tasks/nope/status", json={"status": "done"},
+                       headers={"X-CSRF-Token": csrf}).status_code == 404
+
+
+def test_task_status_rejects_bad_status(client, project_root):
+    _seed_phase_task(project_root)
+    csrf = _login(client)
+    assert client.post("/api/phases/phase-0/tasks/t1/status", json={"status": "banana"},
+                       headers={"X-CSRF-Token": csrf}).status_code == 400

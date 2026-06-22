@@ -140,6 +140,19 @@ export function saveNotes(paperId: string, csrfToken: string, content: string): 
   return mutate(`/api/papers/${encodeURIComponent(paperId)}/notes`, csrfToken, { content });
 }
 
+export function saveTaskStatus(
+  phaseId: string,
+  taskId: string,
+  csrfToken: string,
+  status: string
+): Promise<void> {
+  return mutate(
+    `/api/phases/${encodeURIComponent(phaseId)}/tasks/${encodeURIComponent(taskId)}/status`,
+    csrfToken,
+    { status }
+  );
+}
+
 export async function fetchNotes(paperId: string): Promise<string> {
   const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/notes`);
   if (!response.ok) {

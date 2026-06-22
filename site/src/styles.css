@@ -887,3 +887,7 @@ svg {
 .overview-sections { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.4rem; }
 .overview-section h4 { margin: 0 0 0.15rem; font-size: 0.86rem; }
 .overview-section p { margin: 0; }
+
+.task-status-select { display: inline-block; margin: 6px 0 2px; }
+.task-status-select select { background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 6px; padding: 0.2rem 0.4rem; font-size: 0.78rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

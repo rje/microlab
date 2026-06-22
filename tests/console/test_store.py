@@ -33,3 +33,25 @@ def test_upsert_rejects_unknown_read_state(tmp_path: Path):
 def test_upsert_rejects_unknown_depth(tmp_path: Path):
     with pytest.raises(ValueError, match="depth"):
         store.upsert_progress(tmp_path / "microlab.db", "rope", "mapped", "banana")
+
+
+def test_task_status_empty_when_no_db(tmp_path: Path):
+    assert store.get_all_task_status(tmp_path / "microlab.db") == {}
+
+
+def test_set_and_get_task_status(tmp_path: Path):
+    db = tmp_path / "microlab.db"
+    store.set_task_status(db, "phase-0", "eval-schema", "done")
+    assert store.get_all_task_status(db) == {"phase-0": {"eval-schema": "done"}}
+
+
+def test_set_task_status_overwrites(tmp_path: Path):
+    db = tmp_path / "microlab.db"
+    store.set_task_status(db, "phase-0", "eval-schema", "active")
+    store.set_task_status(db, "phase-0", "eval-schema", "done")
+    assert store.get_all_task_status(db)["phase-0"]["eval-schema"] == "done"
+
+
+def test_set_task_status_rejects_unknown_status(tmp_path: Path):
+    with pytest.raises(ValueError, match="status"):
+        store.set_task_status(tmp_path / "microlab.db", "phase-0", "t1", "banana")
