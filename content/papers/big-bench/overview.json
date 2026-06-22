@@ -1,0 +1,44 @@
+{
+  "paperId": "big-bench",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "BIG-bench is a 204-task, community-built benchmark spanning linguistics, math, common-sense reasoning, social bias, and beyond, designed to probe capabilities currently beyond language models and to track how those capabilities change across six orders of magnitude of model scale.",
+  "overview": "Beyond the Imitation Game benchmark (BIG-bench) was contributed by 450 authors across 132 institutions, deliberately targeting tasks believed to exceed the abilities of current language models rather than tasks where proficiency is already established. Models evaluated include Google's BIG-G dense and sparse transformers, OpenAI's GPT series, and PaLM, spanning millions to hundreds of billions of parameters, with expert human raters providing a strong baseline on all tasks. Headline findings: aggregate performance and calibration both improve with scale but remain well below human rater performance across all model families; tasks divide into those that improve gradually with scale (typically knowledge- or memorization-heavy) and those that show sudden 'breakthrough' behavior only above a critical scale (typically composite, multi-step tasks); and social bias generally increases with scale in ambiguous-context settings, though prompting can partially mitigate it. BIG-bench Lite — a curated 24-task JSON subset — provides a computationally cheap representative evaluation.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Current benchmarks have narrow scope, saturate quickly, and use non-expert labeling that biases toward easier tasks. BIG-bench addresses this with a large, diverse, contributor-built suite of tasks that are novel, not fully solvable by current models, and evaluated zero- and few-shot across models spanning six orders of magnitude in parameter count."
+    },
+    {
+      "title": "2. What is in BIG-bench?",
+      "summary": "BIG-bench contains 204 tasks in two formats: JSON tasks (~80%, defined by input/output examples and standard metrics such as exact_string_match, multiple_choice_grade, and calibration scores) and programmatic tasks (~20%, written in Python for multi-turn or custom-metric evaluation). BIG-bench Lite is a hand-selected 24-task JSON subset chosen for keyword coverage and task-type diversity, enabling fast evaluation; a canary GUID string is embedded in all task files to help researchers detect data leakage into future training corpora."
+    },
+    {
+      "title": "2.3 Evaluation targets: models and human raters",
+      "summary": "BIG-G (13 dense decoder-only Transformers trained at Google), BIG-G sparse (Mixture-of-Experts variants), and GPT (8 dense models from 125M to 175B non-embedding parameters) were the primary evaluation targets, with PaLM results added during writing. Expert human raters completed all tasks with internet access allowed, reporting mean and max scores; the authors caution that rater demographics may themselves introduce bias, particularly on social-bias tasks."
+    },
+    {
+      "title": "3.1–3.3 Aggregate performance, calibration, and model-class comparisons",
+      "summary": "Aggregate normalized preferred metric improves with scale and shot count but the best models score below 20 out of 100, far below human raters. Calibration (Brier score 0.25–0.45 ECE) is poor across all models but consistently improves with scale; sparse models achieve a roughly tenfold improvement in FLOP-matched calibration over dense models. BIG-G and GPT perform similarly overall, with sparse models outperforming both at matched inference cost."
+    },
+    {
+      "title": "3.4 Linearity and breakthroughness: categorizing scaling behaviors",
+      "summary": "Tasks are characterized by two metrics — linearity (steady improvement with scale) and breakthroughness (sudden gain above a critical scale). High-linearity tasks tend to be knowledge- or memorization-based; high-breakthroughness tasks tend to be composite, requiring multiple sequential steps or logical reasoning components. Around 5% of BIG-bench tasks exhibit breakthrough behavior; apparent discontinuities are often metric artifacts that smoother metrics or task decomposition can reveal as gradual underlying progress."
+    },
+    {
+      "title": "3.5–3.6 Brittleness and social bias",
+      "summary": "Even the largest models are brittle: small changes in task specification (prompt wording, answer formatting) can cause large score swings, and breakthrough behavior is sensitive to these details. Social bias (measured across tasks targeting gender, race, and religion) typically increases with model scale in ambiguous-context settings, though chain-of-thought or explicit prompting can partially reduce it."
+    },
+    {
+      "title": "6. Discussion and Conclusion",
+      "summary": "BIG-bench confirms that scale brings consistent but slow aggregate gains while leaving models far below human-rater performance, and that a single aggregate score obscures highly variable task-level behavior — including surprise strengths, brittle failures, and emergent capabilities. The authors call for continued contributor-driven expansion and for evaluation to focus on task-level inspection rather than headline numbers."
+    }
+  ],
+  "readingFocus": [
+    "The contributor-built design: 450 authors submitted novel tasks, producing a suite that catches surprising strengths and weaknesses no single team would have anticipated — this is the core argument for a broad, mixed Phase 0 eval suite rather than one or two established benchmarks.",
+    "Task-level inspection over aggregate scores: BIG-bench's own Figure 4 (BIG-bench Lite per-task bars) shows models that look mediocre in aggregate are near-human on some tasks and near-random on others — a single number hides both failures and unexpected capability.",
+    "Linearity vs. breakthroughness: some capabilities appear suddenly above a scale threshold; if your Phase 0 suite is too narrow you may miss emergent behavior entirely, or mistake a metric artifact for a genuine discontinuity.",
+    "Calibration as a first-class metric: models are poorly calibrated even when accurate, and calibration improves with scale more reliably than accuracy does — worth tracking in your own eval harness from the start.",
+    "BIG-bench Lite as a design pattern: the 24-task curated subset shows how to balance coverage and compute cost, directly applicable when deciding which tasks to include in a Phase 0 lightweight eval pass."
+  ]
+}

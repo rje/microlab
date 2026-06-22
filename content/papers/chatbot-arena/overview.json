@@ -1,0 +1,44 @@
+{
+  "paperId": "chatbot-arena",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Chatbot Arena is a crowdsourced live benchmark where users pose free-form questions to two anonymous LLMs side-by-side and vote for the better response, with Bradley-Terry coefficients fitted to the pairwise votes to produce statistically grounded model rankings.",
+  "overview": "Static, ground-truth benchmarks like MMLU cannot capture open-ended assistant quality and grow stale through contamination. Chatbot Arena addresses this by collecting live, user-generated pairwise preferences: anonymous model pairs answer user-supplied prompts, users vote for the preferred response, and over 240K votes from 90K users across more than 100 languages had accumulated by January 2024. Rankings are estimated via maximum-likelihood Bradley-Terry (BT) coefficients with sandwich-robust confidence intervals and an active sampling rule that concentrates battles on closely matched pairs to accelerate convergence. Crowd votes agree with expert raters at 72–83%, validating the approach, while topic modeling across 600 clusters confirms the prompts are diverse and sufficiently discriminating.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Static benchmarks fail to capture open-ended LLM use and are vulnerable to contamination; Chatbot Arena introduces a live, crowdsourced pairwise-preference platform as a complementary evaluation that mirrors real-world usage and accumulates continuously fresh data."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Existing benchmarks fall into four quadrants by question source (static vs. live) and metric (ground truth vs. human preference); Arena is the first open, large-scale platform in the live-human-preference quadrant, distinct from both classical leaderboards and LLM-as-judge approaches."
+    },
+    {
+      "title": "3. Human Preference Data Collection",
+      "summary": "Users visit chat.lmsys.org, enter any free-form prompt, receive side-by-side responses from two randomly sampled anonymous models, and cast a vote (A better / B better / Tie / Both bad); model identity is revealed only after voting. By January 2024 the dataset comprised 243,329 conversations from 90,051 users across 149 languages, averaging 94.9 tokens per prompt and 269.0 tokens per response."
+    },
+    {
+      "title": "4. From Pairwise Comparisons to Rankings (Bradley-Terry model)",
+      "summary": "Each model is assigned a BT coefficient ξ_m; the probability that model m beats m′ follows a logistic function of their coefficient difference, and the M coefficients are estimated by (reweighted) maximum-likelihood to minimize binary cross-entropy over all observed battles. The paper notes the platform previously reported Elo scores but switched to BT coefficients because they are better suited to statistical estimation."
+    },
+    {
+      "title": "5. Efficient Approximate Ranking (estimation, active sampling, anomaly detection)",
+      "summary": "BT coefficients are estimated with sandwich-robust standard errors and chi-square confidence intervals; an active sampling rule proportionally selects model pairs by the expected reduction in confidence-interval width, requiring 5–54% fewer votes than random sampling to reach the same precision. A Fisher-combination anomaly detector flags IP addresses whose vote distributions diverge significantly from the historical population, achieving ~90% true-positive rate in small-scale tests."
+    },
+    {
+      "title": "6. Data Analysis — prompt diversity and vote quality",
+      "summary": "BERTopic clustering identifies 600 topic clusters with no single cluster exceeding 1% of prompts, confirming long-tail diversity. Expert re-labeling of 160 battles shows crowd-user agreement with experts at 72–83%, comparable to inter-expert agreement (79–90%), with the gap attributed mainly to crowd users occasionally overlooking factual errors."
+    },
+    {
+      "title": "7–8. Experiments & Discussion",
+      "summary": "Ranking on 213,576 historical votes reproduces expected orderings (GPT-4-Turbo at rank 1) with tight confidence intervals; Arena Bench constructed from crowd prompts reveals larger gaps between proprietary and open models than MT-Bench. Limitations include a user base skewed toward LLM hobbyists and researchers, which may bias the prompt distribution away from production or specialized-domain usage."
+    }
+  ],
+  "readingFocus": [
+    "Why pairwise preference is necessary here: open-ended prompts have no single gold answer, so ground-truth accuracy cannot be computed — this is exactly the boundary where Phase 0 automated evals stop working.",
+    "How the Bradley-Terry model converts a sparse matrix of pairwise wins into a total ranking with statistically valid confidence intervals — understanding this prepares you to reason about any preference-based ranking system.",
+    "The active sampling rule and why it matters: even with human voters you want to spend comparisons efficiently; the same principle applies to active learning and RLHF data collection.",
+    "The prompt-distribution dependency of rankings: Arena's crowd skews toward hobbyists asking coding and reasoning questions, so a model's rank is relative to that distribution — a reminder that no benchmark is distribution-free.",
+    "The 72–83% crowd-vs-expert agreement finding: crowdsourced preference is noisy but not random; the gap is meaningful for calibrating how much to trust any human-preference leaderboard."
+  ]
+}

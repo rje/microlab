@@ -1,0 +1,48 @@
+{
+  "paperId": "helm",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "HELM is a large-scale holistic evaluation framework that benchmarks 30 language models across 42 scenarios and 7 metric categories under standardized conditions, establishing that fair comparison requires a shared measurement system — not just accuracy on isolated benchmarks.",
+  "overview": "HELM (Holistic Evaluation of Language Models) argues that prior benchmarks are fragmented: models are evaluated on different datasets, under different prompting conditions, and almost always on accuracy alone, making meaningful comparison impossible. The framework introduces three design principles — broad coverage with explicit recognition of incompleteness, multi-metric measurement (accuracy, calibration, robustness, fairness, bias, toxicity, and efficiency measured together for every scenario), and standardization (all 30 models evaluated under the same few-shot prompting conditions on the same scenarios). Running nearly 5,000 model-scenario evaluation runs, HELM surfaces 25 headline findings: instruction-tuned models lead on accuracy and fairness, a consistent gap separates open from closed/limited-access models, calibration and accuracy trade off in scenario-dependent ways, and upstream perplexity is a poor predictor of downstream task accuracy. All raw prompts, completions, and model outputs are released publicly so that results are fully reproducible.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction — The case for holistic evaluation",
+      "summary": "Benchmarks orient AI by encoding values and priorities, but existing suites evaluate models in isolation on single metrics, leaving capabilities, limitations, and risks poorly understood. HELM's answer is three principles: broad scenario coverage, multi-metric measurement, and standardized evaluation conditions across all models."
+    },
+    {
+      "title": "1.1 HELM — Framework overview and recognition of incompleteness",
+      "summary": "HELM operates at two levels: an abstract taxonomy of scenarios and metrics that makes the design space explicit (including what is missing), and a concrete implemented set of 16 core scenarios and 7 metric categories. The taxonomy-first approach is deliberate — stating what you choose not to evaluate is as important as stating what you do."
+    },
+    {
+      "title": "2. Preliminaries — Scenarios, adaptation, and metrics",
+      "summary": "A scenario is a (task, domain, language) triple instantiated as a list of input-reference pairs; adaptation is the procedure (here, few-shot prompting) that turns a general LM into a system for that scenario; and metrics are the desiderata measured on the resulting completions. Every HELM run is fully specified by these three components."
+    },
+    {
+      "title": "3. Core scenarios — Taxonomy and selection",
+      "summary": "The 16 core scenarios span 6 user-facing tasks (question answering, information retrieval, summarization, sentiment analysis, toxicity detection, and miscellaneous text classification), chosen to cover breadth while deliberately flagging gaps such as non-English languages. Of the 112 possible core (scenario, metric) pairs, 98 — 87.5% — are actually measured."
+    },
+    {
+      "title": "4. General metrics — Seven categories beyond accuracy",
+      "summary": "For each core scenario HELM measures all 7 metric categories: accuracy (exact match, F1, ROUGE), calibration and uncertainty (expected calibration error), robustness (worst-case accuracy under input perturbations like typos), fairness (accuracy gaps across demographic dialect groups), bias and stereotypes (BBQ-style association tests), toxicity (PerspectiveAPI scores on model generations), and efficiency (training and inference cost). Measuring all seven together for the same scenario makes trade-offs visible and prevents metrics beyond accuracy from being treated as second-class citizens."
+    },
+    {
+      "title": "5. Targeted evaluations — Skills and risks beyond the core",
+      "summary": "Seven targeted evaluation groups — linguistic understanding, knowledge, reasoning, memorization and copyright, disinformation, bias, and toxicity — add 26 additional scenarios to probe specific capabilities and risks in depth, including 21 scenarios new to mainstream LM evaluation."
+    },
+    {
+      "title": "6. Models and standardization — 30 models under shared conditions",
+      "summary": "Thirty prominent language models from 12 organizations (spanning open, limited-access, and closed models) are all adapted via the same 5-shot prompting strategy. Before HELM, models shared on average only 17.9% of core scenarios; after, coverage rises to 96.0%, enabling direct head-to-head comparisons for the first time."
+    },
+    {
+      "title": "1.2 & 8. Empirical findings — 25 headline results",
+      "summary": "Instruction-tuned models (text-davinci-002, Anthropic-LM v4-s3) lead on accuracy, robustness, and fairness despite being far smaller than some base models; a persistent accuracy gap separates open from closed models; calibration and accuracy trade off in scenario-dependent directions; code models dominate reasoning tasks; and upstream perplexity on The Pile is a poor predictor of downstream accuracy across model families."
+    }
+  ],
+  "readingFocus": [
+    "HELM's central architectural insight: an evaluation run is a tuple of (scenario, adaptation, metrics) — all three must be recorded together to reproduce or compare results. This directly motivates the run-record format in the Microlab eval harness.",
+    "The multi-metric principle: measuring accuracy alone hides that the most accurate model is often not the most robust or most fair, and that calibration can move in the opposite direction from accuracy depending on the scenario.",
+    "Standardization as a prerequisite for comparison: the dramatic jump from 17.9% to 96.0% scenario coverage shows how much information is lost when models are evaluated under different conditions, and why the harness must fix prompting strategy and decoding parameters across all runs.",
+    "Prompt sensitivity findings (finding 22): accuracy swings by tens of percentage points depending on in-context example choice and prompt formatting — a concrete reason to record the exact prompt alongside every result.",
+    "The taxonomy-plus-incompleteness approach: explicitly naming what your benchmark does NOT cover (non-English, non-text modalities, missing metrics) is a design practice worth copying — the harness should make its own coverage gaps legible."
+  ]
+}

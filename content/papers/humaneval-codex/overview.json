@@ -1,0 +1,44 @@
+{
+  "paperId": "humaneval-codex",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Codex, a GPT model fine-tuned on 159 GB of GitHub Python, is evaluated on HumanEval — 164 hand-written problems — using the pass@k unbiased estimator, where the 12B model solves 28.8% of problems at k=1 and 72.3% at k=100.",
+  "overview": "The paper introduces Codex, fine-tuned from GPT-3 on publicly available GitHub code, and proposes HumanEval, a benchmark of 164 hand-written Python programming problems each paired with unit tests, to measure functional correctness of docstring-to-code generation. Rather than match-based metrics like BLEU (which the paper shows is unreliable for code), correctness is judged by whether generated code passes all unit tests. The key metric is pass@k: given n>=k samples per problem, the probability that at least one passes is computed via an unbiased estimator to avoid high variance. Codex-12B achieves pass@1=28.8%, far above GPT-3 (0%) and GPT-J (11.4%), and a supervised fine-tuned variant, Codex-S, pushes pass@1 to 37.7%; sampling 100 times raises Codex-S to 77.5%.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Codex is a GPT model fine-tuned on code that powers GitHub Copilot; the paper evaluates it on HumanEval, showing 28.8% pass@1 for the 12B model vs 0% for GPT-3. Repeated sampling is highlighted as a surprisingly effective strategy: 100 samples per problem solves 70.2% of tasks."
+    },
+    {
+      "title": "2. Evaluation Framework — Functional Correctness, HumanEval, and pass@k",
+      "summary": "Functional correctness is defined as passing a set of unit tests, motivated by test-driven development practice and the inadequacy of BLEU for code semantics. HumanEval consists of 164 hand-written problems (avg 7.7 unit tests each); pass@k is computed using the unbiased estimator 1 - C(n-c, k)/C(n, k) with n=200 samples, avoiding high-variance naive estimation. The sandbox using gVisor safely executes untrusted generated programs."
+    },
+    {
+      "title": "3. Code Fine-Tuning — Codex Models and Results",
+      "summary": "Codex is fine-tuned from GPT-3 on 159 GB of filtered GitHub Python (collected May 2020), ranging from 12M to 12B non-embedding parameters; test loss follows a power law in model size. Codex-12B achieves pass@1=28.8% and pass@100=72.3%, versus near 0% for all GPT-3 sizes; optimal sampling temperature is T*=0.2 for k=1 and T*=0.8 for k=100."
+    },
+    {
+      "title": "4. Supervised Fine-Tuning — Codex-S",
+      "summary": "Codex is further fine-tuned on ~10,000 correctly implemented standalone functions from competitive programming sites and CI repositories to produce Codex-S, which improves pass@1 by ~6.5 percentage points and pass@100 by ~15 points over Codex across model sizes."
+    },
+    {
+      "title": "5. Docstring Generation — Codex-D",
+      "summary": "Codex-D is trained to generate docstrings from code (the reverse task), enabling a back-translation ranking heuristic; it achieves pass@1=20.3% vs Codex-S's 32.2%, and its docstrings are hand-graded since no automatic unit-test-based evaluation exists for natural language outputs."
+    },
+    {
+      "title": "6. Limitations",
+      "summary": "Codex struggles with docstrings describing long chains of operations and with binding operations to variables; pass rate drops by a factor of 2-3 for each additional chained component in synthetic benchmarks. Codex is also not sample efficient: it requires far more code exposure than a human programmer would need to reach comparable performance."
+    },
+    {
+      "title": "7. Broader Impacts and Hazard Analysis",
+      "summary": "Potential benefits include programmer productivity and education, but risks include over-reliance on plausible-but-wrong code, misalignment (model mirrors training distribution rather than user intent), bias and harmful outputs in code comments, economic disruption to software labor markets, and security concerns including generation of insecure or polymorphic malware."
+    }
+  ],
+  "readingFocus": [
+    "Why functional correctness via unit tests is the right metric for code generation — and why BLEU fails: distributions of BLEU scores for correct and incorrect Codex solutions overlap significantly (Figure 8), so BLEU improvement does not reliably predict correctness improvement.",
+    "The pass@k unbiased estimator (Equation 1): generate n>=k samples, count c correct, compute 1 - C(n-c,k)/C(n,k). Understand why the naive 1-(1-p_hat)^k is biased, and how n=200 with k<=100 is chosen to keep variance low — this is the exact formula to implement in your eval harness.",
+    "The sandwich of numbers to remember: HumanEval has 164 problems with avg 7.7 unit tests each; Codex-12B gets 28.8% pass@1 and 72.3% pass@100; GPT-3 gets 0%. These are the baseline figures against which Phase 0 results should be anchored.",
+    "Temperature matters for k: T*=0.2 for pass@1 (want the single best guess), T*=0.8 for pass@100 (want diversity). If your harness runs multiple samples, set temperature to match the k you are evaluating.",
+    "The sandbox design (gVisor, eBPF firewall) is the practical infrastructure needed to safely execute untrusted generated code against unit tests — directly relevant to building a safe eval harness."
+  ]
+}
