@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 READ_STATES = {"unread", "skimming", "mapped", "built", "mastered"}
@@ -37,6 +37,29 @@ def init_db(db_path: str | Path) -> None:
                 status     TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (phase_id, task_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS recall_state (
+                card_id       TEXT PRIMARY KEY,
+                paper_id      TEXT NOT NULL,
+                ease          REAL NOT NULL DEFAULT 2.5,
+                interval_days INTEGER NOT NULL DEFAULT 0,
+                reps          INTEGER NOT NULL DEFAULT 0,
+                due_at        TEXT NOT NULL,
+                last_reviewed TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS recall_reviews (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id     TEXT NOT NULL,
+                reviewed_at TEXT NOT NULL,
+                grade       INTEGER NOT NULL
             )
             """
         )
@@ -117,3 +140,83 @@ def upsert_progress(
         conn.commit()
     finally:
         conn.close()
+
+
+def get_review_state(db_path: str | Path) -> dict[str, dict[str, object]]:
+    if not Path(db_path).exists():
+        return {}
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT card_id, due_at, interval_days, reps, ease FROM recall_state"
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        r["card_id"]: {
+            "dueAt": r["due_at"],
+            "intervalDays": r["interval_days"],
+            "reps": r["reps"],
+            "ease": r["ease"],
+        }
+        for r in rows
+    }
+
+
+def count_reviews(db_path: str | Path) -> int:
+    if not Path(db_path).exists():
+        return 0
+    conn = _connect(db_path)
+    try:
+        return int(conn.execute("SELECT COUNT(*) AS n FROM recall_reviews").fetchone()["n"])
+    finally:
+        conn.close()
+
+
+def record_review(
+    db_path: str | Path, card_id: str, paper_id: str, grade: int, today: date
+) -> dict[str, object]:
+    if grade not in range(6):
+        raise ValueError(f"grade must be 0..5, got {grade!r}")
+    init_db(db_path)
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT ease, interval_days, reps FROM recall_state WHERE card_id = ?", (card_id,)
+        ).fetchone()
+        ease = row["ease"] if row else 2.5
+        reps = row["reps"] if row else 0
+        interval = row["interval_days"] if row else 0
+        if grade < 3:
+            reps = 0
+            interval = 1
+        else:
+            reps += 1
+            if reps == 1:
+                interval = 1
+            elif reps == 2:
+                interval = 6
+            else:
+                interval = round(interval * ease)
+        ease = max(1.3, ease + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02)))
+        due = (today + timedelta(days=interval)).isoformat()
+        conn.execute(
+            """
+            INSERT INTO recall_state
+                (card_id, paper_id, ease, interval_days, reps, due_at, last_reviewed)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(card_id) DO UPDATE SET
+                ease = excluded.ease, interval_days = excluded.interval_days,
+                reps = excluded.reps, due_at = excluded.due_at,
+                last_reviewed = excluded.last_reviewed
+            """,
+            (card_id, paper_id, ease, interval, reps, due, today.isoformat()),
+        )
+        conn.execute(
+            "INSERT INTO recall_reviews (card_id, reviewed_at, grade) VALUES (?, ?, ?)",
+            (card_id, today.isoformat(), grade),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ease": ease, "intervalDays": interval, "reps": reps, "dueAt": due}

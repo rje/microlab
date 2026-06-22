@@ -236,6 +236,33 @@ def resolve_artifact_path(project_root: Path, requested_path: str) -> Path:
     return candidate
 
 
+def cards_path(project_root: Path, paper_id: str) -> Path:
+    return project_root / "content" / "papers" / paper_id / "cards.json"
+
+
+def read_cards(project_root: Path, paper_id: str) -> list[dict[str, Any]]:
+    path = cards_path(project_root, paper_id)
+    if not path.exists():
+        return []
+    return list(json.loads(path.read_text(encoding="utf-8")).get("cards", []))
+
+
+def all_cards(project_root: Path) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for paper in load_papers(project_root):
+        for card in read_cards(project_root, paper["id"]):
+            result.append(
+                {
+                    "id": card["id"],
+                    "paperId": paper["id"],
+                    "paperTitle": paper["title"],
+                    "question": card["question"],
+                    "answer": card["answer"],
+                }
+            )
+    return result
+
+
 def valid_paper_ids(project_root: Path) -> set[str]:
     return {paper["id"] for paper in load_papers(project_root)}
 

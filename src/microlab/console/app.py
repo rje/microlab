@@ -3,6 +3,7 @@ from __future__ import annotations
 import mimetypes
 import os
 import secrets
+from datetime import date
 from pathlib import Path
 
 from flask import (
@@ -251,6 +252,39 @@ def register_content_routes(app: Flask) -> None:
             return send_file(content.resolve_artifact_path(root, subpath))
         except (ValueError, FileNotFoundError):
             return "", 400
+
+    @app.route("/api/recall/due")
+    @auth.login_required
+    def recall_due():
+        cards = content.all_cards(root)
+        state = store.get_review_state(db_path)
+        today = date.today().isoformat()
+        due = []
+        for card in cards:
+            st = state.get(card["id"])
+            if st is None:
+                due.append({**card, "status": "new"})
+            elif str(st["dueAt"]) <= today:
+                due.append({**card, "status": "due"})
+        due.sort(key=lambda c: 0 if c["status"] == "new" else 1)
+        return jsonify({"cards": due[:40], "total": len(due)})
+
+    @app.route("/api/recall/review", methods=["POST"])
+    @auth.login_required
+    def recall_review():
+        if not auth.csrf_ok(request.headers.get("X-CSRF-Token")):
+            return jsonify({"error": "bad csrf token"}), 403
+        data = request.get_json(silent=True) or {}
+        card_id = data.get("cardId")
+        if card_id not in {c["id"] for c in content.all_cards(root)}:
+            return jsonify({"error": "unknown card"}), 404
+        try:
+            result = store.record_review(
+                db_path, card_id, str(data.get("paperId", "")), int(data.get("grade")), date.today()
+            )
+        except (ValueError, TypeError) as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify({"ok": True, "next": result})
 
     @app.route("/")
     @app.route("/<path:requested>")

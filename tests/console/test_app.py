@@ -303,3 +303,63 @@ def test_task_status_rejects_bad_status(client, project_root):
     csrf = _login(client)
     assert client.post("/api/phases/phase-0/tasks/t1/status", json={"status": "banana"},
                        headers={"X-CSRF-Token": csrf}).status_code == 400
+
+
+def _seed_cards(project_root):
+    import json
+    _seed_mmlu(project_root)
+    cards = project_root / "content" / "papers" / "mmlu" / "cards.json"
+    cards.parent.mkdir(parents=True, exist_ok=True)
+    cards.write_text(json.dumps({"paperId": "mmlu", "cards": [
+        {"id": "mmlu#1", "question": "Q1?", "answer": "A1"},
+        {"id": "mmlu#2", "question": "Q2?", "answer": "A2"},
+    ]}), encoding="utf-8")
+
+
+def test_recall_due_lists_new_cards(client, project_root):
+    _seed_cards(project_root)
+    _login(client)
+    body = client.get("/api/recall/due").get_json()
+    assert body["total"] == 2
+    assert {c["id"] for c in body["cards"]} == {"mmlu#1", "mmlu#2"}
+    assert all(c["status"] == "new" for c in body["cards"])
+
+
+def test_recall_due_requires_auth(client):
+    assert client.get("/api/recall/due").status_code == 401
+
+
+def test_recall_review_round_trip(client, project_root):
+    _seed_cards(project_root)
+    csrf = _login(client)
+    resp = client.post("/api/recall/review",
+                       json={"cardId": "mmlu#1", "paperId": "mmlu", "grade": 4},
+                       headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    # mmlu#1 now scheduled in the future -> only mmlu#2 remains due
+    body = client.get("/api/recall/due").get_json()
+    assert {c["id"] for c in body["cards"]} == {"mmlu#2"}
+
+
+def test_recall_review_requires_csrf(auth_client, project_root):
+    _seed_cards(project_root)
+    resp = auth_client.post(
+        "/api/recall/review", json={"cardId": "mmlu#1", "paperId": "mmlu", "grade": 4}
+    )
+    assert resp.status_code == 403
+
+
+def test_recall_review_unknown_card_404(client, project_root):
+    _seed_cards(project_root)
+    csrf = _login(client)
+    assert client.post("/api/recall/review",
+                       json={"cardId": "nope#9", "paperId": "mmlu", "grade": 4},
+                       headers={"X-CSRF-Token": csrf}).status_code == 404
+
+
+def test_recall_review_bad_grade_400(client, project_root):
+    _seed_cards(project_root)
+    csrf = _login(client)
+    assert client.post("/api/recall/review",
+                       json={"cardId": "mmlu#1", "paperId": "mmlu", "grade": 99},
+                       headers={"X-CSRF-Token": csrf}).status_code == 400

@@ -184,3 +184,25 @@ def test_public_pdf_path_resolves_known_and_rejects_unknown(tmp_path: Path):
     (tmp_path / "papers" / "architecture" / "roformer.pdf").write_bytes(b"%PDF")
     assert content.public_pdf_path(tmp_path, "roformer").name == "roformer.pdf"
     assert content.public_pdf_path(tmp_path, "nope") is None
+
+
+def test_read_cards_empty_when_absent(tmp_path: Path):
+    assert content.read_cards(tmp_path, "mmlu") == []
+
+
+def test_all_cards_collects_across_papers(tmp_path: Path):
+    write_json(
+        tmp_path / "papers" / "manifest.json",
+        [{"topic": "evaluation", "title": "Measuring Massive Multitask Language Understanding",
+          "authors": "H", "year": 2020, "source_url": "https://arxiv.org/abs/2009.03300",
+          "pdf_url": "https://arxiv.org/pdf/2009.03300", "filename": "mmlu.pdf"}],
+    )
+    write_json(
+        tmp_path / "content" / "papers" / "mmlu" / "cards.json",
+        {"paperId": "mmlu", "cards": [{"id": "mmlu#1", "question": "Q?", "answer": "A."}]},
+    )
+    cards = content.all_cards(tmp_path)
+    assert len(cards) == 1
+    assert cards[0]["id"] == "mmlu#1"
+    assert cards[0]["paperId"] == "mmlu"
+    assert cards[0]["paperTitle"].startswith("Measuring")
