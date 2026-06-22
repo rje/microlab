@@ -1,0 +1,65 @@
+{
+  "paperId": "solving-math-word-problems-with-process-and-outcome-based-feedback",
+  "cards": [
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#1",
+      "question": "What are the two primary metrics used to compare supervision approaches in this paper, and why are they reported separately?",
+      "answer": "Final-answer error rate (fraction of problems where the model produces the wrong final answer, measured by exact string matching) and trace error rate (fraction of correct-answer solutions that contain at least one incorrect reasoning step, estimated via human annotation). They are reported separately because a model can produce the correct final answer via incorrect reasoning — outcome-based RL exploits this, so final-answer error alone masks reasoning quality."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#2",
+      "question": "How are ORM and PRM labels defined at training time, and what is the key structural difference between them?",
+      "answer": "Both RMs are LMs that predict a binary 'correct' or 'incorrect' token after each step. The ORM labels each step based on whether the full solution reached the correct final answer — so all steps in a correct solution get the same positive label regardless of step quality. The PRM labels each step based on human annotations of whether the steps so far are correct, making labels step-local rather than solution-global."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#3",
+      "question": "What is the surprising ORM-approximates-PRM finding, and what numbers support it?",
+      "answer": "Despite being trained only on final-answer correctness labels, ORM predictions agree more with PRM step-level labels (85% agreement) than with the ORM labels themselves (77%). The authors hypothesize the ORM finds it easier to learn to recognize correct steps than to internally compute the full final answer, and note this may be math-specific due to the lack of spurious solutions in grade-school arithmetic."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#4",
+      "question": "What does expert iteration do, and what are its two alternating phases?",
+      "answer": "Expert iteration is the RL mechanism used throughout the paper. In policy improvement, the current policy generates K=96 candidate solutions per problem, which are filtered by final-answer correctness, ORM score, or PRM score to produce an 'expert policy' dataset. In distillation, supervised finetuning is applied to this filtered dataset to improve the base policy toward the expert policy. The loop repeats for 5 epochs, selecting the best model by validation error."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#5",
+      "question": "How does PRM-RL's policy improvement differ from ORM-RL's at each expert iteration step?",
+      "answer": "In ORM-RL, K full traces are generated per problem and the single trace with the highest ORM score is selected. In PRM-RL, each step is treated as an individual episode: K candidate next steps are generated at each position, the highest-PRM-score step is selected, and generation continues from that step until the final answer or a maximum of 15 steps. This makes PRM-RL a step-level beam search rather than a full-solution ranking."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#6",
+      "question": "How is trace error rate actually measured — what does 'estimated via human annotation' mean in practice?",
+      "answer": "Human annotators are shown the problem, the GSM8K reference solution, and a model-generated solution. They identify the first step with a major mistake, defined as a step where the information is incorrect or it would no longer be possible to reach the correct solution without undoing that step. All steps before the first mistake are labeled 'correct'; the rest 'incorrect'. After cleaning for low inter-annotator agreement, the training annotation set contains 1,560 samples (9,856 step labels) across 530 problems; 200 problems per model are annotated for evaluation."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#7",
+      "question": "What is the headline result on trace error, and which configuration achieves the best trace error?",
+      "answer": "The best trace error is 3.4%, achieved by SFT+ORM-RL with ORM reranking. SFT+PRM-RL with PRM reranking achieves 3.8%. Both sharply improve on the prior best of 14.0% (few-shot Wang et al.). Pure outcome-based RL (Few-shot+Final-Answer RL) reaches only 12.4% trace error at best, demonstrating that low trace error requires either process-based feedback or an ORM that has learned to emulate it."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#8",
+      "question": "What does the paper show about final-answer error rates across outcome- vs. process-based approaches, and why is this result notable?",
+      "answer": "Both approaches converge to similar final-answer error: without RMs, SFT (22.3%) vs. Few-shot+Final-Answer RL (23.5%); with RMs, process-based best (12.9%) vs. outcome-based best (12.7%). This is notable because outcome-based supervision requires far less annotation — Few-shot+Final-Answer RL uses 1–4 tokens of label supervision per question vs. hundreds for SFT, yet achieves competitive final-answer accuracy."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#9",
+      "question": "How does RM-weighted decoding work, and how does it differ from majority voting?",
+      "answer": "For majority voting, the most common final answer across K=96 samples is chosen, then a random sample with that answer is returned. For RM-weighted decoding, the final answer f* = argmax_f sum_{y: final_ans(y)=f} rm_prob(y) is selected (highest total RM weight), then the single sample y* with the highest RM score among those giving f* is returned. RM-weighted decoding outperforms majority voting by roughly 1% final-answer error with the SFT model."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#10",
+      "question": "What is selective prediction, and how large is its effect on final-answer error?",
+      "answer": "Selective prediction allows the model to abstain on r% of questions using the RM score of the selected sample as a confidence threshold — low-confidence questions are withheld rather than answered. At r=30%, SFT+PRM reduces final-answer error from 14.1% to 2.7% (a 5x reduction). Process-based models benefit more than outcome-based models because lower trace error makes RM confidence a more reliable proxy for correctness."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#11",
+      "question": "Why does Final-Answer RL applied on top of SFT improve final-answer error but worsen trace error?",
+      "answer": "Final-Answer RL filters only for correct final answers, so the policy learns to reach correct answers by any means, including incorrect intermediate reasoning steps. Applied on top of SFT, it reduces final-answer error (22.3% to 20.2%) but increases trace error (11.4% to 12.1%). This illustrates the reward specification problem: optimizing a proxy metric (final-answer correctness) creates incentives to find shortcuts that satisfy the proxy without satisfying the underlying goal (correct reasoning)."
+    },
+    {
+      "id": "solving-math-word-problems-with-process-and-outcome-based-feedback#12",
+      "question": "What does the paper conclude about OOD generalization, and what does this imply about process- vs. outcome-based supervision?",
+      "answer": "On pre-algebra problems from the MATH dataset (zero-shot), all models reach 60–70% final-answer error with no clear advantage for process- vs. outcome-based supervision. This suggests the trace error gains from process-based supervision are domain-specific to GSM8K, and that the ORM-approximates-PRM effect may depend on the mathematical structure of the task (few spurious solutions) rather than being a general property of language model supervision."
+    }
+  ]
+}

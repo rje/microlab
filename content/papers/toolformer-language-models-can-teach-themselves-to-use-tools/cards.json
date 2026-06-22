@@ -1,0 +1,65 @@
+{
+  "paperId": "toolformer-language-models-can-teach-themselves-to-use-tools",
+  "cards": [
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#1",
+      "question": "What core problem does Toolformer solve, and what makes its approach self-supervised rather than supervised?",
+      "answer": "Toolformer teaches a language model when and how to call external APIs (calculator, search, QA, translation, calendar) without human annotation of where calls should go. Instead of labeled data, it uses the model's own in-context learning to propose candidate calls, executes them, and keeps only those whose results reduce future-token loss — no human labels beyond a handful of per-tool demonstrations."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#2",
+      "question": "How are API calls represented in the token stream, and what two linearized forms does the paper use?",
+      "answer": "An API call c = (a_c, i_c) is represented as e(c) = <API> a_c(i_c) </API> when the result is absent, and as e(c, r) = <API> a_c(i_c) → r </API> when the result r is included. In practice the special tokens are rendered as ' [', ']' and '->' to avoid modifying the model's vocabulary."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#3",
+      "question": "Describe the three-step pipeline that converts a plain-text corpus C into the augmented dataset C*.",
+      "answer": "Step 1 — Sample: for each document, use in-context prompting to generate up to m candidate API calls at each of the k highest-probability <API> positions. Step 2 — Execute: call each API to obtain a result r. Step 3 — Filter: retain only calls where L_i^- − L_i^+ ≥ τ_f (the call reduces weighted loss by at least threshold τ_f). Surviving calls are interleaved with the original text to form C*, which also retains all original texts."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#4",
+      "question": "How is L_i^+ defined, and what does it measure?",
+      "answer": "L_i^+ = L_i(e(c_i, r_i)): the weighted cross-entropy loss over tokens x_i, …, x_n when the model is prefixed with the full API call including its result. It measures how well the model predicts future tokens given both the call and the response."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#5",
+      "question": "How is L_i^- defined, and why is it the minimum of two quantities rather than just 'no call'?",
+      "answer": "L_i^- = min(L_i(ε), L_i(e(c_i, ε))): the minimum of the loss with no API call at all and the loss with the call but an empty response. Taking the minimum ensures a call is only kept if its result is beneficial — not merely because the call tokens themselves (without any useful response) happen to reduce loss."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#6",
+      "question": "What is the weighted cross-entropy loss L_i(z), and why are tokens down-weighted with distance from the insertion point?",
+      "answer": "L_i(z) = −Σ_{j=i}^{n} w_j · log p_M(x_j | z, x_{1:j−1}), where w_t = max(0, 1 − 0.2·t) (unnormalized, then normalized over positions). Down-weighting by distance ensures the filter credits the API call only for information that is locally useful — tokens far from the call site are unlikely to benefit from it, so they don't inflate the utility score."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#7",
+      "question": "How does the k-beam decoding strategy at inference differ from standard greedy decoding, and why is it used?",
+      "answer": "Instead of generating <API> only when it is the single most-likely next token, Toolformer starts an API call whenever <API> appears among the k most likely tokens (default k=10). This raises tool-use frequency without requiring the model to be maximally confident in the call, compensating for the fact that the finetuning distribution under-represents API tokens compared to their true utility."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#8",
+      "question": "What are the finetuning hyperparameters used to train Toolformer on C*?",
+      "answer": "GPT-J (6.7B parameters) is finetuned on C* with a batch size of 128, a learning rate of 1×10⁻⁵, and linear warmup for the first 10% of training steps, using a standard language-modeling (next-token prediction) objective."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#9",
+      "question": "What does the scaling-law finding reveal about the minimum model size needed for tool use to be beneficial?",
+      "answer": "Tool-use gains only emerge reliably at around 775M parameters. GPT-2 family models with 124M–355M parameters perform similarly with and without tools, suggesting the model must be large enough to parse API outputs and integrate them coherently into ongoing generation before tool use helps."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#10",
+      "question": "How does finetuning on C* affect language modeling perplexity, and why does this matter?",
+      "answer": "Finetuning on C* does not increase perplexity on WikiText or held-out CCNet compared to finetuning on C without API calls. This is crucial because it shows that inserting API call tokens into training text does not harm the model's core language-modeling ability — tool use is acquired for free."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#11",
+      "question": "On math benchmarks (ASDiv, SVAMP, MAWPS), how does Toolformer (6.7B) compare to GPT-3 (175B), and what explains the result?",
+      "answer": "Toolformer substantially outperforms GPT-3 175B (e.g., 40.4 vs 14.0 on ASDiv, 29.4 vs 10.0 on SVAMP, 44.0 vs 19.8 on MAWPS) in zero-shot settings. The gains trace almost entirely to calculator use: for 97.9% of math examples the model autonomously invokes the calculator tool."
+    },
+    {
+      "id": "toolformer-language-models-can-teach-themselves-to-use-tools#12",
+      "question": "What are the two key limitations of Toolformer related to tool composition and sample efficiency?",
+      "answer": "First, Toolformer cannot chain tool calls — it is limited to one API call per input and cannot use the output of one tool as input to another. Second, the data pipeline is sample-inefficient: processing over a million documents may yield only a few thousand useful examples for a given tool (e.g., 994 calculator examples at τ_f=1.0) after the perplexity-reduction filter."
+    }
+  ]
+}

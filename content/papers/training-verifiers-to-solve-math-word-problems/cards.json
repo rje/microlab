@@ -1,0 +1,65 @@
+{
+  "paperId": "training-verifiers-to-solve-math-word-problems",
+  "cards": [
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#1",
+      "question": "Why do autoregressive language models fail at multi-step math even after finetuning, and what structural property of the task does verification exploit?",
+      "answer": "Once an autoregressive model makes an error mid-solution there is no recovery mechanism — the reasoning chain compounds the mistake. Verification exploits the asymmetry between generation (hard) and evaluation (simpler): a separate verifier only needs to judge whether a finished solution is correct, which is an easier task than producing a correct solution from scratch."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#2",
+      "question": "What are the four design principles of GSM8K, and what problem does each one address?",
+      "answer": "High Quality (human writers + agreement checks, <2% breaking errors) avoids noisy labels. High Diversity (no template reuse, pairwise similarity checks) makes held-out performance a meaningful metric. Moderate Difficulty (grade-school arithmetic, no variables beyond early Algebra) keeps the benchmark tractable yet challenging for large models. Natural Language Solutions (free-form prose, not pure expressions) probes informal reasoning and produces richer training signal."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#3",
+      "question": "What are the exact split sizes and solution characteristics of GSM8K?",
+      "answer": "GSM8K contains 8.5K problems total: 7.5K training and 1K test. Each problem requires 2–8 elementary arithmetic steps (+, -, x, ÷) to reach the final answer. Solutions are written in natural language by human contractors and annotated with calculator tokens of the form <<expression=result>>."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#4",
+      "question": "What are the three training steps in the verification pipeline, in order?",
+      "answer": "Step 1: Finetune a generator model for 2 epochs on the GSM8K training set (2 epochs to preserve solution diversity — longer training collapses coverage). Step 2: Sample 100 completions per training problem from the generator at temperature 0.7 and label each correct or incorrect by final-answer match. Step 3: Train a separate verifier for 1 epoch on this labeled dataset using a joint language-modeling + correctness (MSE) objective."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#5",
+      "question": "How does the verifier produce a correctness score at inference time, and what is its scalar head architecture?",
+      "answer": "The verifier is a language model with an added scalar head implemented as a single bias parameter and single gain parameter applied to the logit of a special reserved token in the final unembedding layer. This produces a per-token value prediction. At test time, 100 completions are sampled from the generator at temperature 0.7, each is scored by the verifier, and the completion with the highest verifier score is returned as the answer."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#6",
+      "question": "What is the ~30x effective gain claim, and precisely what comparison justifies it?",
+      "answer": "On the full GSM8K training set (7.5K problems), a 6B verifier slightly outperforms a finetuned 175B generator. Since 175B / 6B ≈ 30, the authors describe verification as providing a performance boost approximately equivalent to a 30x model-size increase in finetuning — achieved without scaling parameters, just by adding a separate verifier and sampling 100 candidates at test time."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#7",
+      "question": "Why does verification scale more favorably with more labeled data than finetuning, according to the paper?",
+      "answer": "With small datasets, finetuning overfits to correct answers faster than it learns generalizable reasoning, so it initially matches or beats verification. As dataset size grows, verifiers continue to improve steeply (Figure 5 shows a superlinear gap opening), while finetuned generators plateau. The authors attribute this to verifiers learning to evaluate the quality of reasoning across 100 diverse candidate solutions rather than memorizing a single output per problem."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#8",
+      "question": "What is the difference between token-level and solution-level verifiers, and which is preferred and why?",
+      "answer": "A solution-level verifier makes a single correctness prediction conditioned on the entire completed solution. A token-level verifier predicts correctness after every token, acting as a full value function over partial solutions. Token-level is preferred: it is harder to overfit (the dense signal discourages memorizing final answers) and continues improving throughout training while the solution-level verifier quickly plateaus and overfits."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#9",
+      "question": "What is the optimal number of completions per problem at test time, and what happens beyond that limit?",
+      "answer": "Performance peaks at approximately 400 completions per problem for a 6B verifier. Beyond that, performance declines because the search is increasingly likely to surface adversarial solutions — completions that reach the correct final answer via flawed reasoning — which fool the verifier. The paper uses 100 completions as the default since it captures most of the benefit at moderate compute cost."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#10",
+      "question": "How does majority voting among top-ranked verifier solutions improve over picking the single best, and how should k scale?",
+      "answer": "Instead of returning only the top-ranked completion, the verifier selects the top-k completions and returns the final answer that appears most often among them. This reduces variance from individual adversarial outliers. The optimal k grows with the total number of completions: with 100 completions, top 3–5 is optimal; with 3200 completions, top ~30 is approximately optimal."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#11",
+      "question": "What regularization technique is recommended for both finetuning and verifier training, and what is the prescribed dropout rate?",
+      "answer": "Residual dropout applied along the residual paths of each transformer layer. The paper uses 20% dropout for all dropout experiments, chosen via hyperparameter sweep. Because GPT-3 base models were pretrained without dropout, the authors pretrain with dropout before finetuning to avoid distribution shift. Dropout with solution-level verifiers nearly eliminates their overfitting gap relative to token-level verifiers."
+    },
+    {
+      "id": "training-verifiers-to-solve-math-word-problems#12",
+      "question": "Why does scaling generator size matter more than scaling verifier size, and what does this imply about where to invest compute?",
+      "answer": "Figure 6c shows that a large generator with a small verifier significantly outperforms a small generator with a large verifier. The authors hypothesize that the verifier relies on coarse heuristics to discriminate among solutions from a given generator — once the generator's solutions are diverse and generally reasonable, a small verifier can distinguish them effectively. This implies compute should be invested in a stronger generator first."
+    }
+  ]
+}

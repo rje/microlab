@@ -1,0 +1,65 @@
+{
+  "paperId": "s1-simple-test-time-scaling",
+  "cards": [
+    {
+      "id": "s1-simple-test-time-scaling#1",
+      "question": "What is the core claim of s1, and what two ingredients make it work?",
+      "answer": "SFT on just 1,000 carefully curated reasoning examples (s1K) plus a decoding-time 'budget forcing' trick is sufficient to achieve strong, controllable test-time scaling. No RL, no large-scale distillation — the reasoning capacity is already present from pretraining and SFT merely activates it."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#2",
+      "question": "How does budget forcing enforce a *minimum* thinking budget at inference time?",
+      "answer": "When the model tries to emit the end-of-thinking token delimiter, it is suppressed and the string 'Wait' (or a similar reflection prompt) is appended to the reasoning trace instead. This forces the model to continue reasoning rather than committing to its current answer, often prompting self-correction."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#3",
+      "question": "How does budget forcing enforce a *maximum* thinking budget?",
+      "answer": "The end-of-thinking token delimiter (and optionally 'Final Answer:') is forcefully appended to the generation once the thinking token count exceeds the desired limit, causing the model to immediately transition to producing its answer."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#4",
+      "question": "What three sequential filters does the s1K curation pipeline apply, and in what order?",
+      "answer": "Quality first (removes API errors and formatting artifacts like ASCII art diagrams, reducing 59K to ~51K), then Difficulty (drops questions solvable by either Qwen2.5-7B-Instruct or Qwen2.5-32B-Instruct, reducing to ~24K), then Diversity (two-stage domain-uniform sampling with power-law weighting toward longer reasoning traces, selecting 1,000 examples spanning 50 domains)."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#5",
+      "question": "How is difficulty operationalized during s1K curation?",
+      "answer": "A question is considered too easy and dropped if either Qwen2.5-7B-Instruct or Qwen2.5-32B-Instruct can answer it correctly, as assessed by Claude 3.5 Sonnet grading against the reference solution. Reasoning trace length (token count via the Qwen2.5 tokenizer) is used as a proxy for difficulty, favoring longer traces in the diversity sampling step."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#6",
+      "question": "What three metrics does the paper define for comparing test-time scaling methods, and what are budget forcing's scores?",
+      "answer": "Control (fraction of runs whose thinking tokens fall within the specified budget — BF achieves 100%), Scaling (average slope of the accuracy-vs-compute piecewise linear function — BF achieves 15, the only positive value among sequential methods), and Performance (peak accuracy on the benchmark — BF achieves 56.7% on AIME24). All other sequential methods tested have negative or near-zero Scaling scores."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#7",
+      "question": "Why does rejection sampling exhibit *inverse* scaling on AIME24 with s1-32B?",
+      "answer": "Filtering for longer generations selects for incorrect ones. Shorter generations tend to come from problems where the model was on the right track from the start; longer ones tend to be cases where the model made mistakes and backtracked. So constraining to long outputs systematically selects confused traces."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#8",
+      "question": "What does the ablation table show about training on the full 59K dataset versus s1K?",
+      "answer": "Training on 59K required 394 H100 GPU-hours (56x more than s1K's 7 GPU-hours) yet produced a model with AIME24 accuracy of 53.3 — lower than s1K's 50.0 before budget forcing and not significantly better overall. The 95% confidence interval for the difference is [-13%, +20%], meaning 59K-full offers no reliable gain over 1K careful selection."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#9",
+      "question": "How does sequential scaling via budget forcing compare to parallel scaling via majority voting at equivalent compute budgets?",
+      "answer": "Sequential scaling (budget forcing) outperforms majority voting in the low-to-medium compute regime. However, sequential scaling eventually flattens out or degrades due to repetitive loops, and hits the context window limit. Parallel methods (majority voting, REBASE) can scale further beyond those limits, making them complementary rather than competing approaches."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#10",
+      "question": "Why does 'Wait' outperform other reflection strings in the budget forcing extrapolation ablation?",
+      "answer": "Among strings tested (none, 'Alternatively', 'Hmm', 'Wait'), 'Wait' yields the best AIME24 score (53.3 vs. 50.0 for no string) when suppressing the end-of-thinking delimiter twice. The paper does not give a mechanistic explanation, but the ablation confirms the choice of string matters and 'Wait' was selected as the best empirically."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#11",
+      "question": "What explanation does the paper offer for why 1,000 SFT examples suffice to produce strong reasoning performance?",
+      "answer": "The paper invokes the 'Superficial Alignment Hypothesis' (from LIMA): the model already has extensive reasoning ability from pretraining on trillions of tokens. The 1K SFT stage does not teach reasoning from scratch — it activates and formats existing capability, analogous to how LIMA found 1K examples sufficient for instruction following."
+    },
+    {
+      "id": "s1-simple-test-time-scaling#12",
+      "question": "What are the two hard limits on further test-time scaling via budget forcing, and what does the paper suggest as a path beyond them?",
+      "answer": "Budget forcing eventually (1) flattens out as scaling improvements diminish at very high token budgets, and (2) is bounded by the model's context window — for 12 of 30 AIME24 questions the 512-step sequential setting already exceeds the context window. The paper suggests combining sequential and parallel methods (REBASE, majority voting) to scale further, since parallel approaches are not constrained by a single generation's length."
+    }
+  ]
+}

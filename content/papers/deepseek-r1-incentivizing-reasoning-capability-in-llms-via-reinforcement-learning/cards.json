@@ -1,0 +1,65 @@
+{
+  "paperId": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning",
+  "cards": [
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#1",
+      "question": "What is the central claim of DeepSeek-R1-Zero, and why is it surprising?",
+      "answer": "DeepSeek-R1-Zero shows that sophisticated reasoning behaviors — self-reflection, verification, and dynamic strategy revision — emerge spontaneously from pure outcome-based RL on a base model, with no supervised fine-tuning warm-up and no human-labeled reasoning traces. This is surprising because prior work assumed SFT on high-quality demonstrations was necessary to bootstrap reasoning before RL."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#2",
+      "question": "How does GRPO compute the advantage for each output, and why does this eliminate the need for a value model?",
+      "answer": "GRPO samples G outputs per question from the old policy, scores each with the reward model, then computes the advantage as A_i = (r_i − mean(r_1…r_G)) / std(r_1…r_G) — a simple within-group z-score. Because the baseline is estimated from the group itself rather than from a learned value function, no separate critic model is required, which significantly reduces memory and compute overhead compared to PPO."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#3",
+      "question": "What are the two types of rewards used to train DeepSeek-R1-Zero, and why are neural reward models deliberately avoided?",
+      "answer": "Accuracy rewards use deterministic rule-based verifiers: answer matching for math (reward 1 if correct, 0 otherwise) and compiler test cases for code. Format rewards enforce that reasoning appears inside <think>…</think> tags. Neural reward models are avoided because they are susceptible to reward hacking during large-scale RL training and require expensive retraining, introducing instability."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#4",
+      "question": "What are the four stages of the DeepSeek-R1 training pipeline, in order?",
+      "answer": "Stage 1: cold-start SFT on a small set of human-aligned long-CoT examples to fix R1-Zero's readability and language-mixing issues. Stage 2: first RL stage using rule-based rewards plus a language-consistency reward. Stage 3: rejection-sampling SFT on ~800k reasoning and non-reasoning trajectories. Stage 4: second RL stage adding helpfulness and safety reward models over diverse prompts."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#5",
+      "question": "How is the language-consistency reward computed, and why is it needed in the first RL stage?",
+      "answer": "The language-consistency reward is the proportion of words in the chain-of-thought that are in the target language: Reward_language = Num(Words_target) / Num(Words). It is added to the rule-based reward to stop the model from mixing Chinese and English mid-chain, a pathology inherited from DeepSeek-V3-Base which was pre-trained on predominantly Chinese and English text."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#6",
+      "question": "What are the key GRPO hyperparameters for DeepSeek-R1-Zero training, and what happens every 400 steps?",
+      "answer": "Learning rate 3e-6, KL coefficient 0.001, sampling temperature 1 for rollout, 16 outputs sampled per question, max context 32,768 tokens (expanding to 65,536 after step 8,200). Every 400 steps the reference model is replaced with the latest policy model — a periodic refresh that prevents the trained policy from diverging too far from a stale reference while still allowing long-chain exploration."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#7",
+      "question": "How does the second RL stage differ from the first, and why is the preference-based reward applied only in the final 400 steps?",
+      "answer": "The second stage runs for 1,700 steps at a reduced temperature of 0.7 (lower than the first stage's 1.0) and adds helpfulness and safety reward models on top of the rule-based and language-consistency rewards. Preference-based rewards are restricted to the last 400 steps because the paper observed that extended training with a learned reward model leads to reward hacking — the model exploits biases in the reward model rather than genuinely improving."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#8",
+      "question": "How is the 800k SFT dataset for the second-stage training constructed?",
+      "answer": "Reasoning data (~600k samples): rejection-sampling from the first-stage RL checkpoint, retaining only trajectories with correct final answers and readable format (filtered for language mixing, long paragraphs, and code blocks). Non-reasoning data (~200k samples): reused from DeepSeek-V3's SFT pipeline, covering writing, factual QA, self-cognition, and translation. Math outputs are parsed with sympy for expression comparison."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#9",
+      "question": "How are small models distilled from DeepSeek-R1, and what does the distillation vs. RL comparison reveal?",
+      "answer": "Six open-source base models (Qwen2.5-Math-1.5B through LLaMA-3.3-70B-Instruct) are fine-tuned for 2-3 epochs on the 800k teacher-generated dataset using SFT only, with a cosine decay learning rate schedule. The comparison shows that distillation consistently outperforms applying the same large-scale RL directly to small models: DeepSeek-R1-Distill-Qwen-32B scores 72.6% on AIME 2024, while Qwen2.5-32B-Zero trained with RL from scratch scores only 47.0%."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#10",
+      "question": "What emergent behaviors appear in DeepSeek-R1-Zero during RL training, and what quantitative signatures mark them?",
+      "answer": "Three behaviors emerge without explicit instruction: (1) average response length grows steadily throughout training, driven purely by intrinsic adaptation; (2) reflective word frequency (wait, verify, retry, check, error) rises 5-7x from the start of training; (3) the word 'wait' is nearly absent until step 4000, shows occasional use up to step 7000, then spikes sharply after step 8000, marking a phase transition in reasoning strategy. AIME 2024 pass@1 jumps from 15.6% at the start to 77.9% at the end."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#11",
+      "question": "Why does DeepSeek-R1 adaptively scale test-time compute, and how does this differ from majority voting in non-reasoning models?",
+      "answer": "DeepSeek-R1 was trained to generate long chains of thought, so it naturally allocates more thinking tokens for harder problems (over 18,000 tokens for the hardest) and fewer for simple ones (<100 tokens for trivial arithmetic). Non-reasoning models like GPT-4o-0513 cannot do this: majority voting across 64 samples on AIME 2024 only raises GPT-4o's solve rate from 9.3% to 13.4%, because independently resampling a model that cannot self-correct just reruns the same failures rather than building upon them."
+    },
+    {
+      "id": "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning#12",
+      "question": "What are the two key prerequisites for pure RL to successfully induce reasoning, according to the paper's key findings?",
+      "answer": "First, a sufficiently capable base model: experiments on 7B dense and 16B MoE models failed — smaller models increased response length but fell into repetition rather than improving reasoning. Second, a reliable verifier: pure RL only works where correct answers can be checked programmatically (math, code), and the paper lists reward hacking as the core obstacle for tasks like creative writing where no reliable verifier exists."
+    }
+  ]
+}

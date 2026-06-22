@@ -1,0 +1,65 @@
+{
+  "paperId": "star-bootstrapping-reasoning-with-reasoning",
+  "cards": [
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#1",
+      "question": "What is the core loop of STaR (the generate-filter-finetune cycle)?",
+      "answer": "Few-shot prompt the current model to produce (rationale, answer) pairs for every training problem; keep only those where the generated answer matches the ground truth; fine-tune the original pretrained model on that filtered set; then repeat with the newly fine-tuned model."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#2",
+      "question": "Why does STaR restart fine-tuning from the original pretrained checkpoint at each outer-loop iteration rather than continuing from the previous iteration's weights?",
+      "answer": "Restarting from the pretrained model prevents overfitting and style drift. Continually fine-tuning one model compounds errors and causes the rationale distribution to diverge badly from the few-shot prompt style, degrading quality over many iterations."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#3",
+      "question": "What is rationalization in STaR, and exactly how is it performed?",
+      "answer": "For problems where rationale generation fails (the model's answer is wrong), the correct answer is appended as a hint in the prompt, and the model is asked to generate a justifying rationale. That rationalization-generated rationale is then added to the fine-tuning dataset *without* the hint — as if the model had produced it unaided — after filtering to keep only those that lead to the correct answer."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#4",
+      "question": "How does STaR's Algorithm 1 combine rationale generation and rationalization into a single fine-tuning dataset each iteration?",
+      "answer": "Each iteration builds two filtered sets: D_n = correct (rationale, answer) pairs from standard generation, and D_n^rat = correct rationalization pairs for the problems standard generation failed on. The model is then fine-tuned on train(M, D_n ∪ D_n^rat), the union of both."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#5",
+      "question": "Why does high-temperature sampling make a worse alternative to rationalization for expanding the training set?",
+      "answer": "High-temperature sampling increases the chance of reaching the correct answer via incorrect or incoherent reasoning. Training on such rationales poisons the distribution — the model learns bad reasoning chains — and in structured tasks like arithmetic, the sampled scratchpads diverge into meaninglessness, causing performance to stagnate."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#6",
+      "question": "How does the paper frame the STaR bootstrapping loop as an approximation to an RL policy-gradient objective?",
+      "answer": "Treating M as a latent-variable model p_M(y|x) = Σ_r p(r|x)p(y|x,r), the expected reward under a binary correctness indicator is J(M,X,Y). STaR approximates the gradient by (1) greedily decoding rather than sampling, and (2) taking multiple gradient steps on the same filtered batch — equivalent to discarding the gradient for all incorrect rationales, matching the indicator-reward policy-gradient update."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#7",
+      "question": "How does rationalization differ mathematically from standard rationale generation?",
+      "answer": "Standard generation samples rationales from p(r | x), conditioning only on the question. Rationalization samples from p(r | x, y), conditioning on both question and correct answer. This alternative distribution is a richer search space: it lets the model reason backward from a known solution, acting as an off-policy proposal distribution for the RL objective."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#8",
+      "question": "What is the fine-tuning schedule across outer-loop iterations, and why?",
+      "answer": "Training starts with 40 steps at the first outer loop iteration and increases by 20% with each subsequent iteration. Starting slow prevents overfitting to the small early dataset; the growing step count matches the expanding filtered dataset as the model improves and generates more correct rationales."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#9",
+      "question": "What did STaR achieve on CommonsenseQA (CQA), and why is the comparison to GPT-3 significant?",
+      "answer": "STaR with rationalization on GPT-J (6B parameters) reached 72.5% on the CQA dev set, compared to 73.0% for a directly fine-tuned GPT-3 (175B parameters) — a model 30x larger trained on 100% of the data. STaR used only 86.7% of the training data and no pre-labeled rationales."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#10",
+      "question": "What was the effect of rationalization on early arithmetic learning, and what does this reveal about how it helps?",
+      "answer": "After just one fine-tuning iteration with rationalization, 2-digit addition accuracy jumped from under 1% to 32%. Without rationalization, the model stays near 0% on n-digit arithmetic until it has mastered (n-1)-digit arithmetic. Rationalization breaks this stage-gating by letting the model learn from problems it can't yet solve forward."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#11",
+      "question": "What is the 'few-shot prompt drift' phenomenon described in Section 5, and what is the practical tradeoff?",
+      "answer": "After the first iteration, the model's rationale style diverges from the initial few-shot prompts. Keeping few-shot prompts in later iterations reduces drift (improving rationale coherence and consistency) but adds computational cost due to longer sequences. Including them improved CQA performance from 60.9% to 68.8% (no rationalization) and from 69.9% to 72.5% (with rationalization)."
+    },
+    {
+      "id": "star-bootstrapping-reasoning-with-reasoning#12",
+      "question": "What are STaR's two fundamental failure-mode limitations?",
+      "answer": "First, the base model must already exceed chance performance few-shot — STaR cannot bootstrap from a model with no initial reasoning capability (e.g., GPT-2 failed even on arithmetic). Second, when chance performance is already high (e.g., binary decisions), many incorrect rationales accidentally produce correct answers, poisoning the training set with bad reasoning."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "paperId": "gorilla-large-language-model-connected-with-massive-apis",
+  "cards": [
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#1",
+      "question": "What core problem does Gorilla solve that GPT-4 fails at, and what is the key evidence?",
+      "answer": "GPT-4 frequently hallucinate nonexistent API calls or selects the wrong library when asked to invoke real-world ML tools. On TorchHub zero-shot, Gorilla achieves 59.13% accuracy vs. GPT-4's 38.70%, and Gorilla's hallucination rate is 6.98% vs. GPT-4's 36.55%."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#2",
+      "question": "Why does finetuning beat retrieval-only prompting for API calling, according to the paper's ablation?",
+      "answer": "Lightly finetuned Gorilla zero-shot outperforms GPT-4 zero-shot by 20.43% and ChatGPT by 10.75%, and outperforms LLAMA by 83%. Adding a non-oracle retriever (BM25 or GPT-Index) to a non-finetuned model can actually hurt accuracy — e.g., BM25 drops TorchHub accuracy 21.5% and HuggingFace 47.6% relative to zero-shot — because the retriever can misguide the model."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#3",
+      "question": "What is the retriever-aware finetuning technique, and exactly how is the training prompt constructed?",
+      "answer": "During retriever-aware training, a retrieved API documentation JSON is appended to the user instruction with the prefix 'Use this API documentation for reference: <retrieved_API_doc_JSON>'. The model is finetuned on these augmented prompts in a user-agent chat format, teaching it to parse the second half of its context and use retrieved docs at inference time without any additional prompt tuning."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#4",
+      "question": "How does the AST sub-tree matching metric determine whether a generated API call is correct?",
+      "answer": "The generated code is parsed into an abstract syntax tree. The evaluator locates the subtree rooted at the relevant API call node (e.g., torch.hub.load) and checks whether that subtree matches a reference API entry in the dataset, including all non-optional arguments. Optional Python arguments (like pretrained=True) are excluded from the match check. A correct call must be a subtree of a real dataset entry."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#5",
+      "question": "What is the precise distinction between a hallucination and an error in the Gorilla evaluation framework?",
+      "answer": "A hallucination is an API call whose AST matches no entry in the database at all — the model invented a tool that does not exist. An error is a real API call that exists in the dataset but is the wrong one for the task. This distinction lets the authors separately track fabrication vs. selection mistakes."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#6",
+      "question": "How is APIBench constructed — what are the three sources, the selection criteria, and the instruction generation process?",
+      "answer": "APIBench is scraped from TorchHub (94 APIs, exhaustive), TensorFlow Hub v2 (626 APIs, exhaustive after filtering model cards with little info), and HuggingFace (925 APIs: top-20 models per domain across 7 task families). Each API card becomes a JSON object with fields: domain, framework, functionality, api_name, api_call, api_arguments, environment_requirements, example_code, performance, and description. GPT-4 then generates 10 synthetic user instructions per API via Self-Instruct (with 3 in-context examples and instructions not to mention API names), yielding ~16,450 instruction-API pairs."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#7",
+      "question": "What are Gorilla's training hyperparameters?",
+      "answer": "Gorilla (LLaMA-7B) is finetuned with a learning rate of 2e-5, batch size 64, for 5 epochs on 8 x A100 40GB GPUs."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#8",
+      "question": "How does retriever-aware training enable test-time adaptation to documentation changes without retraining?",
+      "answer": "Because the model was trained to consume retrieved API docs from its context, at inference time the retriever can supply an updated API card (e.g., a backbone changed from ResNet-50 to ResNet-101, or a registry changed from pytorch/vision to NVIDIA/DeepLearningExamples:torchhub) and Gorilla will use that live document rather than relying on weights baked in at training time. Zero-shot-only models cannot adapt this way."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#9",
+      "question": "Why does RLHF training appear to reduce hallucination, and what is the evidence from the paper?",
+      "answer": "Across zero-shot and all retriever settings (BM25, GPT-Index, Oracle), GPT-3.5 (RLHF-tuned) consistently shows lower hallucination rates than GPT-4 on TorchHub and HuggingFace. The authors interpret this as RLHF playing a central role in calibrating truthfulness, making the model less prone to fabricating nonexistent tools."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#10",
+      "question": "Why can't test-case-based evaluation be used to assess API correctness, and why does AST matching replace it?",
+      "answer": "Many functionally equivalent APIs exist for the same task (e.g., over 40 image-classification models, four DenseNet configurations alone), so unit tests cannot determine whether a chosen API is semantically correct — there are multiple valid answers. AST sub-tree matching instead checks structural identity against the dataset's reference API entries, giving a deterministic, programmatic correctness signal without requiring execution."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#11",
+      "question": "How does Gorilla handle constraint-aware API selection, and how does it compare to baselines?",
+      "answer": "Constraints (e.g., 'model under 10M parameters with ≥70% ImageNet accuracy') are embedded in the user instruction. Gorilla leads all models in zero-shot constraint accuracy on TorchHub (47.88% vs. GPT-4's 43.66% and GPT-3.5's 43.66%) and matches GPT-3.5 when retrievers are used, demonstrating that retrieval-aware finetuning improves the model's ability to reason over performance and cost metadata in API documentation."
+    },
+    {
+      "id": "gorilla-large-language-model-connected-with-massive-apis#12",
+      "question": "What is the Self-Instruct data generation procedure used to create APIBench instruction pairs, and what safeguard prevents data leakage?",
+      "answer": "GPT-4 is given 3 in-context example (instruction, API) pairs per hub (18 hand-written examples total) and a reference API documentation, then asked to generate 10 synthetic user instructions that invoke that API. The model is explicitly instructed not to mention any API names or hints in the generated instructions. The final dataset is split into train and a held-out test set to report evaluation results, preventing contamination."
+    }
+  ]
+}

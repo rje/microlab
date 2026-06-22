@@ -1,0 +1,55 @@
+{
+  "paperId": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models",
+  "cards": [
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#1",
+      "question": "What are the two key factors behind DeepSeekMath 7B achieving 51.7% on the competition-level MATH benchmark?",
+      "answer": "First, a 120B-token math corpus (DeepSeekMath Corpus) mined from Common Crawl via an iterative fastText classifier — roughly 7x the size of Minerva's web data. Second, Group Relative Policy Optimization (GRPO), a memory-efficient PPO variant that eliminates the critic model and estimates advantages from group-relative rewards."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#2",
+      "question": "How does GRPO compute the advantage for each token in an output, and what does this replace from standard PPO?",
+      "answer": "For each question, GRPO samples G outputs from the old policy and scores them with a reward model, yielding rewards r = {r1, …, rG}. The advantage for every token in output i is the group-normalized reward: Â_i = (r_i − mean(r)) / std(r). This replaces PPO's learned value network (critic), which requires a separate model of comparable size and is hard to train accurately from sparse end-of-sequence rewards."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#3",
+      "question": "Write out the GRPO objective (Equation 3 from the paper) in words, identifying each term.",
+      "answer": "GRPO maximizes: (1/G) Σ_i (1/|o_i|) Σ_t [ min(ratio · Â_i,t, clip(ratio, 1−ε, 1+ε) · Â_i,t) − β · KL(π_θ ‖ π_ref) ], where ratio = π_θ(o_i,t | q, o_i,<t) / π_θ_old(o_i,t | q, o_i,<t). The clipped ratio term is the standard PPO surrogate; β·KL is a direct KL-divergence penalty added to the loss (not folded into the reward), so advantage calculation stays clean."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#4",
+      "question": "How does the DeepSeekMath Corpus mining pipeline iterate to collect 120B tokens from Common Crawl?",
+      "answer": "Four steps repeat: (1) train a fastText classifier on math-positive pages (seeded from OpenWebMath, 500K positives + 500K negatives) and recall top-scoring pages from deduplicated 40B-page Common Crawl; (2) discover math-heavy domains by checking which domains have >10% of pages already recalled; (3) human annotators label math-relevant URL paths within those domains; (4) add newly found pages to the seed and retrain. After four iterations, 98% of data is covered by iteration 3, yielding 35.5M pages / 120B tokens. A 10-gram decontamination filter removes any text overlapping evaluation benchmarks."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#5",
+      "question": "How does iterative GRPO prevent reward model staleness, and what happens to the reference model at each iteration?",
+      "answer": "After each RL iteration, the reward model is continually updated on fresh rollouts from the current policy, using a replay mechanism that incorporates 10% historical data to prevent catastrophic forgetting. The reference model π_ref is reset to the current policy model at the start of each new iteration, so the KL penalty stays calibrated to the policy's actual distribution rather than an increasingly stale initial checkpoint."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#6",
+      "question": "How does process supervision differ from outcome supervision in GRPO, and which performs better?",
+      "answer": "Outcome supervision assigns a single reward at the end of the entire output; all tokens in that output get the same group-normalized advantage. Process supervision scores each reasoning step separately, then computes each token's advantage as the sum of normalized step rewards from that token's step onward (forward sum). GRPO with process supervision (GRPO+PS) outperforms outcome supervision (GRPO+OS), demonstrating that step-level feedback provides more informative gradient signal."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#7",
+      "question": "Why does RL improve Maj@K but not Pass@K, and what does this imply about what RL actually learns?",
+      "answer": "Pass@K measures whether any of K sampled outputs is correct (raw capability ceiling), while Maj@K measures whether the majority vote is correct (distribution sharpness). RL improves Maj@K without improving Pass@K, implying RL sharpens the output distribution — boosting the probability mass on correct answers already in the model's repertoire — rather than expanding the model's fundamental problem-solving capability."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#8",
+      "question": "Why does the unified gradient-coefficient framework show that online sampling (GRPO/Online RFT) outperforms offline sampling (RFT/DPO) in the later stages of RL training?",
+      "answer": "In early training the policy closely resembles the SFT model, so offline data is nearly on-policy and the difference is minor. As training progresses the policy drifts, and offline data becomes increasingly off-distribution. Online methods sample from the real-time policy, keeping training data on-policy and providing larger, more informative gradient updates — a gap that grows and becomes decisive in later training steps."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#9",
+      "question": "Why does initializing DeepSeekMath-Base from DeepSeek-Coder-Base rather than a general LLM improve mathematical reasoning?",
+      "answer": "Code pre-training followed by math pre-training (two-stage) consistently outperforms math pre-training alone or mixing code and math simultaneously. Code training improves both tool-integrated reasoning (program-of-thought) and pure natural-language mathematical reasoning, even without any Python execution at inference time, suggesting that code structure instills reasoning patterns transferable to mathematics."
+    },
+    {
+      "id": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models#10",
+      "question": "Why do arXiv papers fail to improve mathematical reasoning despite being a common component of math pre-training data?",
+      "answer": "Training on either MathPile's arXiv subset (8.9B tokens, >85% arXiv) or ArXiv-RedPajama (28B tokens) yields no improvement or slight degradation across quantitative, multiple-choice, and formal benchmarks at both 1.3B and 7B scale. The authors hypothesize the result may not generalize to tasks like theorem informalization or to larger model scales, but for standard math benchmarks arXiv provides no measurable signal."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "paperId": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis",
+  "cards": [
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#1",
+      "question": "Why do general-purpose instruction-tuned open-source LLMs (e.g., Vicuna, Alpaca) achieve 0% pass rate on ToolBench despite strong language ability?",
+      "answer": "Instruction tuning for dialogue focuses on language skills and ignores the tool-use domain entirely. Tool use requires a distinct capability — chaining real API calls, handling error responses, and multi-step planning — that general instruction data does not develop. ToolBench confirms this: no general-tuning baseline passes a single instruction."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#2",
+      "question": "How does ToolBench construct its instruction set, and what are the three instruction types?",
+      "answer": "ChatGPT generates instructions from sampled API subsets using three strategies: I1 (single-tool — one tool iterated per instruction), I2 (intra-category multi-tool — 2–5 tools sampled from the same RapidAPI category), and I3 (intra-collection multi-tool — tools from the same fine-grained collection). Each generation call is given full API documentation plus three randomly sampled seed examples from a bank of 12/36 human-written seeds. Instructions that reference hallucinated API names are filtered out, yielding ~87k I1, ~85k I2, and ~25k I3 pairs."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#3",
+      "question": "What two structural flaws in ReACT does DFSDT address, and how?",
+      "answer": "ReACT suffers from (1) error propagation — a wrong action traps the model in a faulty loop because it can only move forward — and (2) limited exploration — it commits to one reasoning path with no ability to try alternatives. DFSDT builds a decision tree where the model can call 'Finish by Giving Up' on a dead branch, then expand a new child node from an earlier point in the tree, allowing backtracking and exploration of multiple reasoning paths."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#4",
+      "question": "How is DFSDT implemented in practice, and why is DFS preferred over BFS for solution-path annotation?",
+      "answer": "Each action step has format 'Thought: … API Name: … Parameters: …'. When expanding a node, ChatGPT is prompted with the history of previously generated sibling nodes so it generates a distinct alternative. DFS is used instead of BFS because annotation can stop as soon as one valid (Pass) path is found — BFS would require exhausting an entire level before declaring success, wasting OpenAI API calls. An optimised pre-order traversal skips child sorting (which costs O(n log n) comparisons), so DFSDT degrades gracefully to ReACT on simple instructions and approaches full DFS quality on hard ones."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#5",
+      "question": "What pass rates does DFSDT achieve versus ReACT on ChatGPT, and what does this imply about annotation efficiency?",
+      "answer": "On ChatGPT, DFSDT achieves pass rates of 58.0% (I1), 70.6% (I2), and 62.8% (I3), versus ReACT's 37.8%, 40.6%, and 27.6%. Because only passing paths are kept as training data, DFSDT annotates more usable examples per API-call budget. The advantage is largest on harder multi-tool instructions (I2, I3), which are exactly the instructions that ReACT cannot solve regardless of retries."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#6",
+      "question": "How does ToolEval's pass rate metric work, and what label categories can a solution path receive?",
+      "answer": "Pass rate measures whether a solution path successfully completes the instruction within a limited API-call budget. A ChatGPT evaluator assigns one of three labels: Pass, Fail, or Unsure. The labelling rules distinguish whether the instruction is solvable or unsolvable and whether the model finished via 'Finish with Final Answer' or 'Finish by Giving Up' — for example, giving up after exhausting all APIs on an unsolvable instruction counts as Pass. Each path receives at least 4 independent evaluator predictions; a majority vote determines the final label."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#7",
+      "question": "What six criteria does ToolEval's win rate metric use, and how is the final preference derived?",
+      "answer": "Win rate compares two solution paths for the same instruction across: (1) information richness of the final answer, (2) factuality of what was described, (3) quality of failure reasoning if unresolved, (4) number of milestones reached, (5) breadth of API exploration, and (6) cost efficiency (fewer redundant calls). Each pair of paths is evaluated at least 4 times by ChatGPT with majority vote; ties are split evenly between win and lose for reporting. ToolEval agrees with human annotators at 87.1% on pass rate and 80.3% on win rate."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#8",
+      "question": "How is the API retriever trained, and what retrieval metric shows it outperforms BM25 and ada-002?",
+      "answer": "The retriever uses Sentence-BERT (BERT-BASE backbone) trained with contrastive learning. Positive pairs are the (instruction, relevant API documentation) pairs produced during instruction generation in §2.2; a few other APIs from the same batch are used as negatives. The model encodes instruction and API document into separate embeddings and scores by cosine similarity. Performance is measured with NDCG@1 and NDCG@5 across all three instruction types; the trained retriever reaches NDCG@5 of 84.9 on average versus 17.0 for BM25 and 45.4 for ada-002."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#9",
+      "question": "How is ToolLLaMA trained, and what context-length adaptation was required?",
+      "answer": "ToolLLaMA is LLaMA-2 7B fine-tuned on the 126,486 (instruction, solution-path) pairs from ToolBench. Training uses a multi-round conversation format that concatenates function-call information into the input prompt (ChatGPT's internal function-call field structure is opaque, so no separate field is used). Key hyperparameters: learning rate 5×10⁻⁵, warmup ratio 4×10⁻², batch size 64, sequence length 8192, two epochs. The native LLaMA-2 context of 4096 tokens was insufficient for multi-step API chains, so positional interpolation extends it to 8192."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#10",
+      "question": "What are the three generalisation levels ToolBench uses to evaluate a model, and why does this structure matter?",
+      "answer": "Inst. (unseen instructions for seen tools), Tool (unseen tools within a seen category), and Cat. (unseen tools in an unseen category). The three levels test increasingly severe distribution shift: from compositional generalisation over known APIs, to adapting to new APIs in familiar domains, to fully novel API categories. ToolLLaMA with DFSDT achieves competitive performance across all three, which confirms that fine-tuning on API documentation — rather than memorising specific API names — is what drives tool-use generalisation."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#11",
+      "question": "Why does using the trained API retriever sometimes outperform the oracle ground-truth API set at inference time?",
+      "answer": "The oracle set is the exact APIs used to construct the instruction, but many instructions can be solved by functionally equivalent APIs not in that set. The retriever searches the full pool of 16,464 APIs and can surface better-suited alternatives. This means the retriever expands the effective solution space rather than just approximating it, which is why ToolLLaMA+Retriever edges out ToolLLaMA+Oracle on both pass and win rate."
+    },
+    {
+      "id": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis#12",
+      "question": "How does ToolBench's API filtering pipeline reduce 53,190 raw RapidAPI endpoints to 16,464 usable ones?",
+      "answer": "Two sequential filters are applied. First, initial functionality testing: each API is called and those returning 404 errors or other non-functional responses are discarded. Second, example response evaluation: a real API call is made, then response quality (no HTML source dumps or generic error messages) and latency are assessed — APIs with consistently long response times or low-quality outputs are removed. The 53,190 raw APIs across 10,853 tools are reduced to 16,464 APIs across 3,451 tools."
+    }
+  ]
+}

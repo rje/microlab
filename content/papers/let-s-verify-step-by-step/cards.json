@@ -1,0 +1,55 @@
+{
+  "paperId": "let-s-verify-step-by-step",
+  "cards": [
+    {
+      "id": "let-s-verify-step-by-step#1",
+      "question": "What is the core claim of Lightman et al. (2023), and what is the headline result that supports it?",
+      "answer": "Process supervision (training a reward model on step-level human feedback) significantly outperforms outcome supervision (training on final-answer correctness). The PRM achieves 78.2% best-of-1860 on a MATH test subset, versus 72.4% for the ORM and 69.6% for majority voting."
+    },
+    {
+      "id": "let-s-verify-step-by-step#2",
+      "question": "Why does outcome supervision face a hard credit-assignment problem, especially on difficult benchmarks?",
+      "answer": "A binary correct/incorrect label on a full solution does not reveal where the error occurred. On hard problems most model-generated solutions contain at least one error, so a negative label provides little information about which step was wrong. Process supervision sidesteps this by directly pinpointing the first incorrect step."
+    },
+    {
+      "id": "let-s-verify-step-by-step#3",
+      "question": "How does a PRM produce a single score for a candidate solution at test time?",
+      "answer": "The PRM performs a single forward pass over the full solution and reads out the probability that each step's label is positive at the final token of that step. The solution-level score is the product of those per-step probabilities (treating neutral labels as positive). This is the best-performing of four reduction strategies tested."
+    },
+    {
+      "id": "let-s-verify-step-by-step#4",
+      "question": "How is a PRM trained, and what token positions does it supervise?",
+      "answer": "The PRM is fine-tuned from a MathMix base model for 2 epochs with low learning rates. It is trained to predict positive/negative/neutral at the final token of each step in a solution — the prediction takes the form of a single token, and the model maximises the log-likelihood of that target token. No special architecture changes are needed: one forward pass covers all step positions."
+    },
+    {
+      "id": "let-s-verify-step-by-step#5",
+      "question": "How does an ORM produce and use its solution score at test time?",
+      "answer": "The ORM makes a correctness prediction at every token in the solution, but only the final token's prediction is used as the overall solution score. Training targets are uniform across all tokens — each token gets the same label (correct or incorrect) based on the solution's final answer."
+    },
+    {
+      "id": "let-s-verify-step-by-step#6",
+      "question": "What are the three step labels used in PRM800K, and when is each assigned?",
+      "answer": "Positive: the step is correct, reasonable, and progresses toward the solution. Negative: the step is incorrect or unreasonable. Neutral: ambiguous — subtly misleading or technically valid but making poor progress. Neutral labels are retained in the dataset so the scoring reduction strategy (treat neutral as positive or negative) can be chosen at inference time."
+    },
+    {
+      "id": "let-s-verify-step-by-step#7",
+      "question": "What is PRM800K and what are its scale and scope?",
+      "answer": "PRM800K is the publicly released dataset of step-level human feedback used to train the large-scale PRM. The filtered training set contains approximately 800,000 step-level labels across 75,000 solutions to 12,000 MATH problems. The raw, unfiltered dataset contains 1,085,590 labels over 101,599 solutions."
+    },
+    {
+      "id": "let-s-verify-step-by-step#8",
+      "question": "What is the active-learning strategy used during PRM800K data collection, and why are 'convincing wrong-answer' solutions targeted?",
+      "answer": "The current best PRM scores N generated solutions per problem; the highest-scoring solutions that reach an incorrect final answer ('convincing wrong-answer') are surfaced to labelers. These are maximally informative because the PRM is known to be wrong about at least one step in each such solution. This strategy is approximately 2.6x more data-efficient than uniform labeling."
+    },
+    {
+      "id": "let-s-verify-step-by-step#9",
+      "question": "How was PRM800K collected in two phases, and what changed between them?",
+      "answer": "Phase 1 (~5% of labels, ~40K) had labelers choose among multiple alternative completions at each step, which was slow and produced repetitive data. Phase 2 (~760K labels) switched to 10 active-learning generations: pre-generate full solutions, rank by the current PRM, surface the top-K convincing wrong-answer solutions, retrain the PRM, and repeat. Labeling stopped at the first negative step encountered, keeping cost comparable to outcome labeling."
+    },
+    {
+      "id": "let-s-verify-step-by-step#10",
+      "question": "What alignment argument does the paper make about process supervision, and why is it unusual?",
+      "answer": "Process supervision directly rewards models for following a human-endorsed chain of reasoning rather than using final outcomes as a proxy for aligned behavior — making it harder to reward-hack. Unusually, it also incurs a negative alignment tax: the more aligned method (PRM) is simultaneously the more capable one, outperforming the less-aligned ORM."
+    }
+  ]
+}
