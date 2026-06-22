@@ -45,6 +45,7 @@ def project_root(tmp_path: Path) -> Path:
     dist = tmp_path / "site" / "dist"
     dist.mkdir(parents=True, exist_ok=True)
     (dist / "index.html").write_text("<!doctype html><title>Console</title>", encoding="utf-8")
+    (dist / "public.html").write_text("<!doctype html><title>Public</title>", encoding="utf-8")
     (tmp_path / "plans").mkdir(exist_ok=True)
     (tmp_path / "plans" / "note.md").write_text("# Note\n\nbody\n", encoding="utf-8")
     return tmp_path

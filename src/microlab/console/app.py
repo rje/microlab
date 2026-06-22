@@ -114,6 +114,30 @@ def register_content_routes(app: Flask) -> None:
 
     root: Path = app.config["PROJECT_ROOT"]
     db_path = root / "microlab.db"
+    dist = root / content.SITE_DIST
+
+    @app.route("/public")
+    @app.route("/public/p/<path:rest>")
+    def public_shell(rest: str = ""):
+        return send_file(dist / "public.html")
+
+    @app.route("/public/api/library")
+    def public_library_api():
+        return jsonify(content.public_library(root))
+
+    @app.route("/public/pdf/<paper_id>")
+    def public_pdf(paper_id: str):
+        path = content.public_pdf_path(root, paper_id)
+        if path is None:
+            return "", 404
+        return send_file(path)
+
+    @app.route("/assets/<path:filename>")
+    def static_assets(filename: str):
+        try:
+            return send_file(content.resolve_safe_path(dist / "assets", filename))
+        except (ValueError, FileNotFoundError):
+            return "", 404
 
     @app.route("/api/state")
     @auth.login_required

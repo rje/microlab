@@ -133,3 +133,54 @@ def test_read_overview_returns_parsed_json(tmp_path: Path):
     data = content.read_overview(tmp_path, "mmlu")
     assert data["paperId"] == "mmlu"
     assert data["tldr"] == "x"
+
+
+def _seed_library(tmp_path: Path):
+    write_json(
+        tmp_path / "papers" / "manifest.json",
+        [
+            {"topic": "evaluation", "title": "Measuring Massive Multitask Language Understanding",
+             "authors": "Hendrycks et al.", "year": 2020,
+             "source_url": "https://arxiv.org/abs/2009.03300",
+             "pdf_url": "https://arxiv.org/pdf/2009.03300", "filename": "mmlu.pdf"},
+            {"topic": "architecture", "title": "RoFormer", "authors": "Su", "year": 2021,
+             "source_url": "https://arxiv.org/abs/2104.09864",
+             "pdf_url": "https://arxiv.org/pdf/2104.09864", "filename": "roformer.pdf"},
+        ],
+    )
+    write_json(
+        tmp_path / "site" / "content" / "phases.json",
+        [{"id": "phase-0", "title": "Phase 0", "status": "current", "goal": "g",
+          "tasks": [], "readingPaperIds": ["mmlu"]}],
+    )
+    write_json(tmp_path / "content" / "papers" / "mmlu" / "overview.json",
+               {"paperId": "mmlu", "tldr": "t", "sections": []})
+
+
+def test_public_library_groups_by_phase_and_includes_overview(tmp_path: Path):
+    _seed_library(tmp_path)
+    lib = content.public_library(tmp_path)
+    phase = lib["phases"][0]
+    assert phase["id"] == "phase-0"
+    mmlu = phase["papers"][0]
+    assert mmlu["id"] == "mmlu"
+    assert mmlu["pdfUrl"] == "/public/pdf/mmlu"
+    assert mmlu["overview"]["tldr"] == "t"
+    # roformer is in no phase -> additional reading
+    extra_ids = {p["id"] for p in lib["additional"]}
+    assert "roformer" in extra_ids
+
+
+def test_public_library_exposes_no_private_fields(tmp_path: Path):
+    _seed_library(tmp_path)
+    lib = content.public_library(tmp_path)
+    blob = json.dumps(lib)
+    assert "progress" not in blob and "notes" not in blob and "readState" not in blob
+
+
+def test_public_pdf_path_resolves_known_and_rejects_unknown(tmp_path: Path):
+    _seed_library(tmp_path)
+    (tmp_path / "papers" / "architecture").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "papers" / "architecture" / "roformer.pdf").write_bytes(b"%PDF")
+    assert content.public_pdf_path(tmp_path, "roformer").name == "roformer.pdf"
+    assert content.public_pdf_path(tmp_path, "nope") is None

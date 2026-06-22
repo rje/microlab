@@ -266,3 +266,44 @@ def read_overview(project_root: Path, paper_id: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def public_library(project_root: Path) -> dict[str, Any]:
+    papers = load_papers(project_root)
+    by_id = {p["id"]: p for p in papers}
+
+    def entry(paper: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": paper["id"],
+            "title": paper["title"],
+            "authors": paper["authors"],
+            "year": paper["year"],
+            "topic": paper["topic"],
+            "sourceUrl": paper["sourceUrl"],
+            "pdfUrl": f"/public/pdf/{paper['id']}",
+            "overview": read_overview(project_root, paper["id"]),
+        }
+
+    phases_raw = read_json(project_root / PHASE_CONTENT, [])
+    used: set[str] = set()
+    phases = []
+    for phase in phases_raw:
+        items = []
+        for pid in phase.get("readingPaperIds", []):
+            paper = by_id.get(pid)
+            if paper is not None and pid not in used:
+                items.append(entry(paper))
+                used.add(pid)
+        if items:
+            phases.append({"id": phase["id"], "title": phase["title"], "papers": items})
+    additional = [entry(p) for p in papers if p["id"] not in used]
+    return {"phases": phases, "additional": additional}
+
+
+def public_pdf_path(project_root: Path, paper_id: str) -> Path | None:
+    manifest = read_json(project_root / PAPER_MANIFEST, [])
+    for raw in manifest:
+        if paper_id_for(raw) == paper_id:
+            candidate = project_root / "papers" / str(raw["topic"]) / str(raw["filename"])
+            return candidate if candidate.exists() else None
+    return None

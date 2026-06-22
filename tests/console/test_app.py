@@ -213,3 +213,44 @@ def test_overview_returns_json_when_present(client, project_root):
     body = client.get("/api/papers/mmlu/overview").get_json()
     assert body["paperId"] == "mmlu"
     assert body["tldr"] == "hi"
+
+
+def test_public_routes_need_no_auth(client, project_root):
+    _seed_mmlu(project_root)
+    assert client.get("/public").status_code == 200
+    lib = client.get("/public/api/library")
+    assert lib.status_code == 200
+    assert "phases" in lib.get_json()
+
+
+def test_public_library_has_no_private_data(client, project_root):
+    _seed_mmlu(project_root)
+    blob = client.get("/public/api/library").get_data(as_text=True)
+    assert "progress" not in blob and "notes" not in blob
+
+
+def test_private_routes_still_gated_without_session(client, project_root):
+    _seed_mmlu(project_root)
+    assert client.get("/api/state").status_code == 401
+    assert client.get("/api/papers/mmlu/notes").status_code == 401
+    assert client.get("/api/papers/mmlu/overview").status_code == 401
+    # SPA root redirects to login when unauthenticated
+    assert client.get("/").status_code == 302
+
+
+def test_public_pdf_serves_and_404s(client, project_root):
+    _seed_mmlu(project_root)
+    pdf = project_root / "papers" / "evaluation" / "mmlu.pdf"
+    pdf.parent.mkdir(parents=True, exist_ok=True)
+    pdf.write_bytes(b"%PDF-1.4 test")
+    assert client.get("/public/pdf/mmlu").status_code == 200
+    assert client.get("/public/pdf/not-a-paper").status_code == 404
+
+
+def test_static_assets_served_without_auth(client, project_root):
+    assets = project_root / "site" / "dist" / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    (assets / "x.js").write_text("console.log(1)", encoding="utf-8")
+    resp = client.get("/assets/x.js")
+    assert resp.status_code == 200
+    assert client.get("/assets/../../secret.txt").status_code in (400, 404)
