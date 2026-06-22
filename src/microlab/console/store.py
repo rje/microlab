@@ -69,8 +69,9 @@ def init_db(db_path: str | Path) -> None:
 
 
 def get_all_progress(db_path: str | Path) -> dict[str, dict[str, str | None]]:
-    if not Path(db_path).exists():
-        return {}
+    # init_db is idempotent and ensures every table exists, even on a DB file
+    # created by an older schema (a plain SELECT from a missing table errors).
+    init_db(db_path)
     conn = _connect(db_path)
     try:
         rows = conn.execute("SELECT paper_id, read_state, depth FROM paper_progress").fetchall()
@@ -83,8 +84,7 @@ def get_all_progress(db_path: str | Path) -> dict[str, dict[str, str | None]]:
 
 
 def get_all_task_status(db_path: str | Path) -> dict[str, dict[str, str]]:
-    if not Path(db_path).exists():
-        return {}
+    init_db(db_path)
     conn = _connect(db_path)
     try:
         rows = conn.execute("SELECT phase_id, task_id, status FROM task_status").fetchall()
@@ -143,8 +143,7 @@ def upsert_progress(
 
 
 def get_review_state(db_path: str | Path) -> dict[str, dict[str, object]]:
-    if not Path(db_path).exists():
-        return {}
+    init_db(db_path)
     conn = _connect(db_path)
     try:
         rows = conn.execute(
@@ -164,8 +163,7 @@ def get_review_state(db_path: str | Path) -> dict[str, dict[str, object]]:
 
 
 def count_reviews(db_path: str | Path) -> int:
-    if not Path(db_path).exists():
-        return 0
+    init_db(db_path)
     conn = _connect(db_path)
     try:
         return int(conn.execute("SELECT COUNT(*) AS n FROM recall_reviews").fetchone()["n"])

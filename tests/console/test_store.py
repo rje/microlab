@@ -11,6 +11,27 @@ def test_get_all_progress_empty_when_no_db(tmp_path: Path):
     assert store.get_all_progress(tmp_path / "microlab.db") == {}
 
 
+def test_read_paths_tolerate_db_created_by_older_schema(tmp_path: Path):
+    # Regression: a microlab.db created by an older schema has only the tables
+    # that existed then. Read paths that SELECT from a newer table must not 500
+    # (init_db is idempotent and back-fills the missing tables).
+    import sqlite3
+
+    db = tmp_path / "microlab.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE paper_progress "
+        "(paper_id TEXT PRIMARY KEY, read_state TEXT, depth TEXT, updated_at TEXT)"
+    )
+    conn.commit()
+    conn.close()
+
+    assert store.get_all_task_status(db) == {}
+    assert store.get_review_state(db) == {}
+    assert store.count_reviews(db) == 0
+    assert store.get_all_progress(db) == {}
+
+
 def test_upsert_and_read_progress(tmp_path: Path):
     db = tmp_path / "microlab.db"
     store.upsert_progress(db, "rope", "mapped", "implement")
