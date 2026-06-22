@@ -1,0 +1,60 @@
+{
+  "paperId": "self-instruct-aligning-language-models-with-self-generated-instructions",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "Self-Instruct bootstraps instruction-following data from a pretrained LM itself — seeding 175 hand-written tasks, generating 52K diverse instructions via iterative prompting, filtering low-quality examples, then SFT-finetuning the same model — achieving a 33% absolute gain on SuperNI with no human labeling.",
+  "overview": "Self-Instruct is a semi-automated pipeline that removes the human bottleneck in instruction-tuning data collection by having the model generate, classify, and instantiate its own tasks. Starting from 175 seed tasks, it iteratively samples instructions from a growing task pool, identifies whether each is a classification or generation task, generates input-output instances via input-first or output-first prompting, then filters near-duplicate or low-quality examples using ROUGE-L and heuristic checks. The resulting 52K-instruction dataset is used to SFT-finetune GPT3, producing GPT3-Self-Inst which matches the publicly-available InstructGPT001 within 5% on human evaluation of user-oriented tasks and surpasses all models trained on public instruction datasets. Key failure modes and limits are discussed: performance plateaus around 16K instructions, gains are skewed toward high-frequency instruction types, and the approach inherits the biases and tail-phenomena of the underlying LM.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Human-written instruction data is costly, limited in diversity, and creativity; Self-Instruct proposes a bootstrapping loop where a vanilla pretrained LM generates, filters, and then trains on its own instruction data, achieving a 33% ROUGE-L gain on SuperNI and near-parity with InstructGPT001 trained on private human-annotated data."
+    },
+    {
+      "title": "2.1 Defining Instruction Data",
+      "summary": "Formally defines the task as generating a set of instructions {I_t}, each with n_t ≥ 1 input-output instances; instructions without a required input (X is empty) are explicitly allowed, giving the pipeline flexibility for both generation and classification tasks."
+    },
+    {
+      "title": "2.2 Automatic Instruction Data Generation",
+      "summary": "The four-step pipeline: (1) Instruction Generation — prompt the LM with 8 in-context examples (6 human-seed, 2 model-generated) to produce new task instructions; (2) Classification Task Identification — few-shot prompt to decide if the instruction is classification or generation; (3) Instance Generation — input-first approach for generation tasks, output-first approach for classification to avoid label bias; (4) Filtering — ROUGE-L < 0.7 deduplication, keyword exclusion, and heuristic validity checks."
+    },
+    {
+      "title": "2.3 Finetuning the LM to Follow Instructions",
+      "summary": "Concatenates instruction and instance input as a prompt and trains the model to produce the instance output via standard supervised cross-entropy, using multiple prompt templates to make the model robust to format variation; prompt tokens are masked from the loss."
+    },
+    {
+      "title": "3. Self-Instruct Data from GPT3 — Statistics, Diversity, Quality",
+      "summary": "Applying the pipeline to GPT3-davinci yields 52,445 instructions and 82,439 instances; diversity analysis via Berkeley Neural Parser shows broad verb-noun coverage (only 14% share a top-20 verb-noun pair); expert quality review finds 92% of instructions are valid tasks and 54% of all fields (instruction + input + output) are fully correct, with output quality the noisiest component."
+    },
+    {
+      "title": "4.1–4.2 Experiment 1: Zero-Shot Generalization on SuperNI",
+      "summary": "GPT3-Self-Inst reaches 39.9 ROUGE-L on SuperNI's unseen tasks, a +33.1% gain over vanilla GPT3 (6.8) and ahead of T0-11B (33.1) and GPT3+T0-Training (37.9), falling just behind InstructGPT001 (40.8); combining Self-Instruct data with SuperNI training data further pushes to 51.6, the best result."
+    },
+    {
+      "title": "4.3–4.4 Experiment 2: User-Oriented Novel Instructions",
+      "summary": "Authors curate 252 diverse user-oriented instructions across domains (email, coding, social media, etc.) evaluated by human experts on a four-level scale; GPT3-Self-Inst outperforms all publicly-trained GPT3 variants by a large margin and scores within 5% of InstructGPT001, with inter-rater agreement κ = 0.57."
+    },
+    {
+      "title": "4.5 Effect of Data Size and Quality",
+      "summary": "Performance improves consistently with data size but plateaus around 16K instructions; using InstructGPT003 to re-generate output fields for all instances (a distillation step) adds a further 10% gain, showing that data quality improvements compound with the pipeline's volume."
+    },
+    {
+      "title": "5. Related Work",
+      "summary": "Positions Self-Instruct relative to instruction-following LMs (T0, Tk-INSTRUCT, InstructGPT), LM-based data generation and augmentation, model self-training, knowledge distillation, and bootstrapping-with-limited-resources methods; key distinction is that Self-Instruct generates entirely new task definitions rather than augmenting a fixed task."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "Self-Instruct demonstrates that a vanilla pretrained LM can largely supervise its own instruction-following alignment with minimal human effort; the released 52K dataset and 252-task human evaluation set are offered as community resources for future instruction-tuning research."
+    },
+    {
+      "title": "7. Broader Impact & 8. Limitations",
+      "summary": "The pipeline may amplify LM biases (stereotypes, label imbalance) and gains are skewed toward high-frequency instruction patterns (tail phenomena); effectiveness also scales with model size, potentially limiting accessibility; performance plateaus after ~16K instructions suggesting future work should mix instruction source distributions."
+    }
+  ],
+  "readingFocus": [
+    "The four-step generation pipeline (instruction → classification → instance → filter) is directly implementable as a Microlab data-generation script for Phase 6 SFT; understand each step's prompting template and heuristic filter before coding.",
+    "The input-first vs. output-first instance generation split is crucial: classification tasks use output-first to avoid generating all inputs from the majority class — replicate this branching logic exactly.",
+    "ROUGE-L < 0.7 deduplication is the primary diversity mechanism; note it is computed against all existing pool instructions, not just the new batch — this affects how you structure the filter loop.",
+    "The 16K plateau finding informs how much synthetic SFT data to budget for Phase 6; beyond that, quality improvements (distillation from a stronger model) matter more than volume.",
+    "The quality breakdown (92% valid instructions, but only 54% all-fields-valid) sets realistic expectations: synthetic SFT data will be noisy at the output level, and a downstream quality filter or reward model is worth planning."
+  ]
+}

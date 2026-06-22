@@ -1,0 +1,65 @@
+{
+  "paperId": "training-language-models-to-follow-instructions-with-human-feedback",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "InstructGPT fine-tunes GPT-3 via a three-stage RLHF pipeline — supervised fine-tuning on human demonstrations, reward model training on human preference rankings, and PPO policy optimisation — producing a 1.3B model that human evaluators prefer over the raw 175B GPT-3.",
+  "overview": "Scaling language models does not automatically make them follow user instructions: the next-token prediction objective is misaligned with being helpful, honest, and harmless. Ouyang et al. address this by applying reinforcement learning from human feedback (RLHF) to GPT-3. Labelers first write demonstration responses to seed a supervised fine-tuned (SFT) policy; they then rank multiple model outputs per prompt to train a scalar reward model (RM); finally, the SFT policy is further fine-tuned with PPO to maximise the RM reward, subject to a KL penalty that prevents it straying too far from the SFT baseline. The resulting InstructGPT models are preferred by labelers 85% of the time over GPT-3 outputs of the same size, show roughly half the hallucination rate on closed-domain tasks, and are about 25% less toxic when prompted to be respectful — though they introduce an 'alignment tax' on some NLP benchmarks that can be largely recovered by mixing pretraining gradients into PPO updates (PPO-ptx).",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates alignment as separate from capability: larger models are not inherently more aligned. Introduces the helpfulness / honesty / harmlessness framing and previews the three-stage RLHF recipe — SFT, reward model, PPO — that produces InstructGPT."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Situates InstructGPT within RLHF for NLP (Ziegler 2019, Stiennon 2020), instruction-following / cross-task generalisation (FLAN, T0), and the broader literature on evaluating and mitigating LM harms. Key distinction: InstructGPT targets a wide, real-user task distribution rather than a single domain."
+    },
+    {
+      "title": "3.1 High-level methodology",
+      "summary": "Defines the three iterative steps: (1) collect labeler demonstrations and train an SFT policy; (2) collect ranked comparisons of model outputs and train a reward model; (3) optimise the SFT policy against the RM with PPO, repeating steps 2–3 as more comparison data accumulates."
+    },
+    {
+      "title": "3.2–3.3 Dataset and Tasks",
+      "summary": "Prompts are drawn from the OpenAI API Playground (filtered for PII) and from labeler-written instructions across three formats: plain, few-shot, and user-based. The dataset spans generation (45%), open QA (12%), brainstorming (11%), and other use-cases; three splits — SFT (~13k), RM (~33k), PPO (~31k) — are kept disjoint by user ID."
+    },
+    {
+      "title": "3.4 Human data collection",
+      "summary": "~40 contractors (Upwork/ScaleAI) screened for sensitivity to harmful content and agreement with researcher judgments; inter-annotator agreement is 72.6% for training labelers and 77.3% for held-out labelers. Labelers are guided to prioritise helpfulness during training but truthfulness and harmlessness during final evaluation."
+    },
+    {
+      "title": "3.5 Models — SFT, RM, and RL",
+      "summary": "SFT: GPT-3 fine-tuned for 16 epochs with cosine LR decay and dropout 0.2; model selected by RM score on validation (overfits on loss but RM score and human preference still improve). RM: 6B GPT-3 with final unembedding layer replaced by a scalar head, trained with a cross-entropy pairwise loss on all C(K,2) comparisons batched per prompt. RL: PPO fine-tunes the SFT model; PPO-ptx adds a pretraining log-likelihood term (coefficient γ) to the PPO objective alongside the per-token KL penalty (β) to recover NLP-benchmark performance."
+    },
+    {
+      "title": "3.6 Evaluation",
+      "summary": "Alignment is operationalised as helpful, honest, and harmless. Main metric is labeler win-rate against a 175B SFT baseline on held-out API prompts; secondary metrics include TruthfulQA, RealToxicityPrompts (Perspective API), Winogender/CrowS-Pairs for bias, and several traditional NLP datasets."
+    },
+    {
+      "title": "4.1 Results on the API distribution",
+      "summary": "InstructGPT 1.3B (PPO-ptx) is preferred over GPT-3 175B 85±3% of the time and over few-shot GPT-3 71±4% of the time. The ordering GPT-3 < GPT-3 prompted < SFT < PPO < PPO-ptx holds across model sizes; held-out labelers show the same preferences, ruling out overfitting to training labelers."
+    },
+    {
+      "title": "4.2 Results on public NLP datasets",
+      "summary": "PPO models are ~2x more truthful than GPT-3 on TruthfulQA and hallucinate ~half as often on closed-domain API tasks. They produce ~25% fewer toxic outputs when prompted respectfully. PPO without pretraining mix suffers regressions on SQuAD, DROP, HellaSwag, and WMT15 (the 'alignment tax'); PPO-ptx recovers most of these, even surpassing GPT-3 on HellaSwag."
+    },
+    {
+      "title": "4.3 Qualitative results",
+      "summary": "InstructGPT generalises to non-English instructions and code QA despite seeing very little of either in fine-tuning. Remaining failure modes include accepting false premises, over-hedging on simple factual questions, and degraded output when juggling many explicit constraints simultaneously."
+    },
+    {
+      "title": "5.1 Implications for alignment research",
+      "summary": "RLHF alignment costs a small fraction of pretraining compute (60 vs 3,640 petaflop/s-days for 175B) yet outperforms a 100x model-size increase. The iterative, empirical loop validates RLHF as practical for real deployments and provides grounding for superhuman-alignment proposals."
+    },
+    {
+      "title": "5.2–5.5 Who we're aligning to, Limitations, Open questions, Broader impacts",
+      "summary": "Alignment is to a specific labeler cohort (mostly English-speaking, US/Southeast Asia) and OpenAI's researcher preferences — not universal 'human values'. Key limitations: models still follow harmful instructions, single-labeler comparisons may miss disagreement, and the alignment process is not transparent or participatory. Open questions include adversarial data collection, combining RLHF with other steerability techniques, and how to make the alignment process fair across stakeholder groups."
+    }
+  ],
+  "readingFocus": [
+    "The three-stage pipeline (SFT → RM → PPO) is the canonical RLHF recipe. In Microlab Phase 6 you will implement SFT on demonstration data — understand exactly what the SFT dataset looks like (prompt + labeler-written completion, ~13k examples) and why the model is selected by RM score rather than validation loss.",
+    "Section 3.5 RM training: the pairwise cross-entropy loss (Equation 1), why comparisons are batched per prompt rather than shuffled individually, and the choice of a 6B rather than 175B RM — all directly inform Phase 8 reward model implementation.",
+    "Section 3.5 PPO objective (Equation 2): the KL penalty β that prevents reward hacking, and the pretraining mix coefficient γ that produces PPO-ptx. The trade-off between alignment and the 'alignment tax' is a design decision you will face when choosing your RL training loop in Phase 8.",
+    "The 'alignment tax' (Section 4.2 / 5.1): PPO without pretraining mix regresses on several NLP benchmarks. PPO-ptx mostly recovers this by adding a pretraining log-likelihood term — watch for how γ is tuned and why increasing the KL coefficient alone is an inferior fix (Figure 34).",
+    "Labeler agreement rates (~72–77%) give a concrete sense of the noise floor in human preference data — relevant for calibrating how much signal your own comparison dataset can carry in Phase 8.",
+    "Section 5.2 is important for critical reading: the paper aligns to a narrow labeler cohort, not to 'human values' in general. When you evaluate your own RLHF-trained model, ask explicitly who the reward model represents."
+  ]
+}

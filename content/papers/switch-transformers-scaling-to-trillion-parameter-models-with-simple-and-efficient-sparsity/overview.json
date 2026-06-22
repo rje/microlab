@@ -1,0 +1,84 @@
+{
+  "paperId": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Switch Transformers replace the dense FFN layer in each Transformer block with a sparse Mixture-of-Experts layer that routes each token to exactly one expert, achieving up to 7x pre-training speedups over T5 at the same FLOP budget and scaling to 1.6 trillion parameters.",
+  "overview": "The Switch Transformer simplifies the Mixture-of-Experts (MoE) paradigm by routing each token to only one expert (k=1) instead of the usual top-k, which reduces router computation, halves expert capacity requirements, and lowers communication costs — while matching or exceeding the quality of more complex MoE designs. The core architectural change is replacing the FFN sublayer of every other Transformer block with a Switch FFN layer: a learned router dispatches each token to the single highest-probability expert, whose output is weighted by the router gate value and added to the residual stream. Three practical training stabilisers are introduced: selective float32 precision inside the router, a 0.1x weight-initialization scale, and an auxiliary load-balancing loss. On pre-training the Switch-Base 64-expert model matches T5-Base quality in one-seventh the wall-clock time; combined data, model, and expert parallelism enables Switch-C with 1.6T parameters that outperforms T5-XXL by 4x in pre-training speed.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Large-scale dense Transformers are computationally intensive; Switch Transformers pursue a sparsely-activated alternative that scales parameter count while holding FLOPs per token constant. The paper's contributions span a new architecture, scaling analysis, fine-tuning and distillation results, multilingual improvements, and trillion-parameter model designs."
+    },
+    {
+      "title": "2.1 Simplifying Sparse Routing",
+      "summary": "Prior MoE layers route to the top-k experts; Switch routing simplifies this to k=1 (a single expert per token). This reduces router computation, allows each expert's batch size (capacity) to be halved, and simplifies communication — and empirically performs better than more complex routing strategies."
+    },
+    {
+      "title": "2.2 Efficient Sparse Routing",
+      "summary": "Expert capacity is set as (tokens_per_batch / num_experts) x capacity_factor; tokens beyond capacity are dropped via the residual connection. A differentiable auxiliary load-balancing loss (scaled dot-product of fraction-dispatched and fraction-of-probability vectors) encourages uniform routing across experts, with alpha=1e-2 found sufficient."
+    },
+    {
+      "title": "2.3 Putting It All Together: The Switch Transformer",
+      "summary": "Pre-training uses the C4 corpus with masked language modelling. Switch-Base with 128 experts is FLOP-matched to T5-Base; head-to-head benchmarks show Switch outperforms both MoE Transformers and T5-Base on quality per step and per wall-clock hour, with the advantage strongest at lower capacity factors (1.0–1.25)."
+    },
+    {
+      "title": "2.4 Improved Training and Fine-Tuning Techniques",
+      "summary": "Three stabilisers address training instability with bfloat16: (1) selective precision — router internals run in float32, outputs cast back to bfloat16; (2) reduced initialisation scale (0.1x default), which dramatically lowers variance and improves quality; (3) expert dropout — increasing dropout rate to 0.4 inside expert FFN layers during fine-tuning to combat overfitting on small downstream datasets."
+    },
+    {
+      "title": "3. Scaling Properties",
+      "summary": "More experts consistently improves pre-training quality per step (scaling along a fourth axis beyond model size, data, and compute). On a wall-clock basis, Switch-Base 64e trains to T5-Base quality 7x faster. Even vs. T5-Large (which applies 3.5x more FLOPs/token), Switch-Base is still 2.5x faster on wall-clock. Models with as few as 2 experts show measurable gains over the dense baseline."
+    },
+    {
+      "title": "4.1 Fine-Tuning",
+      "summary": "FLOP-matched Switch-Base and Switch-Large are fine-tuned on a diverse NLP suite (GLUE, SuperGLUE, SQuAD, XSum, closed-book QA, Winogrande, ANLI). Switch-Base outperforms T5-Base on most tasks, improving SuperGLUE by 4.4 points; Switch-Large similarly beats T5-Large. The exception is ARC reasoning tasks where the dense baseline holds an edge."
+    },
+    {
+      "title": "4.2 Distillation",
+      "summary": "Large sparse models can be distilled into small dense models: initialising the student with the teacher's non-expert weights and using a 0.75/0.25 mix of hard and soft labels preserves ~30% of the sparse model's quality gain while compressing parameters by up to 99%. This enables deployment of trillion-parameter teacher knowledge in a 223M-parameter dense model."
+    },
+    {
+      "title": "4.3 Multilingual Learning",
+      "summary": "mSwitch-Base pre-trained on 101 languages (mC4) universally improves over the mT5-Base dense baseline: all 101 languages benefit, 91% achieve at least 4x step speedup, and the mean step speedup is 5x — confirming Switch Transformers as effective multi-task and multilingual learners."
+    },
+    {
+      "title": "5. Designing Models with Data, Model, and Expert-Parallelism",
+      "summary": "The section formalises how data, model, and expert parallelism combine on an N-core mesh: data-parallel shards tokens, model-parallel shards weights, expert-parallel assigns one expert per core with all-to-all token routing. Combining all three enables the Switch-XXL (395B) and Switch-C (1.6T parameter, 2048-expert) models; Switch-C achieves 4x pre-training speedup over T5-XXL at the same compute budget."
+    },
+    {
+      "title": "6. Related Work",
+      "summary": "Contextualises Switch Transformers among dense scaling (T5, GPT-3), pipeline/model parallelism (PipeDream, Megatron), and the MoE lineage (Jacobs 1991, Shazeer 2017 sparsely-gated MoE, GShard). Notes complementarity with attention-sparsity techniques (Longformer, BigBird) as a future direction."
+    },
+    {
+      "title": "7. Discussion",
+      "summary": "Addresses key questions: yes, more parameters help independently of FLOPs; yes, sparse models beat dense on the speed-accuracy Pareto curve; sparse models work even with 2 experts on a single GPU; distillation can shrink 99% of parameters while retaining ~30% of quality gain; training instability remains unsolved for the largest Switch-XXL variant."
+    },
+    {
+      "title": "8. Future Work",
+      "summary": "Open problems include training stability at trillion-parameter scale (Switch-XXL diverges occasionally), understanding the gap between upstream perplexity and downstream fine-tuning quality, heterogeneous experts of varying size, expert layers inside self-attention, and extending sparsity to non-language modalities."
+    },
+    {
+      "title": "9. Conclusion",
+      "summary": "Switch Transformers demonstrate that simplifying MoE routing to a single expert per token yields a stable, scalable, and sample-efficient architecture that outperforms dense Transformers across pre-training, fine-tuning, and multilingual settings, and can scale to 1.6 trillion parameters."
+    },
+    {
+      "title": "Appendix A: Switch for Attention",
+      "summary": "Preliminary experiment replacing the self-attention weight matrices (Q, K, V) with Switch layers; quality improves in float32 but diverges in bfloat16, leaving this as future work."
+    },
+    {
+      "title": "Appendix B–C: Token Dropping and Expert Exploration",
+      "summary": "No-Token-Left-Behind iteratively reroutes overflowed tokens to their second-best expert, nearly eliminating dropped tokens — but empirically showed no quality benefit, suggesting the network had already learned stable routing. Input jitter noise on router logits was found to be the best exploration strategy among argmax, softmax sampling, and dropout variants."
+    },
+    {
+      "title": "Appendix D–F: Low-Compute Regimes, Upstream-Downstream Correlation, Pseudocode",
+      "summary": "Appendix D shows 2–8 expert Switch models still beat T5-Base on consumer hardware. Appendix E shows upstream perplexity correlates with downstream quality for Switch models, though large Switch variants translate better to knowledge-heavy tasks (TriviaQA) than reasoning tasks (SuperGLUE). Appendix F provides full Mesh TensorFlow pseudocode for the router and Switch layer."
+    }
+  ],
+  "readingFocus": [
+    "The k=1 routing decision: understand why routing to a single expert still yields non-trivial gradients and how the gate value (router probability) keeps the layer differentiable — this is the core design choice that makes Switch Transformers simpler than prior MoE work.",
+    "Expert capacity and the capacity factor: tokens beyond capacity are dropped; the auxiliary load-balancing loss is what prevents all tokens collapsing to one expert. Both are directly relevant if Microlab ever implements a sparse FFN layer in Phase 3.",
+    "The three training stabilisers (selective float32, 0.1x init scale, expert dropout) — these are practical engineering lessons for training sparse models that would apply directly to any Microlab MoE architecture experiment.",
+    "Scaling axis insight: parameter count, independent of FLOPs, is a separately useful axis to scale. This reframes the efficiency vs. quality trade-off and is foundational context for Phase 3 architecture decisions around sparse routing.",
+    "Distillation results (Section 4.2): 99% model compression while preserving 30% of quality gain is a key deployment-time technique worth understanding if Microlab ever needs to serve a sparse model in a constrained environment."
+  ]
+}

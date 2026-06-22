@@ -1,0 +1,40 @@
+{
+  "paperId": "glu-variants-improve-transformer",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "Replacing the standard ReLU/GELU feed-forward layer in Transformers with GLU-family variants — especially GEGLU and SwiGLU — consistently lowers perplexity and improves downstream GLUE/SuperGLUE scores at matched parameter and compute budgets.",
+  "overview": "Shazeer (2020) surveys Gated Linear Unit (GLU) variants as drop-in replacements for the two-matrix feed-forward sublayer in the Transformer. A GLU layer computes the element-wise product of two parallel linear projections, one of which is passed through a nonlinear gate (sigmoid, GELU, Swish, ReLU, or none); this requires a third weight matrix, so the hidden dimension is reduced by 2/3 to keep parameter and FLOP counts equal. Seven FFN variants are evaluated on T5-style pre-training (span-filling on C4) and fine-tuning (GLUE, SuperGLUE, SQuAD). GEGLU and SwiGLU win on pre-training perplexity and most downstream tasks; the author offers no theoretical explanation, attributing success to \"divine benevolence.\"",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates replacing the standard FFN activation (ReLU or GELU) with GLU variants. Defines the original two-matrix FFN (eq. 1-3) and notes that GELU and Swish have already been tried as simple drop-in activations."
+    },
+    {
+      "title": "2. Gated Linear Units (GLU) and Variants",
+      "summary": "Defines GLU as the component-wise product of two linear projections, one sigmoid-gated (Dauphin et al. 2016), then derives five FFN variants: FFN_GLU, FFN_Bilinear, FFN_ReGLU, FFN_GEGLU, and FFN_SwiGLU (eqs. 4-6). All use three weight matrices; hidden dimension d_ff is scaled to 2/3 of the original to match parameter and compute counts."
+    },
+    {
+      "title": "3.1 Model Architecture",
+      "summary": "Uses the T5 base architecture (12-layer encoder-decoder, d_model=768, d_ff=3072) as the control; GLU-variant models reduce d_ff to 2048 to compensate for the extra weight matrix."
+    },
+    {
+      "title": "3.2 Pre-Training and Perplexity Results",
+      "summary": "All variants pre-trained for 524,288 steps on C4 span-filling with Adafactor and no dropout. GEGLU and SwiGLU achieve the best heldout log-perplexity (1.633 and 1.636 vs. 1.677 for ReLU baseline); results are confirmed with shorter 65,536-step runs for variance estimation (Table 1)."
+    },
+    {
+      "title": "3.3 Fine-Tuning",
+      "summary": "Each pre-trained model is fine-tuned jointly on SQuAD and all GLUE/SuperGLUE tasks. GLU-family models outperform the ReLU baseline on most tasks in all three tables; no single variant dominates across every task, but GEGLU and SwiGLU are consistently near the top."
+    },
+    {
+      "title": "4. Conclusions",
+      "summary": "GLU variants improve Transformer FFN layers with no computational penalty when the hidden dimension is scaled accordingly; GEGLU and SwiGLU are the recommended defaults. The author explicitly declines to offer a mechanistic explanation."
+    }
+  ],
+  "readingFocus": [
+    "The three-matrix FFN formulation (eq. 6) and the 2/3 hidden-dimension scaling rule — this is the exact construction you will implement for the Phase 3 MLP ablation in Microlab.",
+    "GEGLU vs. SwiGLU vs. ReGLU trade-offs in Table 1 (perplexity): understand which gate nonlinearity wins and by how much, so you can decide which variants to ablate first.",
+    "Why parameter-matched comparison matters: the baseline has two matrices at d_ff=3072; the GLU variants have three matrices at d_ff=2048 — confirm your implementation preserves this budget equivalence.",
+    "The absence of any theoretical explanation: the empirical gains are real and reproducible, but the paper provides no gradient-flow or expressivity argument — worth keeping in mind when interpreting your own ablation results.",
+    "SwiGLU specifically: Swish1(xW) * xV is the activation used in LLaMA's MLP block, so this paper is the direct upstream reference for that architectural choice."
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "paperId": "opt-open-pre-trained-transformer-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "aware",
+  "tldr": "OPT is a suite of fully open decoder-only language models from 125M to 175B parameters that match GPT-3 performance at 1/7th the carbon cost, accompanied by a detailed training logbook documenting the hardware failures, loss divergences, and mid-flight hyperparameter changes required to actually reach convergence at scale.",
+  "overview": "Meta AI trained eight decoder-only transformers (125M–175B) to replicate the GPT-3 model family using Megatron-LM on 992 A100 GPUs, training on ~180B tokens drawn from RoBERTa corpora, a subset of the Pile, and PushShift Reddit. OPT-175B matches GPT-3 on aggregate zero- and few-shot NLP benchmarks while requiring only 1/7th the estimated carbon footprint to develop. The paper's most distinctive contribution is its transparency: a released logbook chronicles over 35 manual restarts from hardware failures, repeated loss divergences, empirical learning-rate reductions mid-run, and the gradient-clipping and optimizer changes that were needed to keep training stable — details routinely omitted from closed-model papers. Bias and toxicity evaluations show OPT-175B is broadly comparable to GPT-3 Davinci, but with higher toxicity generation rates attributable to the Reddit-heavy pre-training corpus.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates open access to GPT-3-scale models for reproducible safety and bias research; introduces the OPT suite (125M–175B), the open metaseq codebase, and the released training logbook as the primary transparency artifact."
+    },
+    {
+      "title": "2.1 Models",
+      "summary": "Eight decoder-only transformers following GPT-3 architecture; Table 1 gives layer counts, head counts, embedding dimensions, peak learning rates, and batch sizes for each size from 125M to 175B."
+    },
+    {
+      "title": "2.2 Training Setup",
+      "summary": "Megatron-LM weight initialization (normal, std=0.006, output layers scaled by 1/sqrt(2L)); AdamW with beta=(0.9, 0.95), weight decay 0.1, linear warmup then cosine decay to 10% LR over 300B tokens; ReLU activations, sequence length 2048, dropout 0.1, gradient clipping at 1.0 (later reduced to 0.3)."
+    },
+    {
+      "title": "2.3 Pre-training Corpus",
+      "summary": "~180B tokens from RoBERTa corpora (BookCorpus, CC-Stories, CCNewsV2), a curated subset of the Pile (CommonCrawl, OpenWebText2, Wikipedia, USPTO, Project Gutenberg, HackerNews, OpenSubtitles, DM Mathematics), and PushShift Reddit; deduplication via MinHashLSH at Jaccard >= 0.95; GPT-2 BPE tokenization."
+    },
+    {
+      "title": "2.4 Training Efficiency",
+      "summary": "Fully Sharded Data Parallel combined with Megatron-LM Tensor Parallelism across 992 80GB A100s, achieving 147 TFLOP/s per GPU; Adam state in FP32, weights in FP16, dynamic loss scaling to prevent underflow."
+    },
+    {
+      "title": "2.5 Training Processes",
+      "summary": "Documents the real training run: at least 35 manual restarts and 100+ host replacements from hardware failures; loss divergences recovered by lowering LR and rolling back to healthy checkpoints (identified by dynamic loss scalar >= 1.0 and bounded activation norms); mid-flight changes included switching briefly to vanilla SGD, resetting the dynamic loss scalar, upgrading Megatron, and reducing gradient clipping from 1.0 to 0.3."
+    },
+    {
+      "title": "3.1 Evaluations — Prompting & Few-Shot",
+      "summary": "Zero-shot and few-shot accuracy on 16 standard NLP tasks (HellaSwag, StoryCloze, PIQA, ARC, OpenBookQA, WinoGrad/Grande, SuperGLUE subset) following GPT-3 prompting exactly; OPT-175B matches GPT-3 on aggregate zero-shot averages across 14 tasks and performs comparably few-shot, though per-task variance is high and MultiRC/WIC are excluded from averages due to systematic skew."
+    },
+    {
+      "title": "3.2 Dialogue",
+      "summary": "OPT-175B evaluated unsupervised on ConvAI2, Wizard of Wikipedia, Empathetic Dialogues, Blended Skill Talk, and Wizard of Internet; it significantly outperforms the unsupervised Reddit 2.7B baseline and competes with supervised BlenderBot 1, particularly on ConvAI2 perplexity."
+    },
+    {
+      "title": "4. Bias & Toxicity Evaluations",
+      "summary": "Hate speech detection (ETHOS), CrowS-Pairs stereotype bias, StereoSet, and RealToxicityPrompts are used; OPT-175B outperforms GPT-3 Davinci on hate speech detection (likely aided by Reddit exposure), shows more stereotypical bias on CrowS-Pairs, similar aggregate StereoSet scores, and a higher toxicity continuation rate than both Davinci and PaLM on RealToxicityPrompts."
+    },
+    {
+      "title": "5. Limitations",
+      "summary": "OPT-175B cannot follow declarative instructions or interrogatives (simulates dialogue instead of executing), is prone to repetition, and inherits the standard LLM limitations (hallucination, toxicity, poor calibration); safety evaluations match Reddit 2.7B rather than fine-tuned BlenderBot on unsafe prompts."
+    },
+    {
+      "title": "6. Considerations for Release",
+      "summary": "Models released under a non-commercial research license with full logbook, metaseq codebase, and weights; OPT-175B CO2 footprint ~75 tons vs GPT-3's estimated 500 tons; argues that transparency about infrastructure cost and instabilities is necessary to understand real-world LLM development carbon accounting."
+    },
+    {
+      "title": "7. Related Work",
+      "summary": "Situates OPT among GPT-2/3, Gopher, Chinchilla, PaLM, and the open alternatives EleutherAI GPT-NeoX and BigScience; distinguishes OPT's goal (exact GPT-3 replication with full openness) from models targeting different data, languages, or scale."
+    },
+    {
+      "title": "8. Conclusion",
+      "summary": "OPT-175B achieves GPT-3-class performance at a fraction of the carbon cost and with full openness; the logbook and codebase are the primary novel contributions beyond the weights themselves, enabling reproducible research into LLM limitations."
+    }
+  ],
+  "readingFocus": [
+    "The training logbook (Section 2.5) is the paper's most Microlab-relevant section: it documents exactly the kinds of loss divergences, hardware failures, and mid-flight hyperparameter corrections you will encounter when replicating GPT-3-scale training in Phase 5 — read it as a field manual, not a footnote.",
+    "The empirical LR schedule (Figure 1) shows repeated step-down reductions driven by instability, not a clean cosine curve — understand why the team chose to lower LR rather than roll back further, and how the dynamic loss scalar served as a health signal.",
+    "Corpus construction choices (Section 2.3) directly inform Phase 5 data pipeline decisions: which Pile subsets were dropped due to gradient-norm spikes at 1.3B scale, and why Reddit was included despite its higher toxicity signal.",
+    "The zero-shot evaluation harness (Section 3.1) mirrors the Microlab eval setup: 16 tasks, GPT-3-identical prompts, accuracy-only (no F1 for MultiRC/ReCoRD), and exclusion of tasks with known evaluation-method sensitivity — useful as a reference for your own Phase 5 eval configuration.",
+    "The bias and toxicity results (Section 4) show that corpus composition (Reddit) has measurable downstream effects on model behavior — relevant context for any Microlab decision about pre-training data sourcing."
+  ]
+}

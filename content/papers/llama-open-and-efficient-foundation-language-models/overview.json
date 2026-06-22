@@ -1,0 +1,84 @@
+{
+  "paperId": "llama-open-and-efficient-foundation-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "LLaMA trains a family of 7B–65B parameter foundation models exclusively on publicly available data and shows that a smaller model trained longer is cheaper at inference while matching or beating GPT-3 175B and Chinchilla 70B on most benchmarks.",
+  "overview": "Touvron et al. (2023) introduce LLaMA, a suite of openly released foundation language models ranging from 7B to 65B parameters, all trained solely on publicly available text (CommonCrawl, C4, GitHub, Wikipedia, Books, ArXiv, StackExchange — roughly 1.4T tokens). The central finding is that Chinchilla-optimal training budget allocations favour larger models, but inference budgets favour smaller models trained longer: LLaMA-13B outperforms GPT-3 175B on most standard benchmarks despite being 10x smaller. The architecture is a standard transformer with three targeted improvements adopted from recent work: pre-normalization using RMSNorm, SwiGLU activation functions, and rotary positional embeddings (RoPE) in place of absolute position embeddings. Training efficiency is achieved via FlashAttention-style causal attention, activation checkpointing, and tensor/sequence parallelism across 2048 A100-80GB GPUs.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates the inference-budget perspective on scaling: given a fixed performance target, a smaller model trained longer than compute-optimal is cheaper to serve. LLaMA-13B beats GPT-3 175B on most benchmarks; LLaMA-65B is competitive with Chinchilla-70B and PaLM-540B. All models are released publicly."
+    },
+    {
+      "title": "2.1 Pre-training Data",
+      "summary": "Training uses seven publicly available sources: English CommonCrawl (67%), C4 (15%), GitHub (4.5%), Wikipedia (4.5%), Gutenberg and Books3 (4.5%), ArXiv (2.5%), and StackExchange (2%). The total tokenized dataset is approximately 1.4T tokens; most tokens are seen only once, with Wikipedia and Books seen roughly twice."
+    },
+    {
+      "title": "2.2 Architecture",
+      "summary": "Standard autoregressive transformer with three modifications: RMSNorm for pre-normalization (training stability, from GPT-3 practice), SwiGLU activation with dimension 2/3 * 4d instead of 4d (from PaLM), and rotary positional embeddings (RoPE) replacing absolute embeddings (from GPTNeo/RoFormer). Model sizes range from 6.7B to 65.2B parameters."
+    },
+    {
+      "title": "2.3 Optimizer",
+      "summary": "AdamW optimizer with beta1=0.9, beta2=0.95, cosine learning rate schedule decaying to 10% of the peak, weight decay 0.1, gradient clipping 1.0, and 2000 warmup steps. Batch size and learning rate are varied by model size as detailed in Table 2."
+    },
+    {
+      "title": "2.4 Efficient Implementation",
+      "summary": "Uses an efficient causal multi-head attention implementation (xformers library, inspired by FlashAttention) that avoids storing attention weights and skips masked key/query scores. Activation checkpointing saves expensive linear layer outputs to reduce recomputed activations during the backward pass. At 65B scale, training processes ~380 tokens/sec/GPU and takes approximately 21 days on 2048 A100-80GB GPUs."
+    },
+    {
+      "title": "3. Main Results",
+      "summary": "Evaluates zero-shot and few-shot across 20 benchmarks covering common sense reasoning, closed-book QA, reading comprehension, mathematical reasoning, code generation, and MMLU. LLaMA-65B matches or beats Chinchilla-70B and PaLM-540B on most tasks; LLaMA-13B outperforms GPT-3 on most benchmarks despite being 10x smaller."
+    },
+    {
+      "title": "3.1 Common Sense Reasoning",
+      "summary": "Zero-shot results on eight benchmarks (BoolQ, PIQA, SIQA, HellaSwag, WinoGrande, ARC-e, ARC-c, OBQA). LLaMA-65B surpasses Chinchilla-70B on all but BoolQ and beats PaLM-540B on all but BoolQ and WinoGrande."
+    },
+    {
+      "title": "3.2 Closed-Book Question Answering",
+      "summary": "Zero-shot and few-shot exact match on NaturalQuestions and TriviaQA. LLaMA-65B achieves state-of-the-art in closed-book settings on both; LLaMA-13B is competitive with GPT-3 and Chinchilla despite being 5-10x smaller and running on a single V100 at inference."
+    },
+    {
+      "title": "3.3 Reading Comprehension",
+      "summary": "Zero-shot accuracy on RACE (middle and high school). LLaMA-65B scores 67.9 on RACE-middle and 51.6 on RACE-high, competitive with PaLM-540B; LLaMA-13B outperforms GPT-3 by a few points."
+    },
+    {
+      "title": "3.4 Mathematical Reasoning",
+      "summary": "Evaluated on MATH and GSM8k. LLaMA-65B outperforms Minerva-62B on GSM8k (20.5 vs. 43.4 with majority voting at k=100) without any mathematical fine-tuning; quantitative reasoning remains a relative weakness compared to fine-tuned specialist models."
+    },
+    {
+      "title": "3.5 Code Generation",
+      "summary": "Evaluated on HumanEval and MBPP. LLaMA-13B outperforms LaMDA 137B on both; LLaMA-65B (pass@1 = 23.7 on HumanEval) outperforms PaLM-62B. Performance trails code-specific fine-tuned models but is strong for a general-purpose model."
+    },
+    {
+      "title": "3.6 Massive Multitask Language Understanding (MMLU)",
+      "summary": "Five-shot accuracy: LLaMA-65B scores 63.4% average, behind Chinchilla-70B (67.5%) and PaLM-540B (69.3%). The authors attribute the gap to LLaMA using limited book and academic paper data (~177GB vs. up to 2TB) in pre-training."
+    },
+    {
+      "title": "3.7 Evolution of Performance During Training",
+      "summary": "Most benchmarks improve steadily with training tokens and correlate with perplexity. SIQA shows high variance (considered unreliable); WinoGrande performance is similar for LLaMA-33B and LLaMA-65B throughout training."
+    },
+    {
+      "title": "4. Instruction Finetuning",
+      "summary": "A brief instruction-tuning experiment (LLaMA-I, same protocol as Flan) boosts MMLU from 63.4% to 68.9% for the 65B model, outperforming other moderate-size instruction-tuned models, though still below GPT code-davinci-002 at 77.4%."
+    },
+    {
+      "title": "5. Bias, Toxicity and Misinformation",
+      "summary": "Evaluates on RealToxicityPrompts, CrowS-Pairs, WinoGender, and TruthfulQA. Toxicity increases with model size (especially on Respectful prompts); CrowS-Pairs bias is comparable to GPT-3 and OPT-175B. TruthfulQA scores are higher than GPT-3 but still reflect hallucination risk."
+    },
+    {
+      "title": "6. Carbon Footprint",
+      "summary": "Training the full LLaMA model family consumed an estimated 2,638 MWh, emitting approximately 1,015 tCO2eq under US average carbon intensity. By contrast OPT-175B required 356 MWh and BLOOM-175B 475 MWh; LLaMA-7B alone required only 36 MWh."
+    },
+    {
+      "title": "7. Related Work & 8. Conclusion",
+      "summary": "Situates LLaMA in the history of language model scaling and open-source LLMs (OPT, BLOOM, GPT-NeoX). The conclusion reaffirms that state-of-the-art performance is achievable with only public data, and signals intent to release larger models and to explore instruction tuning more deeply."
+    }
+  ],
+  "readingFocus": [
+    "The inference-budget argument: why training a smaller model longer beats training a larger model to compute-optimal — this reframes the Chinchilla scaling law for deployment contexts relevant to Microlab's Phase 3 efficiency work.",
+    "The three architecture modifications (RMSNorm pre-normalization, SwiGLU activation, RoPE) and why each was chosen — these are now standard in most open LLMs and are the architectural baseline for Phases 3-5 experiments.",
+    "The data mixture proportions and filtering pipeline (CCNet, deduplication, language ID) — directly informs how to construct and document a pretraining dataset for Phase 3.",
+    "The FlashAttention-style efficient attention and activation checkpointing — the techniques behind the 380 tokens/sec/GPU throughput figure and key to understanding memory-efficient training in Phase 4.",
+    "The MMLU gap (63.4% vs. Chinchilla 67.5%) traced to book/academic data volume — a concrete example of how data composition, not just size, drives benchmark performance, relevant to eval harness interpretation in Phase 5."
+  ]
+}

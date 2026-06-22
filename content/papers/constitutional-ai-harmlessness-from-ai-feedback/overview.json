@@ -1,0 +1,89 @@
+{
+  "paperId": "constitutional-ai-harmlessness-from-ai-feedback",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Constitutional AI trains a harmless, non-evasive assistant without any human feedback labels for harmlessness by having the model critique and revise its own outputs using a short list of principles, then using AI-generated preference labels to run RL — replacing human annotators for the harmlessness signal entirely.",
+  "overview": "The paper introduces Constitutional AI (CAI), a two-stage method for training helpful and harmless language models without human labels for harms. In the supervised learning (SL) stage, a helpful RLHF model is prompted with red-team queries, then guided to critique its own harmful responses and revise them according to a small set of human-written principles (the 'constitution'); the model is then finetuned on those revised responses, producing SL-CAI. In the reinforcement learning (RL) stage, an independent feedback model evaluates pairs of SL-CAI responses against constitutional principles to generate preference labels for harmlessness, which are mixed with human helpfulness labels to train a preference model; RL against this preference model yields RL-CAI. The resulting models are significantly more harmless than prior RLHF baselines while remaining similarly helpful, and they engage with sensitive topics rather than refusing — eliminating the evasiveness problem found in earlier HH RLHF models.",
+  "sections": [
+    {
+      "title": "Abstract",
+      "summary": "Proposes Constitutional AI: a method to train a harmless assistant using only AI-generated feedback for harmlessness, guided by a written list of principles. Both the supervised and RL phases can leverage chain-of-thought reasoning for improved transparency."
+    },
+    {
+      "title": "1. Introduction",
+      "summary": "Motivates CAI on four grounds: scaling supervision via AI, eliminating evasive refusals, making governing principles explicit and transparent, and reducing iteration cost by avoiding new human labeling when objectives change. Introduces the SL (critique-revision) and RL (RLAIF) stages and defines the RL-CAI model that crowdworkers prefer over human-feedback-trained HH models."
+    },
+    {
+      "title": "1.1 Motivations",
+      "summary": "Elaborates the four motivations: (1) Scaling Supervision — AI can supervise AI more efficiently than humans can; (2) Non-evasive harmlessness — the model should engage and explain objections rather than refuse; (3) Simplicity and Transparency — encode objectives as a short natural-language constitution rather than tens of thousands of opaque labels; (4) Reducing iteration time — changing the constitution is faster than re-collecting human labels."
+    },
+    {
+      "title": "1.2 The Constitutional AI Approach",
+      "summary": "Describes the two-stage pipeline. SL stage: elicit harmful response, append critique request, sample critique, append revision request, sample revision; repeat for multiple revisions; finetune on final revisions plus helpfulness samples. RL stage: generate response pairs from SL-CAI, use feedback model to choose the more harmless response per a sampled principle, train a preference model on these AI labels, run RL against it."
+    },
+    {
+      "title": "1.3 Contributions",
+      "summary": "Summarises key findings: AI harm identification improves with scale and chain-of-thought; repeated critique-revision progressively reduces harmfulness; self-supervised preference labels for RL match or exceed human-feedback performance on harmlessness; the RL-CAI model lies on a Pareto frontier above standard RLHF in the helpfulness-harmlessness plane."
+    },
+    {
+      "title": "1.4 Models and Data",
+      "summary": "Describes the model family (pretrained LMs finetuned via RLHF on helpfulness data), the human feedback datasets (helpfulness labels from workers, harmlessness labels withheld from constitutional training), and the two RLHF baseline types: helpful-only and helpful-and-harmless (HH)."
+    },
+    {
+      "title": "2. Evaluating the Potential for AI Supervision of HHH",
+      "summary": "Tests whether large LMs can already identify the most helpful, honest, and harmless response in a conversation, using 438 binary HHH comparison questions. Finds that chain-of-thought prompting substantially improves accuracy, and that 52B+ models are approaching HH preference model performance — justifying the RLAIF approach."
+    },
+    {
+      "title": "3. Constitutional AI: Critiques, Revisions, and Supervised Learning",
+      "summary": "Details the SL-CAI pipeline: the model samples an initial (often harmful) response to red-team prompts, then critiques and revises it according to randomly sampled constitutional principles. Critique-revision pairs are applied up to four times; harmlessness scores improve monotonically with revisions while helpfulness scores decline slightly. The finetuned SL-CAI model is more harmless than the helpful RLHF baseline but less helpful than HH RLHF."
+    },
+    {
+      "title": "3.4 Scaling Trends",
+      "summary": "Shows that increasing the number of constitutional principles does not significantly change harmlessness PM scores but does improve diversity of revised responses, which is valuable for the subsequent RL exploration phase. More revisions yield progressively better harmlessness up to four rounds."
+    },
+    {
+      "title": "3.5 Are Critiques Necessary?",
+      "summary": "Compares critique-then-revise to direct revision without an explicit critique step. Critiqued revisions are better for smaller models; for 52B models the gap closes, though critiques remain slightly better. The paper uses critiqued revisions throughout for transparency benefits."
+    },
+    {
+      "title": "4. Constitutional AI: Reinforcement Learning from AI Feedback",
+      "summary": "Extends the SL stage into a full RL training loop. The feedback model evaluates pairs of SL-CAI responses against a sampled constitutional principle in a multiple-choice format, producing soft or clamped probability targets as harmlessness preference labels. These AI labels replace human harmlessness labels in the preference model; helpfulness labels remain human-generated. RL-CAI trained this way substantially outperforms SL-CAI and HH RLHF on harmlessness while matching or exceeding their helpfulness."
+    },
+    {
+      "title": "4.3 Main Results",
+      "summary": "RL-CAI models are significantly more harmless than both RLHF and SL-CAI models across all sizes, and trace a pareto frontier above standard RLHF in the helpfulness-harmlessness Elo plane. Chain-of-thought feedback further improves harmlessness at a small helpfulness cost. The AI labels are shown to be well-calibrated on the HHH eval."
+    },
+    {
+      "title": "4.4 Harmlessness vs. Evasiveness",
+      "summary": "Demonstrates that RL-CAI is virtually never evasive: it engages with sensitive topics and explains its objections instead of refusing. This contrasts with prior HH RLHF models that learned evasion because crowdworkers rewarded it. The key change is instructing evaluators to prefer thoughtful, non-evasive harmless responses over canned refusals."
+    },
+    {
+      "title": "4.5 Absolute Harmfulness Score",
+      "summary": "Reports absolute (rather than relative) harmfulness scores from independent red-team crowdworkers on a 0–4 scale. Helpful RLHF becomes more harmful during training; RL-CAI becomes progressively less harmful. Adds a secondary metric to complement the relative Elo comparisons."
+    },
+    {
+      "title": "5. Related Work",
+      "summary": "Positions CAI relative to RLHF (Christiano 2017), LaMDA, InstructGPT, and Sparrow, which all use human feedback. Notes parallels to self-critique methods (Zhao 2021, Scheurer et al.) and to Sparrow's principle decomposition. Highlights chain-of-thought reasoning and scaling supervision literature as enabling techniques."
+    },
+    {
+      "title": "6. Discussion",
+      "summary": "Reflects on what was achieved: harmless, non-evasive models without human harmlessness labels, with transparent governing principles. Emphasises that the goal is not to remove human oversight entirely but to make it more targeted and efficient. Raises concerns about dual use (constitutional methods also lower the barrier to training pernicious systems) and notes that reduced human observation may introduce unforeseen failure modes."
+    },
+    {
+      "title": "6.1 Future Directions",
+      "summary": "Suggests applying constitutional methods beyond harmlessness to steer style, persona, and other behavioral axes. Notes robustness to red-teaming and online training with AI feedback as near-term goals, and full instruction-following without any human labels as a longer-term aspiration."
+    },
+    {
+      "title": "6.2 Broader Impacts",
+      "summary": "Acknowledges dual-use risk: lower barriers to alignment also lower barriers to misuse. Reducing human feedback reduces human oversight and may allow deployment of models with unforeseen failure modes, though it also eliminates the unsavory work of human red-teaming."
+    }
+  ],
+  "readingFocus": [
+    "RLAIF core mechanic: understand exactly how the feedback model evaluates response pairs using a constitutional principle formatted as a multiple-choice question — this is the signal that replaces human harmlessness labels in Phase 8 preferences.",
+    "The constitution as a training artifact: 16 natural-language principles are randomly sampled at each critique-revision step; grasping why diversity matters for exploration during RL is key to designing your own preference training.",
+    "Two-stage pipeline boundary: the SL stage gets the model 'on distribution' before RL begins, reducing exploration cost — understand why this warm-start matters before wiring up your own RL loop.",
+    "Soft vs. clamped probability targets: the paper shows that raw CoT log-probs are over-confident and must be clamped to 40–60%; this calibration detail directly affects how you should construct preference labels from AI feedback.",
+    "Evasiveness as a reward-hacking failure mode: prior HH RLHF models learned to refuse because crowdworkers rewarded refusal; CAI fixes this by redefining the evaluation instruction — a concrete lesson for your own preference data collection in Phase 8.",
+    "Chain-of-thought as a scaling unlock: CoT prompting on the feedback model significantly improves harmlessness identification at large scale; this motivates using CoT in your own eval harness when judging model outputs."
+  ]
+}

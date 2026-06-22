@@ -1,0 +1,64 @@
+{
+  "paperId": "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "aware",
+  "tldr": "DataComp-LM (DCLM) is a controlled benchmark for language model training-data curation built on a 240-trillion-token Common Crawl pool, where participants compete by filtering or mixing data and are scored by training a fixed-recipe model and evaluating it on 53 downstream tasks.",
+  "overview": "DCLM addresses a fundamental problem in LM research: prior work comparing training datasets confounds data quality with architecture, compute, and hyperparameter choices, making it impossible to know what actually makes a dataset good. The benchmark fixes the training recipe and compute scale, leaving only the data as the experimental variable — an approach adapted from DataComp for vision. The authors contribute DCLM-Pool (240T GPT-NeoX tokens from Common Crawl), five competition scales from 412M to 7B parameters, and 416 baseline ablations covering text extraction, deduplication, and model-based quality filtering. The key finding is that a fastText binary classifier trained on high-quality positive examples (OpenHermes 2.5 + ELI5 subreddit posts) and applied at a strict top-10% threshold is the decisive ingredient: the resulting DCLM-Baseline dataset trains a 7B model to 64% MMLU 5-shot with 2.6T tokens, matching Mistral-7B-v0.3 and Llama 3 8B while using up to 6.6x less compute.",
+  "sections": [
+    {
+      "title": "Abstract",
+      "summary": "Introduces DCLM, a testbed for controlled dataset experiments, providing a 240T-token Common Crawl pool, standardized OpenLM training recipes, and 53 downstream evaluations. The resulting DCLM-Baseline trains a 7B model to 64% MMLU 5-shot with 2.6T tokens, a 6.6 percentage point improvement over the previous open-data state-of-the-art (MAP-Neo) at 40% less compute."
+    },
+    {
+      "title": "1. Introduction",
+      "summary": "Motivates DCLM by identifying two blockers: (1) uncontrolled comparisons across datasets — researchers use different architectures and hyperparameters so dataset effects cannot be isolated — and (2) increasing opacity of training sets even for open-weight models. DCLM fixes the training recipe and uses a shared pool so only data choices vary, enabling apples-to-apples ablations across five compute scales spanning roughly 600x in FLOPs."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Surveys prior web-crawl datasets (C4, The Pile, RefinedWeb, RedPajama, Dolma), data-centric benchmarks (DataComp for vision, DataPerf), and curation techniques including heuristic filtering, quality classifiers, deduplication, and mixing. Notes that DCLM is the largest data-centric benchmark for language models at the time of writing."
+    },
+    {
+      "title": "3. The DCLM Benchmark",
+      "summary": "Describes the four-step workflow — select a scale, build a dataset (filtering or mixing track), train with a fixed recipe, evaluate on 53 tasks — and the five competition scales (400M-1x through 7B-2x), where each scale fixes model size and a Chinchilla token multiplier. Introduces three evaluation metrics: MMLU 5-shot accuracy, Core centered accuracy (22 low-variance tasks), and Extended centered accuracy (all 53 tasks). Also describes DCLM-Pool (240T tokens, 200B documents, re-extracted from HTML via resiliparse), decontamination tooling, and rank-correlation analysis showing small-scale results transfer reliably to large scale (Pearson r up to 0.982)."
+    },
+    {
+      "title": "4.1 Evaluating Existing Training Datasets",
+      "summary": "Benchmarks C4, Dolma-V1, RedPajama, and RefinedWeb at 7B-1x scale; RefinedWeb wins on both Core and Extended metrics (36.9 / 19.8) despite being solely Common Crawl filtered, suggesting that filtering strength matters more than mixing in curated sources. Adopts RefinedWeb's heuristic filters as the baseline pipeline."
+    },
+    {
+      "title": "4.2 Text Extraction",
+      "summary": "Compares resiliparse, trafilatura, and Common Crawl's pre-extracted WET files at 1B-1x scale; both resiliparse and trafilatura improve Core by at least 2.5 points over WET. Since resiliparse is 8x faster, DCLM-Pool adopts it for all subsequent experiments."
+    },
+    {
+      "title": "4.3 Deduplication",
+      "summary": "Explores MinhHash (suffix-array style) and near-duplicate Bloom filtering; both yield comparable downstream performance within 0.2 Core points at 7B-2x scale. The modified Bloom filter scales more easily past 10TB and is adopted for DCLM-Baseline, while MinhHash is used in other experiments."
+    },
+    {
+      "title": "4.4 Model-Based Quality Filtering",
+      "summary": "The decisive section: compares seven filtering strategies (PageRank, SemDedup, BGE linear classifiers, AskLLM, perplexity filtering, top-k average logits, and fastText classifiers). A fastText binary classifier trained with OpenHermes-2.5 + ELI5 positive examples and a top-10% threshold scores 30.2 / 15.4 Core/Extended at 1B-1x, outperforming all others; at 7B-1x the same approach ranges from 35% to 44% MMLU depending on classifier details. Human quality judgments are found to have only limited value as a filtering signal."
+    },
+    {
+      "title": "4.5 Dataset Mixing",
+      "summary": "Tests adding Wikipedia, Books, StackExchange, arXiv, and GitHub at the mixing ratios used by Llama/RPJ. Mixing improves lower-quality CC baselines but slightly hurts DCLM-Baseline (−1.2 Core points), suggesting that strong filtering makes external mixing counterproductive."
+    },
+    {
+      "title": "4.6 Decontamination",
+      "summary": "Removes MMLU and Hellaswag question/answer overlaps from DCLM-Baseline and retrains at 7B-2x scale; performance does not drop (Table 7), confirming that measured gains are not artifacts of benchmark contamination."
+    },
+    {
+      "title": "5. Scaling Up DCLM-Baseline to the Trillion-Token Scale",
+      "summary": "Combines 3.8T DCLM-Baseline with StarCoder and ProofPile2 (4.1T total) and trains a 7B model for 2.5T tokens; a model-soup cool-down and continual pretraining extends context to 8192. The final model reaches 64% MMLU 5-shot and 57.1 Core, outperforming all open-dataset 7B models and matching closed-dataset models trained on up to 6.6x more compute."
+    },
+    {
+      "title": "6. Conclusion and Limitations",
+      "summary": "Frames DCLM as a starting point, not a solved problem: ablations are single-dimensional due to compute constraints, models are capped at 7B, run-to-run variance is not explored, and the benchmark currently under-covers code and math. Calls for community participation to push beyond DCLM-Baseline."
+    }
+  ],
+  "readingFocus": [
+    "The controlled-experiment framing — fixing architecture, recipe, and compute so only data varies — is the direct template for Microlab's Phase 1 eval harness, where you want to isolate the effect of tokenizer and dataset choices from other confounds.",
+    "The fastText classifier ablation (Section 4.4) is the most practically actionable finding: positive-example selection and threshold aggressiveness matter more than the classifier family, which informs how Microlab should think about quality-signal choice when filtering pretraining data.",
+    "Rank-correlation stability across scales (Section 3.2, Figure 3) is important for Microlab: it justifies running data-curation experiments at small scale (400M-1x) before committing to larger runs, exactly the kind of cheap-first iteration the Phase 1 compute budget requires.",
+    "The mixing result (Section 4.5) — that mixing hurts a well-filtered dataset — is a non-obvious finding that challenges the common assumption that adding curated sources always helps; worth keeping in mind when designing Microlab's data-mixing experiments.",
+    "The 53-task evaluation suite with Core (22 low-variance tasks) and Extended metrics shows how to build an eval harness that gives reliable signal at small scale — directly relevant to how Microlab should weight and select tasks for its own benchmark."
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "paperId": "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "ToolLLM is a framework that constructs ToolBench — 126k instruction/solution-path pairs over 16,464 real-world REST APIs — and fine-tunes LLaMA into ToolLLaMA, matching ChatGPT on tool-use via a novel depth-first search decision tree (DFSDT) and a ChatGPT-backed automatic evaluator (ToolEval).",
+  "overview": "Open-source LLMs lag far behind ChatGPT on tool use because existing instruction-tuning data covers only small, synthetic API sets and relies on single-tool, linear reasoning. ToolLLM addresses this with a three-stage automatic pipeline: collect 16,464 real-world RapidAPI REST APIs across 49 categories, prompt ChatGPT to generate 126,486 diverse single- and multi-tool instructions, then annotate solution paths using DFSDT — a decision-tree search that backtracks on errors rather than propagating them as ReACT does. The resulting ToolLLaMA (LLaMA-2 7B fine-tuned on ToolBench) achieves pass and win rates comparable to ChatGPT, generalises to previously unseen APIs, and transfers zero-shot to the out-of-distribution APIBench dataset, outperforming Gorilla on HuggingFace and TorchHub domains.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Open-source LLMs fail at real-world tool use because instruction tuning ignores the tool domain, existing benchmarks are limited to small simulated API sets, and linear reasoning strategies (CoT/ReACT) cannot recover from errors in long multi-step tasks. ToolLLM closes this gap with ToolBench, DFSDT, ToolEval, and a fine-tuned ToolLLaMA."
+    },
+    {
+      "title": "2. Dataset Construction — 2.1 API Collection",
+      "summary": "16,464 RESTful APIs are crawled from RapidAPI Hub across 49 coarse-grained categories and 500+ fine-grained collections. A two-step filtering process (initial functionality testing, then response quality and latency checks) reduces 53,190 raw APIs to 3,451 reliable tools, each stored with full documentation: description, required/optional parameters, HTTP method, code snippets, and an example response."
+    },
+    {
+      "title": "2.2 Instruction Generation",
+      "summary": "ChatGPT generates instructions from sampled API subsets using three strategies: single-tool (I1), intra-category multi-tool (I2), and intra-collection multi-tool (I3). Twelve seed examples per type anchor the generation; hallucinated API references are filtered out, yielding ~200k instruction/API pairs (87k I1, 85k I2, 25k I3)."
+    },
+    {
+      "title": "2.3 Solution Path Annotation — DFSDT",
+      "summary": "ChatGPT annotates solution paths via a novel Depth-First Search Decision Tree (DFSDT). Unlike ReACT or CoT, DFSDT lets the model backtrack — calling 'Finish by Giving Up' on a dead branch and expanding a new node — so errors do not cascade. Only paths that succeed (pass) are retained, producing 126,486 training pairs. DFSDT achieves pass rates of 58%, 70.6%, and 62.8% on I1/I2/I3, versus ReACT's 37.8%, 40.6%, and 27.6%."
+    },
+    {
+      "title": "3.1 Preliminary Experiments — ToolEval & API Retriever",
+      "summary": "ToolEval is an automatic evaluator backed by ChatGPT with two metrics: pass rate (did the model complete the instruction within budget?) and win rate (which of two solution paths is better, by six criteria including information richness, factuality, and milestone count?). ToolEval agrees with human annotators at 87.1% (pass) and 80.3% (win). A Sentence-BERT dense retriever, trained with contrastive learning on the instruction/API pairs, retrieves top-5 APIs at inference time, outperforming BM25 and ada-002 on NDCG@1 and NDCG@5 across all three instruction types."
+    },
+    {
+      "title": "3.2 Main Experiments",
+      "summary": "ToolLLaMA (LLaMA-2 7B, context extended to 8192 via positional interpolation, trained two epochs) is evaluated on unseen instructions, unseen tools in seen categories, and unseen tool categories. With DFSDT, ToolLLaMA matches or exceeds Text-Davinci-003 and Claude-2 and approaches ChatGPT, while Vicuna and Alpaca score 0% pass rate — confirming that general instruction tuning does not transfer to the tool-use domain. Integrating the API retriever further improves performance because the retriever finds better-suited APIs than the oracle ground-truth set."
+    },
+    {
+      "title": "3.3 Out-of-Distribution Generalisation to APIBench",
+      "summary": "Without any training on APIBench (HuggingFace, TorchHub, TensorHub domains), ToolLLaMA with the trained retriever outperforms Gorilla-BM25 (a pipeline specifically designed and trained for APIBench) on AST accuracy for HuggingFace and TorchHub, with substantially lower hallucination rates, demonstrating strong zero-shot generalisation."
+    },
+    {
+      "title": "4. Related Work",
+      "summary": "Positions ToolLLM relative to tool-learning datasets (API-Bank, ToolAlpaca, prior ToolBench), instruction-tuning pipelines (self-instruct, Alpaca, Vicuna), and LLM reasoning strategies (ReACT, Reflexion, Tree-of-Thought). DFSDT shares ideas with ToT but targets infinite-branching real-world API spaces rather than finite puzzle domains."
+    },
+    {
+      "title": "5. Conclusion",
+      "summary": "ToolBench, DFSDT, ToolEval, and ToolLLaMA together constitute a fully automatic pipeline for teaching LLMs to use real-world APIs at scale, with strong generalisation to unseen tools and OOD domains — establishing a foundation for future instruction-tuning and tool-learning research."
+    },
+    {
+      "title": "Appendix A — Implementation Details",
+      "summary": "Covers RapidAPI filtering (initial functionality test, response quality/latency filtering), API response compression (ChatGPT-guided schema reduction to fit LLM context windows), ToolLLaMA training hyperparameters (lr 5e-5, batch 64, 8192 context, 2 epochs), DFSDT pre-order traversal optimisation, ToolEval pass/win rate rubrics with detailed labelling rules, APIBench generalisation setup, and full instruction-generation prompts with seed examples."
+    }
+  ],
+  "readingFocus": [
+    "ToolBench data construction: understand the three instruction types (I1/I2/I3) and how API documentation is fed as context — this directly parallels how Microlab might structure multi-tool eval tasks in Phase 12.",
+    "DFSDT vs ReACT: the decision-tree backtracking mechanism is the key methodological contribution; track how it avoids error propagation and why it outperforms repeated ReACT (ReACT@N) even at equal API-call budgets.",
+    "ToolEval metrics: pass rate and win rate together capture both executability and quality — a useful dual-metric pattern for any Microlab eval harness that judges open-ended agent outputs rather than fixed answers.",
+    "Generalisation levels (Inst./Tool/Cat.): the three-level generalisation framework (unseen instructions, unseen tools in seen categories, unseen categories) is a reusable template for designing eval splits whenever tools or APIs are part of the task.",
+    "API retriever design: Sentence-BERT contrastive retriever trained on instruction/API pairs outperforms BM25 and ada-002 — relevant if Microlab Phase 12 needs to select relevant context or tools from a large pool at inference time."
+  ]
+}

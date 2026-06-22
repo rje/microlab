@@ -1,0 +1,72 @@
+{
+  "paperId": "solving-math-word-problems-with-process-and-outcome-based-feedback",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "The first head-to-head comparison of process- and outcome-based supervision on a natural language task (GSM8K) shows both yield similar final-answer error rates, but low reasoning-trace error requires process-based feedback or a reward model that learns to emulate it.",
+  "overview": "Uesato et al. (DeepMind, 2022) train and compare LMs on grade-school math word problems under two supervision regimes: outcome-based (supervise only the final answer) and process-based (supervise each reasoning step via human annotations). Using a 70B base LM fine-tuned with supervised learning, reward models, and expert-iteration RL, they track both final-answer error rate and trace error rate — the fraction of correct-answer solutions that contain at least one incorrect reasoning step. Their headline finding is that outcome- and process-based approaches converge on final-answer error (best: 12.7% vs. 12.9%), but diverge sharply on trace error: pure outcome RL reaches only 12.4% trace error at best, whereas SFT with PRM reranking reaches 3.4%, reducing the prior state-of-the-art from 14.0%. A surprising secondary finding is that ORM-trained reward models, despite seeing only final-answer labels, learn to agree more with process-based step labels (85%) than with the outcome labels themselves (77%), suggesting they implicitly emulate process feedback.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates the process vs. outcome supervision question: outcome approaches can produce correct final answers via incorrect reasoning, which is undesirable in education and safety-critical settings. Introduces GSM8K as the testbed and defines two primary metrics: final-answer error rate and trace error rate."
+    },
+    {
+      "title": "2.1. Dataset and evaluation metrics",
+      "summary": "GSM8K contains 7,118 training and 1,319 test grade-school math problems with natural-language reasoning traces. Final-answer error is measured by exact string matching; trace error is estimated via human annotation of step correctness on problems where the model already produced the correct final answer."
+    },
+    {
+      "title": "2.2–2.3. Training overview & Supervised finetuning",
+      "summary": "The base LM (70B) is finetuned via sequence-to-sequence training on GSM8K reasoning traces (process-based SFT) using AdamW with early stopping. This SFT model serves as the starting point for all reward model and RL experiments."
+    },
+    {
+      "title": "2.4. Reward models (ORM and PRM)",
+      "summary": "Two reward model variants are trained: the outcome-supervised RM (ORM), which labels each step by whether the full solution reached the correct final answer; and the process-supervised RM (PRM), which labels each step by human annotations of step-level correctness. Both are implemented as LMs that predict a binary correct/incorrect token after each step."
+    },
+    {
+      "title": "2.5–2.6. Decoding & RL via Expert Iteration",
+      "summary": "At test time, K=96 samples are generated and selected by majority voting or RM-weighted decoding. RL uses expert iteration: policy improvement (filtering samples by final-answer correctness, ORM score, or PRM score) alternates with distillation back into the policy via supervised finetuning."
+    },
+    {
+      "title": "2.7. Data annotation",
+      "summary": "Human annotators identify the first major mistake in model-generated solutions, yielding step-level binary labels. After cleaning for low inter-annotator agreement, the dataset covers 1,560 training samples (9,856 step labels) across 530 problems, and 162 validation samples; 200 problems per model are annotated for evaluation."
+    },
+    {
+      "title": "3.1. Results — No reward model",
+      "summary": "Without any reward model, SFT and Few-shot+Final-Answer RL achieve similar final-answer error (22.3% vs. 23.5%), but SFT has much lower trace error (11.4% vs. 19.8%). Adding Final-Answer RL on top of SFT slightly decreases final-answer error but slightly increases trace error, consistent with outcome RL finding shortcuts."
+    },
+    {
+      "title": "3.2. Results — Reward model for reranking only",
+      "summary": "Adding ORM or PRM reranking at test time significantly reduces both error types. SFT with PRM reranking reaches 3.5% trace error and 14.1% final-answer error. ORM-supervised reward models predict step correctness more accurately than ORM labels themselves (85% vs. 77% agreement with PRM labels), suggesting ORMs implicitly learn process-based signals."
+    },
+    {
+      "title": "3.3. Results — RL with a reward model",
+      "summary": "ORM-RL and PRM-RL outperform Final-Answer RL across all decoding strategies. SFT+ORM-RL achieves 3.4% trace error and 12.7% final-answer error (new state-of-the-art). Notably, RL provides large gains from a few-shot starting point but modest gains on top of SFT, except under greedy decoding."
+    },
+    {
+      "title": "3.4. Selective prediction",
+      "summary": "Allowing the model to abstain on 30% of questions (using RM score as a confidence threshold) reduces final-answer error from 14.1% to 2.7% for SFT+PRM; process-supervised models benefit more than outcome-only models because lower trace error makes RM confidence more reliable."
+    },
+    {
+      "title": "3.5. OOD generalization",
+      "summary": "Evaluating zero-shot on pre-algebra problems from the MATH dataset, all models reach 60–70% final-answer error with no clear advantage for process- vs. outcome-based supervision, suggesting OOD generalization differences are small and dataset-specific."
+    },
+    {
+      "title": "4. Discussion",
+      "summary": "Section 4.1 argues outcome-based feedback is label-efficient when final-answer correctness is a reliable proxy, but process-based feedback is needed when trace correctness matters (e.g., education, safety). Sections 4.1.2–4.1.3 discuss how process-based approaches require and promote human understandability, and how outcome-based RL creates incentives for reward tampering that process-based supervision avoids. Section 4.2 notes the convergence of ORMs and PRMs may be math-specific. Section 4.3 maps the process/outcome distinction onto related literature concepts (SL vs. RL, strong vs. weak supervision, verbalized reasoning)."
+    },
+    {
+      "title": "5. Related work",
+      "summary": "Surveys prior work on math word problems with LMs, reward models and verifiers (Cobbe et al., Li et al.), chain-of-thought and self-consistency prompting, and multistep reasoning approaches including WebGPT (the closest prior process-vs-outcome comparison), Iterated Amplification, and Neural Programmer-Interpreters."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "Both supervision types reach similar final-answer error on GSM8K, but low trace error requires process-based feedback or an ORM that emulates it; using the ORM in RL closes most of the trace error gap (12.7% to 5.5%) while the best process-based method reaches 3.4%."
+    }
+  ],
+  "readingFocus": [
+    "The distinction between final-answer error rate and trace error rate is the central contribution — understand why they diverge and when each metric matters for Microlab's reward model work (Phase 10/11).",
+    "The ORM-approximates-PRM finding (Section 3.2 / Fig. 4): outcome-supervised reward models agree more with process labels than with their own training labels. This directly motivates using RM reranking even when you only have final-answer supervision.",
+    "Expert iteration as the RL mechanism: the paper's ORM-RL and PRM-RL are straightforward filter-then-distill loops — note how they handle the SFT-based vs. few-shot-based variants differently and why trace errors in early iterations matter.",
+    "The selective prediction results (Section 3.4): RM confidence as an abstain threshold achieves a 5x final-answer error reduction for SFT+PRM models, which is a practical technique for Microlab eval harness confidence scoring.",
+    "Process-based feedback's safety motivation (Section 4.1.3): reward tampering / specification gaming arguments are directly relevant to understanding why process supervision is a design priority in Phase 10/11 reward model design."
+  ]
+}

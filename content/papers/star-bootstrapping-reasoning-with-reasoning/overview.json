@@ -1,0 +1,64 @@
+{
+  "paperId": "star-bootstrapping-reasoning-with-reasoning",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "STaR bootstraps chain-of-thought rationale generation from a handful of examples by iteratively fine-tuning a model on its own correct rationales, augmented with 'rationalization' (backward reasoning from the correct answer) for problems the model initially fails.",
+  "overview": "STaR (Self-Taught Reasoner) is a scalable technique that lets a language model improve its own reasoning without massive rationale datasets or very large models. Starting from just a few few-shot rationale examples, the model generates rationales for all training questions, keeps only those that led to correct answers, and fine-tunes itself on the result — then repeats. A critical complement called rationalization handles hard problems: when the model fails, it is given the correct answer as a hint and asked to justify it backward; those rationales are added to the training set without the hint. Applied to GPT-J (6B), STaR reaches 72.5% on CommonsenseQA — matching a 30x larger GPT-3 fine-tuned model — and improves arithmetic and grade-school math far beyond few-shot or direct fine-tuning baselines.",
+  "sections": [
+    {
+      "title": "Abstract",
+      "summary": "Proposes iterative rationale bootstrapping from a small prompt set: generate rationales, keep correct ones, fine-tune, repeat. Rationalization (backward reasoning from the answer) handles failures. STaR matches GPT-3 175B fine-tuned on CommonsenseQA using a 30x smaller model."
+    },
+    {
+      "title": "1. Introduction",
+      "summary": "Chain-of-thought rationales improve LLM reasoning but obtaining them at scale requires expensive human annotation or sacrifices accuracy by using only few-shot prompting. STaR bridges the gap by having the model generate and filter its own rationales iteratively, with rationalization rescuing problems the model cannot yet solve unaided."
+    },
+    {
+      "title": "2. Background and Related Work",
+      "summary": "Situates STaR in in-context learning, rationale-based training (scratchpads, CoT prompting), and iterated learning / Expert Iteration (ExIt). STaR differs from ExIt by using a fixed 'expert' (correct-answer filter) rather than a learned value function, and from prior rationale work by not requiring pre-annotated reasoning traces."
+    },
+    {
+      "title": "3.1 Rationale Generation Bootstrapping (STaR Without Rationalization)",
+      "summary": "Formally defines the outer loop: few-shot prompt the current model to produce (rationale, answer) pairs for all training problems, filter to correct answers, fine-tune the original pretrained model on the filtered set, repeat. Shows this approximates a policy-gradient RL objective where the indicator reward is answer correctness."
+    },
+    {
+      "title": "3.2 Rationalization",
+      "summary": "For problems where rationale generation fails, provide the correct answer as a hint and ask the model to justify it — training as if the hint had not been given. This exposes the model to harder problems it would otherwise never learn from, accelerates convergence, and meaningfully expands the fine-tuning dataset."
+    },
+    {
+      "title": "4.1 Experimental Protocol",
+      "summary": "Base model is GPT-J (6B), evaluated on arithmetic (n-digit addition), CommonsenseQA (CQA, 9,741 train), and Grade School Math (GSM8K, 7,473 train). Training starts from the pretrained checkpoint each outer-loop iteration to prevent drift; training steps increase 20% per iteration."
+    },
+    {
+      "title": "4.2 Datasets",
+      "summary": "Arithmetic: 50,000 randomly generated n-digit addition problems with scratchpad format. CommonsenseQA: 12,247 5-way multiple-choice questions built from ConceptNet. GSM8K: 7,473 natural-language grade-school math word problems requiring 2-8 calculation steps."
+    },
+    {
+      "title": "4.3 Symbolic Reasoning: Results on Arithmetic",
+      "summary": "After 16 iterations, STaR reaches 89.5% on n-digit arithmetic vs. 76.3% for a direct fine-tune on 10,000 labeled examples. Rationalization dramatically accelerates early learning (2-digit accuracy jumps from <1% to 32% after one iteration) and enables simultaneous multi-length generalization."
+    },
+    {
+      "title": "4.4 Natural Language Reasoning: Commonsense QA",
+      "summary": "STaR with rationalization achieves 72.5% on CQA dev, outperforming GPT-J direct fine-tuned (60%), CoT LaMDA 137B (55.6%), and approaching GPT-3 fine-tuned at 73.0% — using a 30x smaller model and only 86.7% of the training data."
+    },
+    {
+      "title": "4.5 Mathematical Reasoning: Grade School Math",
+      "summary": "STaR with rationalization hits 10.7% on GSM8K test vs. 5.8% for direct GPT-J fine-tuning and ~3% for few-shot baselines. The model learns to match the human number of calculation steps 53-57% of the time, occasionally finding shorter valid solutions."
+    },
+    {
+      "title": "5. Discussion and Challenges",
+      "summary": "Rationalization conditions on the answer (sampling from p(r|x,y) rather than p(r|x)), providing a richer search space for rationales. Higher-temperature sampling is counterproductive — it produces incorrect reasoning that poisons training. Few-shot prompts during fine-tuning reduce 'drift' in rationale style but add compute cost. STaR requires the base model to exceed chance few-shot, and struggles when chance performance is already high."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "STaR lets a model teach itself to reason by iterating rationale generation and rationalization with only a handful of seed examples. Limitations include needing a capable enough base model and sensitivity to high-chance-performance domains where bad rationales are rewarded."
+    }
+  ],
+  "readingFocus": [
+    "The outer bootstrapping loop (generate, filter by correctness, fine-tune from pretrained checkpoint, repeat) is the core mechanism — understand why restarting from the pretrained model each iteration prevents overfitting.",
+    "Rationalization is the key insight for Microlab's Phase 11 distillation: backward reasoning from a known correct answer lets the model handle problems it cannot yet solve forward, directly analogous to using a stronger teacher to generate reasoning traces for a weaker student.",
+    "The correct-answer filter as an implicit reward signal approximates a policy-gradient RL objective — important context for understanding RLHF and reasoning RL variants that Microlab covers in later phases.",
+    "Why higher-temperature sampling is worse than rationalization: incorrect rationales that happen to reach the right answer by luck corrupt the training distribution, a pitfall directly relevant to designing Microlab's own self-improvement loops.",
+    "The few-shot prompt drift phenomenon (Section 5) has practical implications for any iterative fine-tuning pipeline: rationale style diverges from the seed prompts over iterations, which can hurt or help depending on whether style consistency matters."
+  ]
+}

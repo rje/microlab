@@ -1,0 +1,68 @@
+{
+  "paperId": "let-s-verify-step-by-step",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Process-supervised reward models (PRMs), which score each reasoning step individually using human labels, significantly outperform outcome-supervised reward models (ORMs) on the MATH benchmark; the authors release PRM800K, 800K step-level human feedback labels, to support related research.",
+  "overview": "Lightman et al. (OpenAI, 2023) run a large-scale head-to-head comparison of outcome supervision vs. process supervision for training reward models on the challenging MATH dataset. Their process-supervised reward model (PRM), trained on step-level human labels from the PRM800K dataset (800K labels across 75K solutions to 12K problems), achieves 78.2% best-of-1860 on a representative MATH test subset, compared to 72.4% for the outcome-supervised baseline and 69.6% for majority voting. A synthetic-supervision ablation at small scale controls for confounds and confirms process supervision is the stronger signal. The paper also shows that active learning — surfacing the most convincing wrong-answer solutions to labelers — yields a 2.6x data-efficiency improvement over uniform labeling.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "LLMs regularly produce hallucinations in multi-step reasoning chains; detecting mistakes is critical. The paper frames the key question: should reward models be trained on final-answer correctness (outcome supervision / ORM) or step-by-step correctness (process supervision / PRM)? Prior work on simpler grade-school math found them roughly equivalent; this paper tests on the harder MATH dataset with a stronger base model and much more human feedback."
+    },
+    {
+      "title": "2. Methods",
+      "summary": "The generator (fixed GPT-4 base fine-tuned on MathMix) produces newline-delimited step-by-step solutions. Human labelers rate each step positive, negative, or neutral (positive = correct and reasonable, negative = incorrect or unreasonable, neutral = ambiguous). ORMs are trained on binary solution-level labels from automatic answer-checking; PRMs are trained on step-level human labels, supervising only up to the first incorrect step to keep labeling cost comparable. Evaluation is by best-of-N selection: the reward model picks the top-ranked solution from N uniform samples."
+    },
+    {
+      "title": "2.1–2.2 Scope & Base Models",
+      "summary": "The paper deliberately does not use RL to improve the generator; it focuses purely on how to train the most reliable reward model. Large-scale experiments use GPT-4 (no RLHF pretraining) fine-tuned on MathMix (1.5B math-relevant tokens). Small-scale models use roughly 200x less compute and are supervised by the large PRM acting as a labeling oracle."
+    },
+    {
+      "title": "2.3–2.4 Generator & Data Collection (PRM800K)",
+      "summary": "The generator is fine-tuned for one epoch on correct solutions to produce the required newline-delimited format. PRM800K contains 800K step-level labels (75K solutions, 12K MATH problems) collected in two phases: phase 1 (~40K labels, multiple alternatives per step) and phase 2 (~760K labels, 10 active-learning generations). Active learning surfaces convincing wrong-answer solutions — those rated highly by the current best PRM but reaching a wrong final answer — maximising information per label."
+    },
+    {
+      "title": "2.5–2.6 ORM and PRM Training",
+      "summary": "ORMs are trained similarly to Cobbe et al. (2021) token-level verifiers: predict solution-level correctness, use final-token score at test time. PRMs predict step correctness at the final token of each step; solution score is the product of per-step probabilities. Both are fine-tuned from MathMix base for 2 epochs."
+    },
+    {
+      "title": "3. Large-scale Supervision",
+      "summary": "The large-scale PRM trained on PRM800K achieves 78.2% best-of-1860, versus 72.4% for the ORM and 69.6% for majority voting. The performance gap grows with N, indicating PRM is better at exploiting a larger compute budget at test time. The ORM training set is an order of magnitude larger than PRM800K (to maximise its own performance), so the comparison is each method's best effort rather than a controlled ablation."
+    },
+    {
+      "title": "4. Small-scale Synthetic Supervision",
+      "summary": "To control for training-set size and false-positive contamination, the large PRM supervises small models in place of humans. 4.1 confirms process supervision consistently beats both forms of outcome supervision across all data scales. 4.2 shows active learning (80% convincing wrong-answer samples, 20% other) is ~2.6x more data-efficient than uniform labeling, though iterative retraining of the selector was unstable in preliminary experiments."
+    },
+    {
+      "title": "5. OOD Generalization",
+      "summary": "Evaluated on 234 held-out AP Physics, AP Calculus, AP Chemistry, and AMC10/12 problems (guaranteed not in pretraining), the PRM again outperforms the ORM and majority voting (72.9% vs 63.8% vs 61.3% aggregate best-of-100), demonstrating the advantage holds under distribution shift."
+    },
+    {
+      "title": "6. Discussion",
+      "summary": "Section 6.1 explains the credit-assignment advantage: ORM must infer where errors occur from a binary signal, which is hard when most solutions are wrong; PRM directly specifies the error location. Section 6.2 notes alignment benefits: process supervision rewards human-endorsed reasoning chains rather than using outcomes as a proxy, avoids reward hacking, and — unusually — incurs a negative alignment tax (it outperforms the less-aligned alternative). Section 6.3 addresses test-set contamination concerns."
+    },
+    {
+      "title": "7. Related Work",
+      "summary": "Contrasts with Uesato et al. (2022) who found ORM and PRM roughly equivalent on grade-school math (GSM8K) at smaller scale; this paper argues the difference emerges at scale and on harder problems. Also relates to synthetic supervision (Gao et al., 2022) and chain-of-thought / self-consistency literature."
+    },
+    {
+      "title": "8. Conclusion",
+      "summary": "Process supervision trains more reliable reward models than outcome supervision for mathematical reasoning, active learning cuts labeling cost by 2.6x, and PRM800K is released publicly to lower the barrier to related alignment research."
+    },
+    {
+      "title": "Appendix B: PRM800K Collection Details",
+      "summary": "Phase 2 split data collection into 10 active-learning generations, retraining the PRM between each. Labeler quality control required 75% agreement on gold labels before admission to phase 2; continuous monitoring removed low-quality labelers. The unfiltered raw dataset contains 1,085,590 labels over 101,599 solutions; filtered training set is ~800K labels over 75K solutions."
+    },
+    {
+      "title": "Appendix F: PRM Training & Scoring Details",
+      "summary": "PRMs are fine-tuned from the MathMix model for 2 epochs with low learning rates for stability. The recommended scoring strategy is product of per-step probabilities (treating neutral as positive), which yields 78.2% best-of-1860; min-reduction alternatives are within ~0.6 percentage points."
+    }
+  ],
+  "readingFocus": [
+    "The core PRM vs ORM result (78.2% vs 72.4% best-of-1860): understand why step-level credit assignment is strictly more informative than binary outcome labels, especially as problem difficulty increases.",
+    "PRM800K construction and the two-phase data-collection pipeline: Phase 10 of the active-learning loop is the practical template for how Microlab might structure iterative reward-model training with human or AI feedback.",
+    "The active-learning strategy (surface convincing wrong-answer solutions) and its 2.6x data-efficiency gain — directly applicable to designing efficient data collection for Microlab's process-reward training phase.",
+    "The scoring reduction choice (product of step probabilities vs minimum): when Microlab implements PRM inference, this appendix gives the empirical basis for choosing a reduction strategy.",
+    "The alignment argument in Section 6.2: process supervision incurs a negative alignment tax — it is both safer and more capable — which is the theoretical motivation for preferring PRMs over ORMs in Microlab's reward pipeline."
+  ]
+}

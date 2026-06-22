@@ -1,0 +1,60 @@
+{
+  "paperId": "deduplicating-training-data-makes-language-models-better",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Existing LM training datasets contain pervasive near-duplicate text; two scalable deduplication tools (suffix-array exact substring matching and MinHash approximate matching) remove it, reducing memorization by 10x and improving or preserving perplexity while exposing that 4%+ of standard validation sets overlap verbatim with their training splits.",
+  "overview": "Lee et al. audit four widely-used English LM datasets (C4, Wiki-40B, LM1B, RealNews) and show that all contain substantial near-duplicate content — a 61-word sentence in C4 appears 61,036 times in the training set and 61 times in the validation set. They introduce two complementary deduplication algorithms: ExactSubstr, which uses a suffix array to detect and remove repeated substrings of 50+ BPE tokens, and NearDup, which uses MinHash over 5-grams with edit-similarity filtering to cluster and drop near-duplicate documents. Training 1.5B-parameter T5-XL models on deduplicated C4 confirms four benefits: memorization of training data drops by roughly 10x, train-test leakage affecting over 4% of validation examples is removed, perplexity is equal or lower (never worse), and training is faster because the datasets are smaller. The paper also shows that existing released models (Transformer-XL on LM1B, GROVER on RealNews) have inflated validation perplexities on the duplicate subset of their eval sets, meaning published numbers are partly artifacts of train-test overlap.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Common NLP datasets contain many near-duplicates and long repeated substrings — over 1% of tokens a model generates unprompted are verbatim copies of training data. The authors motivate two deduplication tools and enumerate four advantages: less memorization (10x reduction), removal of train-test leakage (>4% of val sets), no perplexity cost, and faster/cheaper training."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Reviews prior work on large LM datasets (C4, WebText, CommonCrawl), contamination of downstream benchmarks (GPT-2/GPT-3 n-gram overlap analysis), and memorization risks (Carlini et al. extracting training data from GPT-2). Frames the paper's contribution as the first systematic, scalable treatment of the duplication problem across multiple datasets."
+    },
+    {
+      "title": "3. Language Modeling Datasets",
+      "summary": "Characterises the four target datasets: Wiki-40B (2.9M English Wikipedia pages, 768 BPE tokens avg), LM1B (30M sentences, 32 BPE tokens avg), C4 (360M web documents, 486 BPE tokens avg, already lightly deduplicated by hash), and RealNews (31M news documents, 793 BPE tokens avg). Notes that prior deduplication in C4 and RealNews was coarse and insufficient."
+    },
+    {
+      "title": "4.1 Exact Substring Duplication (ExactSubstr)",
+      "summary": "Concatenates the full dataset into a single byte sequence, builds a suffix array in linear time (parallelised Rust implementation of SA-IS), then linearly scans for adjacent entries sharing a prefix of 50+ BPE tokens. Repeated substrings are removed from one copy; the threshold of 50 was chosen empirically from the 'bend in the knee' of the match-length frequency curve. The suffix array itself requires 8x dataset size in memory (1.5 TB for the 350 GB C4 suffix array)."
+    },
+    {
+      "title": "4.2 Approximate Matching with MinHash (NearDup)",
+      "summary": "Represents each document by 5-gram MinHash signatures (9,000-element signatures, b=20 buckets, r=450 rows) to estimate the Jaccard index; candidate pairs above a collision threshold are then filtered by edit similarity > 0.8. Connected components in the resulting graph define duplicate clusters; one document per cluster is retained. NearDup catches templated near-identical documents that differ only in a few words, which ExactSubstr misses."
+    },
+    {
+      "title": "5. Deduplication Results",
+      "summary": "NearDup finds 3.04–13.63% near-duplicate examples in web-crawl datasets (C4: 3.04%, RealNews: 13.63%) and much less in curated ones (Wiki-40B: 0.39%). ExactSubstr removes more tokens overall — 7.18% of C4's tokens contain a repeated 50-token substring — but fewer whole documents. Train-test leakage is confirmed: 4.60% of C4 validation examples and 14.35% of RealNews validation examples have a near-duplicate in the training set."
+    },
+    {
+      "title": "6.1 Model Perplexity",
+      "summary": "1.5B-parameter XL models trained on C4-Original, C4-NearDup, and C4-ExactSubstr are evaluated on multiple held-out sets. Deduplicated models have similar perplexity on unique validation examples, but substantially higher perplexity on the duplicated subset — showing the original model was artificially advantaged by memorisation. ExactSubstr deduplication reduces XL perplexity on Wiki-40B by nearly 3 points."
+    },
+    {
+      "title": "6.2 Generated Text (Memorization)",
+      "summary": "Generating 100k sequences of 512 tokens without prompting: XL-Original emits over 1% of tokens as part of a 50-token verbatim copy of training data; XL-NearDup and XL-ExactSubstr drop this to ~0.1%, a 10x reduction. With prompting, models prompted from duplicate training examples reproduce the correct continuation over 40% of the time under XL-Original; deduplicated models reduce this substantially but do not eliminate it entirely."
+    },
+    {
+      "title": "6.3 Impact on Existing Models",
+      "summary": "Publicly released Transformer-XL (trained on LM1B) and GROVER (trained on RealNews) both show significantly lower perplexity on validation examples that have a near-duplicate in the training set than on unique examples. For Transformer-XL the difference is roughly half (10 vs 23 perplexity); for GROVER-Mega, 1.38% of all output tokens in a 25k-sequence sample are verbatim 50-token matches to RealNews, confirming memorization in deployed models."
+    },
+    {
+      "title": "7. Discussion",
+      "summary": "Scopes the contribution to structural duplication (over-represented templated text), not under-representation of minority groups. Notes open limitations: deduplication may inadvertently remove attribution text; it does not address privacy-sensitive data; some tasks require memorization (document retrieval, closed-book QA). Encourages practitioners to deduplicate before training rather than relying on the specific tool used."
+    },
+    {
+      "title": "8. Conclusion",
+      "summary": "Recommends thorough deduplication as a standard step in LM dataset construction: it is cheap relative to training cost, reduces memorization, removes eval leakage, and never hurts perplexity. Code and deduplicated datasets are released."
+    }
+  ],
+  "readingFocus": [
+    "The two algorithms (ExactSubstr via suffix arrays, NearDup via MinHash) are production-ready tools for a Phase 1 data pipeline; understand which catches what — ExactSubstr removes substring repetitions within documents, NearDup removes whole near-duplicate documents.",
+    "Train-test leakage: 4.60% of C4 validation and 14.35% of RealNews validation overlap with training. Any eval harness that uses web-crawl text for both training and evaluation must check for this or reported metrics will be inflated.",
+    "The 10x memorization reduction quantifies a direct benefit of deduplication for Microlab's training runs: less memorized boilerplate means the model spends capacity on learning, not repeating.",
+    "The threshold choice (50 BPE tokens for ExactSubstr, Jaccard > 0.8 with edit-sim > 0.8 for NearDup) is empirically motivated — Figure 5 and Appendix B show the methodology for choosing thresholds, which is directly applicable when configuring a dedup pass over Microlab's own corpora.",
+    "Perplexity on the duplicate validation subset is artificially low for non-deduplicated models (Section 6.1, Table 5): when building Microlab's eval sets, track whether each example has a near-duplicate in train to detect this artefact."
+  ]
+}

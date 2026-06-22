@@ -1,0 +1,40 @@
+{
+  "paperId": "neural-machine-translation-of-rare-words-with-subword-units",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "Sennrich et al. adapt the byte pair encoding (BPE) compression algorithm into a word segmentation method that lets NMT models translate rare and unseen words as sequences of subword units, eliminating the need for back-off dictionaries and improving BLEU by up to 1.1–1.3 points on English→German and English→Russian.",
+  "overview": "Neural machine translation models work with fixed vocabularies, making translation an open-vocabulary problem: rare or morphologically complex words either become UNK tokens or require a separate back-off dictionary. This paper proposes representing words as sequences of subword units learned by iteratively merging the most frequent character pairs (BPE), so any word — including novel compounds, names, and loanwords — can be expressed within a compact fixed vocabulary. The authors evaluate two variants: separate BPE vocabularies per language and a joint BPE vocabulary (BPE-J90k) trained on the union of source and target text, with joint BPE producing more consistent cross-lingual segmentations. On WMT 2015, the best subword systems outperform word-level baselines with back-off dictionaries by up to 1.1 BLEU (EN→DE) and 1.3 BLEU (EN→RU), with the largest gains on rare and out-of-vocabulary words.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "NMT vocabularies are fixed, making translation open-vocabulary; prior work backs off to dictionaries. The paper introduces subword-unit encoding — specifically BPE — as a simpler, more effective alternative that lets NMT produce and recognize words never seen at training time."
+    },
+    {
+      "title": "2. Neural Machine Translation",
+      "summary": "Briefly reviews the Bahdanau et al. (2015) encoder-decoder with attention: a bidirectional GRU encoder produces annotation vectors h_j, and a recurrent decoder attends over them to generate each target token. The subword approach is architecture-agnostic and applied at the data level."
+    },
+    {
+      "title": "3. Subword Translation",
+      "summary": "Motivates subword representations by categorizing translatable-by-smaller-units word classes: named entities (copy/transliterate), compounds (decompose), cognates and loanwords (character-level rules). Section 3.1 surveys prior SMT segmentation work; Section 3.2 presents the BPE algorithm — initialize with character vocabulary, iteratively merge the most frequent symbol pair, stop after a fixed number of merge operations — producing a compact vocabulary of variable-length character n-grams. Joint BPE (learned on concatenated source+target) is introduced to improve segmentation consistency across languages."
+    },
+    {
+      "title": "4. Evaluation",
+      "summary": "Experiments use WMT 2015 EN→DE (4.2 M sentence pairs) and EN→RU (2.6 M pairs); systems are scored with BLEU, CHRF3, and unigram F1 on all/rare/OOV words. Section 4.1 reports subword vocabulary statistics across segmentation schemes (characters, character bigrams/trigrams, compound splitting, Morfessor, BPE, joint BPE). Section 4.2 shows that all subword systems beat the back-off dictionary baseline on rare and OOV unigram F1, with joint BPE-J90k achieving the best ensemble BLEU and CHRF3 on both language pairs."
+    },
+    {
+      "title": "5. Analysis",
+      "summary": "Section 5.1 plots unigram F1 by training-set frequency rank, showing subword systems maintain stable recall across low-frequency words while word-level models degrade sharply; joint BPE dominates on OOVs for EN→RU (transliteration) while copy-based strategies work for EN→DE (shared alphabet). Section 5.2 gives manual translation examples illustrating that BPE learns compounding and transliteration, but inconsistent segmentations between source and target can introduce character-level errors."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "BPE-based subword segmentation enables open-vocabulary NMT with a compact fixed vocabulary, outperforming back-off dictionary baselines and eliminating the need for a separate rare-word model. Joint BPE is the recommended variant for cross-lingual consistency."
+    }
+  ],
+  "readingFocus": [
+    "The BPE algorithm itself (Section 3.2 and Algorithm 1): understand the merge loop — initialize with characters, count pairs, merge the most frequent, repeat N times. This is the exact procedure you will implement in Microlab Phase 1 tokenizer training.",
+    "The end-of-word marker convention (the '·' symbol appended to each word before splitting into characters): it lets the algorithm restore original tokenization after BPE merges, a detail that matters when writing encode/decode.",
+    "Separate vs. joint BPE (Section 3.2 and 4.2): joint BPE is trained on the concatenated source+target vocabulary and produces more consistent cross-lingual segmentations — relevant if Microlab ever trains on parallel or multilingual data.",
+    "The vocabulary-size/sequence-length trade-off (Section 3.2, Table 1): more merge operations produce fewer, longer tokens (shorter sequences but larger vocab); fewer operations produce more character-like tokens (longer sequences, smaller vocab). Choosing merge count is the key hyperparameter for Phase 1.",
+    "OOV handling at inference (Section 3.2, footnote 3): at test time, split unknown words into characters then apply learned merges — BPE guarantees no unknown symbols as long as individual characters were seen in training."
+  ]
+}

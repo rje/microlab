@@ -1,0 +1,69 @@
+{
+  "paperId": "root-mean-square-layer-normalization",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "RMSNorm drops LayerNorm's mean-centering step and normalizes by root mean square alone, matching LayerNorm's quality across NLP tasks while cutting per-step running time by 7%–64% depending on architecture.",
+  "overview": "Zhang and Sennrich (NeurIPS 2019) hypothesize that re-centering invariance — the mean subtraction in LayerNorm — contributes little to training stability, and that re-scaling invariance (dividing by a magnitude statistic) is the load-bearing property. RMSNorm implements this hypothesis by normalizing the summed inputs to each neuron using only the root mean square, eliminating the mean computation and its associated overhead. The authors provide formal invariance and gradient analyses showing RMSNorm is invariant to weight-matrix and dataset re-scaling, and that gradients of the gain parameter g are implicitly bounded, acting as an adaptive learning-rate dampener. Experiments across machine translation (RNNSearch and Transformer), reading comprehension (CNN/Daily Mail), image-caption retrieval, and CIFAR-10 classification confirm RMSNorm matches LayerNorm quality while running 7%–64% faster; a variant, pRMSNorm, estimates RMS from only 6.25% of the inputs for further (theoretical) savings.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates RMSNorm by showing that LayerNorm's computational overhead counter-balances its convergence gains in wall-clock time (Figure 1, GRU-based RNNSearch). Proposes dropping re-centering and normalizing by RMS alone, and previews pRMSNorm as a further approximation."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Surveys BatchNorm, WeightNorm, and LayerNorm, noting all prior work retains the mean statistic for re-centering. Positions RMSNorm as the first method to remove mean estimation entirely from the normalization structure, distinguishing it from l1-norm and group-norm variants."
+    },
+    {
+      "title": "3. Background",
+      "summary": "Formally defines LayerNorm: summed inputs a_i are standardized by subtracting the per-layer mean and dividing by standard deviation, then re-scaled by gain g. Establishes the two-component (re-centering + re-scaling) decomposition that the rest of the paper pulls apart."
+    },
+    {
+      "title": "4. RMSNorm",
+      "summary": "Defines RMSNorm as a_i / RMS(a) * g_i where RMS(a) = sqrt(mean(a_i^2)), dropping the mean subtraction entirely. Projects inputs onto a sqrt(n)-scaled unit sphere, giving re-scaling invariance to both weight matrices and datasets (Table 1). Gradient analysis shows that dL/dg is proportional to normalized inputs (implicit magnitude bound) and that dL/dW is negatively correlated with weight-matrix scale, acting as an implicit learning-rate adaptor."
+    },
+    {
+      "title": "4.1 Invariance Analysis",
+      "summary": "Proves formally that RMSNorm is invariant to weight-matrix re-scaling and input (dataset) re-scaling via the linearity RMS(alpha*x) = alpha*RMS(x), but is not invariant to re-centering shifts — unlike LayerNorm. Table 1 summarizes invariance properties across BatchNorm, WeightNorm, LayerNorm, RMSNorm, and pRMSNorm."
+    },
+    {
+      "title": "4.2 Gradient Analysis",
+      "summary": "Derives gradients dL/db, dL/dg, and dL/dW through the RMSNorm operation. Shows that gradients of bias b and gain g are invariant to input and weight scaling, that gain g gradients scale with normalized (not raw) inputs for stability, and that the weight-matrix gradient R acts as a negative-correlation dampener on large-weight updates — the implicit learning-rate adaptation effect."
+    },
+    {
+      "title": "5. pRMSNorm",
+      "summary": "Introduces partial RMSNorm, which estimates RMS from only the first p% of summed inputs (default p=6.25%), exploiting the approximately i.i.d. structure of neurons in a layer. Shares the same invariance properties as RMSNorm but shows gradient instability at small model widths; in practice it provides modest additional wall-clock gains when tensor-slicing is implemented efficiently."
+    },
+    {
+      "title": "6. Experiments",
+      "summary": "Tests on four diverse tasks: machine translation (RNNSearch and Transformer, WMT14 En-De), CNN/Daily Mail reading comprehension (attentive reader LSTM), image-caption retrieval (order-embedding model, MS COCO), and CIFAR-10 image classification (ConvPool-CNN-C). Across all tasks RMSNorm matches LayerNorm BLEU/accuracy while saving 7%–64% wall-clock time per training step; pRMSNorm is competitive in quality but speed gains depend on implementation quality."
+    },
+    {
+      "title": "6.1 Machine Translation",
+      "summary": "RNNSearch with RMSNorm reaches the same BLEU as LayerNorm (Test17: 23.7 vs 23.6) while running ~25% faster than LayerNorm in TensorFlow; Transformer experiments show 7%–9% speedup. L2-Norm (Euclidean instead of RMS) fails to improve over baseline, isolating RMS scaling as the key ingredient. A robustness ablation (weight init center shifted to 0.2) shows RMSNorm is more stable than LayerNorm under abnormal initializations."
+    },
+    {
+      "title": "6.2 CNN/Daily Mail Reading Comprehension",
+      "summary": "On an attentive-reader LSTM, RMSNorm converges faster than BatchNorm variants and matches LayerNorm validation error rate while running ~15% faster (Table 6). Demonstrates RMSNorm generalizes beyond sequence-to-sequence translation to reading comprehension."
+    },
+    {
+      "title": "6.3 Image-Caption Retrieval",
+      "summary": "On order-embedding models (MS COCO), RMSNorm slightly exceeds LayerNorm on Recall@1 and matches elsewhere, while running 40%–64% faster (Table 8) — the largest speedup in the paper, reflecting the high relative cost of normalization in this architecture."
+    },
+    {
+      "title": "6.4 CIFAR-10 Classification",
+      "summary": "On ConvPool-CNN-C, LayerNorm degenerates (test error 10.49% vs 8.96% baseline) while RMSNorm achieves 8.83% test error with 20.5% training time savings. This is the only task where RMSNorm outperforms LayerNorm in accuracy, highlighting that re-centering can hurt generalization in convolutional settings."
+    },
+    {
+      "title": "7. Conclusion and Future Work",
+      "summary": "Concludes that re-scaling invariance is the core beneficial property of LayerNorm, and that RMSNorm captures it with less computation. Notes that speedups are orthogonal to mixed-precision and kernel-fusion optimizations, and flags exploring other norms (e.g. l1) as future work."
+    }
+  ],
+  "readingFocus": [
+    "The central claim: re-centering (mean subtraction) in LayerNorm is dispensable — only re-scaling (RMS division) matters. Understand the invariance table (Table 1) and why RMS linearity is sufficient.",
+    "The RMSNorm formula (Eq. 4) is a one-line change from LayerNorm — study it closely because Microlab Phase 3 will implement it as a drop-in module replacing nn.LayerNorm in your Transformer.",
+    "Gradient analysis (Section 4.2): the negative correlation between dL/dW and weight-matrix scale acts as an implicit learning-rate adaptor — this explains why RMSNorm can train stably without explicit LR warmup tuning, relevant to Phase 3 training stability work.",
+    "Wall-clock speedup data (Tables 2, 3, 6, 8): note that gains are framework- and architecture-dependent (7% for Transformer, up to 64% for OE model). When benchmarking your own Phase 3 implementation, measure actual step time, not just FLOP reduction.",
+    "pRMSNorm ablations (Section 5 and Figure 3): the p=6.25% partial estimator barely hurts BLEU, which suggests the RMS statistic is dominated by a few large activations — a useful intuition for deciding whether to fuse the norm with adjacent ops.",
+    "CIFAR-10 result (Section 6.4): LayerNorm hurts accuracy vs baseline in a conv setting. If Microlab ever adds convolutional layers, this is the ablation to revisit — RMSNorm is the safer default."
+  ]
+}

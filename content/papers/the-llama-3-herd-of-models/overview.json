@@ -1,0 +1,81 @@
+{
+  "paperId": "the-llama-3-herd-of-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Llama 3 is Meta's open-weight herd of dense Transformer language models (8B, 70B, 405B) trained on 15T multilingual tokens with a detailed three-stage pre-training recipe and a multi-round SFT+DPO post-training pipeline that achieves performance competitive with GPT-4 across general knowledge, code, math, tool use, and long-context tasks.",
+  "overview": "The Llama 3 paper is a comprehensive system-level report covering every major decision in building a frontier open-weight LLM family. Pre-training centers on three levers — data (15.6T tokens, rigorously filtered and mixed), scale (405B parameters, 3.8×10²⁵ FLOPs, 16K H100 GPUs), and managing complexity (standard dense Transformer + simple SFT/RS/DPO post-training over MoE or PPO). Post-training runs six iterative rounds of reward modeling, rejection sampling, supervised fine-tuning, and Direct Preference Optimization, with dedicated data-curation strategies for code, math, multilinguality, long context, tool use, factuality, and steerability. The flagship 405B model matches GPT-4o and Claude 3.5 Sonnet on most benchmarks while being fully open-weight; the 8B and 70B models are best-in-class at their size. The paper also describes multimodal extensions (image, video, speech adapters) that were still in development at publication.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Frames three key levers — data quality, scale, and managing complexity — as the design philosophy behind Llama 3. Introduces the herd (8B, 70B, 405B; pre-trained and instruction-tuned) and commits to standard dense Transformer + simple SFT/DPO over more complex alternatives like MoE or PPO."
+    },
+    {
+      "title": "2. General Overview",
+      "summary": "Summarizes the two-stage development pipeline: (1) language model pre-training on 15T tokens with a context window grown to 128K, and (2) post-training via SFT+DPO to align the model and unlock tool use, coding, and reasoning. Also previews the compositional multimodal extensions."
+    },
+    {
+      "title": "3.1 Pre-Training Data",
+      "summary": "Describes the 15T-token corpus: web data curated via PII/safety filtering, custom HTML parsing, URL/document/line-level de-duplication, heuristic filters, and model-based quality classifiers (fasttext + DistilRoberta trained on Llama 2 predictions). The final data mix is roughly 50% general knowledge, 25% math/reasoning, 17% code, and 8% multilingual. Annealing on high-quality code and math data further boosts downstream benchmark performance."
+    },
+    {
+      "title": "3.2 Model Architecture",
+      "summary": "Standard dense Transformer with GQA (8 KV heads), a 128K-token vocabulary (tiktoken + 28K non-English tokens), RoPE base frequency 500,000, and SwiGLU activations. The 405B variant has 126 layers, 16,384 model dimension, and 128 attention heads. Architecture choices prioritize training stability and inference simplicity over mixture-of-experts."
+    },
+    {
+      "title": "3.2.1 Scaling Laws",
+      "summary": "Develops a two-step scaling law methodology: fit IsoFLOP curves from models trained between 6×10¹⁸ and 10²² FLOPs, then correlate NLL on downstream tasks with accuracy using a sigmoidal fit. Predicts that 3.8×10²⁵ FLOPs calls for a ~402B model; trains 405B. Intentionally over-trains smaller models beyond compute-optimal to yield better inference-budget models."
+    },
+    {
+      "title": "3.3 Infrastructure, Scaling, and Efficiency",
+      "summary": "Training uses up to 16K H100 GPUs on Meta's production clusters via 4D parallelism (tensor, pipeline, context, and FSDP data parallelism), achieving 38–43% BF16 MFU. Covers custom NCCLX collective library, a three-layer RoCE network topology, E-ECMP load balancing, and operational challenges — 466 job interruptions over 54 days, 78% hardware-related, handled with >90% effective training time."
+    },
+    {
+      "title": "3.4 Training Recipe",
+      "summary": "Three sequential stages: (1) initial pre-training on 8K-context sequences with AdamW, cosine schedule, and progressive batch-size increases; (2) long-context pre-training gradually extending from 8K to 128K tokens over ~800B tokens across six incremental stages; (3) annealing — linearly decaying the learning rate to zero on 40M tokens while upsampling high-quality sources, then Polyak-averaging checkpoints to produce the final pre-trained model."
+    },
+    {
+      "title": "4.1 Post-Training Modeling",
+      "summary": "Backbone is a reward model trained on human preference data (edited > chosen > rejected triples), followed by rejection sampling (K=10–30 samples per prompt), SFT at lr=10⁻⁵, and DPO with formatting-token masking and an NLL regularization term. The pipeline runs for six iterative rounds, each collecting new preference annotations from the improving model."
+    },
+    {
+      "title": "4.2 Post-Training Data",
+      "summary": "SFT data (~4.7 avg turns, 846 avg tokens) spans general English (52%), reasoning/tools (21%), code (15%), exam-like (8%), and multilingual (3%) categories. Quality control involves rule-based cleaning, topic/quality/difficulty scoring with Llama-based judges, and semantic deduplication via RoBERTa clustering. Preference data (Table 6) covers comparable categories with four-level strength ratings."
+    },
+    {
+      "title": "4.3.1 Code Capability",
+      "summary": "Trains a code expert by branching from pre-training and continuing on 1T tokens of >85% code data with long-context fine-tuning to 16K. Generates 2.7M+ synthetic SFT examples via three strategies: execution-feedback loops (static analysis + unit test execution + self-correction), programming-language translation (Python→PHP etc.), and backtranslation (code↔documentation)."
+    },
+    {
+      "title": "4.3.2 Multilinguality",
+      "summary": "Trains a multilingual expert on 90% non-English tokens. SFT data is 2.4% human annotations, 44.2% other NLP tasks, 18.8% rejection-sampled, and 34.6% translated reasoning data. Language-match filters during rejection sampling and avoidance of machine-translationese are key quality controls."
+    },
+    {
+      "title": "4.3.3 Math and Reasoning",
+      "summary": "Addresses lack of prompts, lack of ground-truth CoT, and incorrect intermediate steps by: sourcing pre-training math data, generating step-wise reasoning traces filtered by outcome and stepwise reward models, using Monte Carlo Tree Search for hard problems, interleaving code execution as a verification signal, and learning from error-correction feedback."
+    },
+    {
+      "title": "4.3.4–4.3.7 Long Context, Tool Use, Factuality, Steerability",
+      "summary": "Long context: 0.1% synthetic SFT data (QA, summarization, code-repo reasoning over 16K–128K sequences) mixed with short-context data. Tool use: trains on single-step and multi-step tool dialogs for search, Python interpreter, and Wolfram Alpha; zero-shot function calling from diverse synthetic function definitions. Factuality: knowledge-probing pipeline generates then scores answers against pre-training snippets to teach the model to refuse when unsure. Steerability: system-prompt preference data teaches format, tone, length, and persona following."
+    },
+    {
+      "title": "5.1 Pre-trained Model Results",
+      "summary": "Llama 3 8B outperforms Mistral 7B and Gemma 7B in virtually every category; 70B substantially beats Mixtral 8×22B; 405B is competitive with GPT-4 and Gemini Ultra. Robustness analysis shows strong stability to MCQ label variants, answer order, and prompt format — particularly for 405B."
+    },
+    {
+      "title": "5.2 Post-trained Model Results",
+      "summary": "Instruction-tuned Llama 3 405B achieves 88.6% on MMLU, 96.8% on GSM8K, 89% on HumanEval, 91.6% on MGSM, and near-perfect needle-in-a-haystack retrieval at 128K context. On proficiency exams (AP, LSAT, GMAT, GRE) the 405B model closely matches Claude 3.5 Sonnet and GPT-4o. Human evaluations find Llama 3 405B on par with GPT-4 (0125) and within margin of error of GPT-4o and Claude 3.5 Sonnet across most capability axes."
+    },
+    {
+      "title": "5.3–5.4 Human Evaluations and Safety",
+      "summary": "Pairwise human evaluations across English, multilingual, coding, and reasoning prompts confirm benchmark findings: 405B is the best openly available model, competitive with but not clearly beating the frontier closed models. Safety mitigations span pre-training data filtering, post-training alignment, and a new Llama Guard 3 classifier for input/output safety."
+    }
+  ],
+  "readingFocus": [
+    "The three-stage pre-training recipe (initial→long-context→annealing) is directly applicable to Microlab's Phase 4–5 training curriculum — note how batch size, sequence length, and data mix each evolve across stages.",
+    "The data-mix ratios (50% general, 25% math/reasoning, 17% code, 8% multilingual) and the multi-level quality filtering pipeline (URL dedup → document dedup → line dedup → heuristics → model-based classifiers) are the concrete decisions Microlab's Phase 4 data pipeline needs to replicate or adapt.",
+    "The scaling-law methodology (IsoFLOP curves → NLL-to-accuracy sigmoidal mapping) shows how Meta predicted downstream benchmark performance before committing to the 405B run — relevant to Microlab's Phase 5 compute-budget decisions.",
+    "The post-training loop (reward model → rejection sampling → SFT → DPO, six iterative rounds) is the full recipe Microlab's Phases 6–9 must understand: pay special attention to DPO modifications (formatting-token masking, NLL regularization) and why PPO was rejected.",
+    "The capability-specific data strategies (code execution feedback, math stepwise reward models + MCTS, long-context synthetic QA, knowledge-probing for factuality) each map to a distinct Phase 7–9 data-engineering problem in Microlab's post-training track.",
+    "The infrastructure section (4D parallelism, NCCLX, pipeline schedule tuning, 90%+ effective training time despite daily hardware failures) provides real-world reference numbers for Microlab's Phase 5 distributed-training discussions."
+  ]
+}

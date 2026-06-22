@@ -1,0 +1,72 @@
+{
+  "paperId": "roformer-enhanced-transformer-with-rotary-position-embedding",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "RoPE encodes position by rotating query and key vectors by angles proportional to their absolute positions, so the inner product of a query–key pair depends only on their relative distance — giving flexible sequence length, long-term decay, and compatibility with linear attention.",
+  "overview": "Rotary Position Embedding (RoPE) replaces additive position encodings with a multiplicative rotation matrix applied to query and key vectors in self-attention. The rotation angle for each dimension pair is set to m·θᵢ (where m is the token position and θᵢ = 10000^(−2i/d)), so q_m^T k_n depends on the relative offset m−n rather than on absolute positions. The approach is derived from first principles — the authors show that a function satisfying the relative-position constraint in 2D has a unique solution expressible as complex-number rotation, then generalize it to d-dimensional space by partitioning into d/2 independent 2D sub-spaces. Evaluations on WMT14 En-De translation, BERT-style pre-training, GLUE fine-tuning, PerFormer linear-attention pre-training, and long Chinese document tasks all show that RoFormer converges faster and matches or beats baselines, with the largest gains on long-sequence tasks.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Self-attention is position-agnostic by default; PLMs inject position either by adding a fixed sinusoidal or trainable vector to token embeddings (absolute) or by modifying the attention score formula (relative). The authors argue that existing relative approaches are additive decompositions that cannot be used with linear attention, and propose RoPE as a multiplicative alternative with a clear theoretical interpretation."
+    },
+    {
+      "title": "2.1 Preliminary",
+      "summary": "Establishes notation: sequences of N tokens are mapped to query, key, and value vectors through position-dependent functions f_q, f_k, f_v. The standard softmax attention score a_{m,n} is the normalized inner product q_m^T k_n / √d, and the goal is to choose f_q and f_k so that this inner product encodes relative position m−n."
+    },
+    {
+      "title": "2.2 Absolute position embedding",
+      "summary": "Absolute position embedding adds a position vector p_i to the token embedding before linear projection, either as the sinusoidal function of Vaswani et al. (p_{i,2t} = sin(k/10000^(2t/d))) or as a learned set of vectors up to a maximum length L."
+    },
+    {
+      "title": "2.3 Relative position embedding",
+      "summary": "Reviews Shaw et al., Dai et al. (Transformer-XL), Raffel et al. (T5), Ke et al., and He et al.: all decompose q_m^T k_n into content and position cross-terms and replace absolute position vectors with relative ones or trainable biases. These modifications complicate the attention formula and are incompatible with linear reformulations."
+    },
+    {
+      "title": "3.1 Formulation",
+      "summary": "States the design goal formally: find functions f_q(x_m, m) and f_k(x_n, n) such that their inner product equals g(x_m, x_n, m−n) — a function of the word embeddings and the relative offset only. This constraint uniquely determines the form of the encoding."
+    },
+    {
+      "title": "3.2 Rotary position embedding (2D and general form)",
+      "summary": "For d=2, the unique solution is to multiply the linearly projected query/key by e^{imθ} (complex rotation), giving f_q(x_m, m) = (W_q x_m)e^{imθ}. The general d-dimensional case partitions the head into d/2 pairs, each rotated by a distinct angle θᵢ = 10000^(−2(i−1)/d), yielding the block-diagonal rotation matrix R^d_{Θ,m}. The efficient implementation avoids forming this sparse matrix: it interleaves element-wise cosine/sine multiplications instead."
+    },
+    {
+      "title": "3.3 Properties of RoPE",
+      "summary": "Two key properties: (1) Long-term decay — the upper bound on |q_m^T k_n| decreases as |m−n| grows (proved via Abel summation), matching the linguistic intuition that distant tokens should interact less. (2) Linear-attention compatibility — because RoPE is applied by multiplying the output of the feature map φ(q_m) by the rotation matrix, it preserves the associativity trick that makes linear attention O(N) rather than O(N²)."
+    },
+    {
+      "title": "3.4 Theoretical explanation",
+      "summary": "Derives the 2D solution from first principles using complex-number polar decomposition: the radial components R_q, R_k are shown to be position-independent (equal to ‖q‖, ‖k‖), while the angular component must be a linear function of position, φ(m) = mθ + γ. Setting γ=0 yields the final RoPE formula. Section 3.4.2 gives the sparse-matrix-free computation (Eq. 34) used in practice."
+    },
+    {
+      "title": "4.1 Machine Translation",
+      "summary": "On WMT 2014 English-to-German (≈4.5M sentence pairs, 37k BPE vocab), RoFormer scores BLEU 27.5 vs. the Transformer baseline at 27.3, trained under identical settings with the fairseq toolkit."
+    },
+    {
+      "title": "4.2 Pre-training Language Modeling",
+      "summary": "Replacing BERT's sinusoidal encoding with RoPE and pre-training on BookCorpus + Wikipedia for 100k steps (batch 64, max length 512, AdamW lr 1e-5) yields faster MLM loss convergence than vanilla BERT under the same compute budget."
+    },
+    {
+      "title": "4.3 Fine-tuning on GLUE Tasks",
+      "summary": "The RoPE-pretrained model is fine-tuned on MRPC, SST-2, QNLI, STS-B, QQP, and MNLI (3 epochs, max length 512, lr in {2,3,4,5}e-5). RoFormer outperforms BERT on MRPC (89.5 vs. 88.9), STS-B (87.0 vs. 85.8), and QQP (86.4 vs. 71.2), while trailing slightly on SST-2, QNLI, and MNLI."
+    },
+    {
+      "title": "4.4 Performer with RoPE",
+      "summary": "RoPE is added to the 12-layer char-based PerFormer (768 dims, 12 heads) trained on Enwik8. The RoPE variant converges faster and reaches lower LM loss than PerFormer without RoPE, confirming linear-attention compatibility."
+    },
+    {
+      "title": "4.5 Evaluation on Chinese Data",
+      "summary": "RoFormer is pre-trained on 34GB of Chinese Wikipedia, news, and forums using a multi-stage curriculum (stages 1–6, varying max sequence length from 128 to 1536 and batch size). On CAIL2019-SCM (long legal document matching), RoFormer-1024 achieves 69.79% test accuracy vs. 68.10% for WoBERT-512, with the gap growing as sequence length increases — demonstrating RoPE's advantage on long texts."
+    },
+    {
+      "title": "5. Conclusions",
+      "summary": "RoPE encodes absolute position via rotation matrices whose inner products expose only the relative offset; the method has a closed-form theoretical derivation, proven long-term decay, and drops into linear attention without modification. Experiments across four task families show consistent improvement, with the largest gains on long-sequence tasks."
+    }
+  ],
+  "readingFocus": [
+    "Understand the formulation in Section 3.1 first: the constraint that q_m^T k_n = g(x_m, x_n, m−n) is the design target, and everything else follows from it — this is the cleanest statement of what any relative position encoding must achieve.",
+    "Trace the 2D derivation (Section 3.4.1) through to Equation 33: seeing why the solution is uniquely a complex rotation locks in the intuition before you implement the general d-dimensional block-diagonal form.",
+    "Study the efficient computation in Equation 34 (Section 3.4.2): the actual implementation avoids the sparse rotation matrix entirely by splitting vectors into paired elements and applying cos/sin element-wise — this is what you will write in code.",
+    "Note the long-term decay property (Section 3.3 and Figure 2): the inner-product upper bound decays with relative distance by construction, a desirable inductive bias you get for free with RoPE but must engineer separately in additive schemes.",
+    "For Phase 3 architecture ablations, compare the GLUE results in Table 2 and the long-text CAIL2019-SCM results in Table 5: the pattern is that RoPE's advantage is modest on short-sequence tasks but grows substantially as sequence length increases, which directly informs ablation design."
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "paperId": "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "DeepSeekMath 7B achieves 51.7% on the competition-level MATH benchmark (approaching Gemini Ultra) by combining a 120B-token math corpus mined from Common Crawl with Group Relative Policy Optimization (GRPO), a memory-efficient PPO variant that eliminates the critic model and estimates advantages from group-relative rewards.",
+  "overview": "DeepSeekMath builds mathematical capability in two stages: first, continual pre-training of DeepSeek-Coder-Base-v1.5 7B on a carefully filtered 120B-token corpus (DeepSeekMath Corpus) mined from Common Crawl using an iterative fastText classifier; second, supervised fine-tuning on 776K chain-of-thought and tool-integrated problems followed by reinforcement learning with GRPO. GRPO replaces PPO's value model by normalising rewards within a group of G outputs sampled for the same question, reducing memory roughly by half while preserving the clipped-ratio and KL-penalty structure of PPO. The paper also provides a unified gradient-coefficient framework showing that SFT, RFT, DPO, PPO, and GRPO are all instances of the same optimisation template, differing only in data source and gradient coefficient. Key ablations reveal that (1) code pre-training before math pre-training improves both tool-use and natural-language reasoning, (2) arXiv papers yield no measurable benefit on standard benchmarks, and (3) RL improves Maj@K but not Pass@K, suggesting it tightens the output distribution rather than expanding fundamental capability.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates the gap between open and closed models on mathematical reasoning and introduces DeepSeekMath 7B, achieving 51.7% on MATH (60.9% with 64-sample self-consistency). Credits two factors: a large-scale web-mined math corpus and the GRPO reinforcement learning algorithm."
+    },
+    {
+      "title": "1.1 Contributions",
+      "summary": "Lists two contribution pillars: scalable math pre-training (DeepSeekMath Corpus, 120B tokens, ~7x Minerva's web data) and RL exploration (GRPO algorithm, unified paradigm for SFT/RFT/DPO/PPO/GRPO, iterative RL experiments). Notable negative finding: arXiv pre-training does not help."
+    },
+    {
+      "title": "1.2 Summary of Evaluations",
+      "summary": "Covers three evaluation tracks: English and Chinese mathematical reasoning (GSM8K, MATH, SAT, OCW, CMATH, Gaokao variants), formal mathematics (miniF2F informal-to-formal proving in Isabelle), and general NLU/reasoning/code (MMLU, BBH, HumanEval, MBPP)."
+    },
+    {
+      "title": "2. Math Pre-Training",
+      "summary": "Details the iterative pipeline for constructing the DeepSeekMath Corpus from Common Crawl: train fastText on OpenWebMath seed, recall pages, discover math-heavy domains, annotate URLs, repeat for four iterations yielding 35.5M pages and 120B tokens with 10-gram decontamination against evaluation benchmarks."
+    },
+    {
+      "title": "2.2 Validating the DeepSeekMath Corpus",
+      "summary": "Ablates four corpora (MathPile, OpenWebMath, Proof-Pile-2, DeepSeekMath) on DeepSeek-LLM 1.3B trained for 150B tokens; DeepSeekMath Corpus leads on all eight benchmarks and shows a steeper learning curve without plateauing, establishing its high quality, multilingual coverage, and scale advantage."
+    },
+    {
+      "title": "2.3 Training and Evaluating DeepSeekMath-Base 7B",
+      "summary": "DeepSeek-Coder-Base-v1.5 7B is continually trained for 500B tokens (56% DeepSeekMath Corpus, 20% GitHub code, 10% arXiv, 4% AlgebraicStack, 10% natural language). DeepSeekMath-Base 7B surpasses Minerva 540B on MATH (36.2% vs 33.6%) and all open-source base models; math pre-training also boosts MMLU and BBH."
+    },
+    {
+      "title": "3. Supervised Fine-Tuning",
+      "summary": "Constructs a 776K-example SFT dataset covering English (GSM8K+MATH annotated with CoT/PoT/tool-integrated solutions, MathInstruct subset) and Chinese (K-12 problems, 76 sub-topics) problems. DeepSeekMath-Instruct 7B beats all 7B peers and rivals 70B open-source models on MATH."
+    },
+    {
+      "title": "4.1 Group Relative Policy Optimization (GRPO)",
+      "summary": "Introduces GRPO: for each question, sample G outputs from the old policy, score them with a reward model, normalise rewards within the group (subtract mean, divide by std) to obtain advantages, then maximise the standard PPO clipped-ratio objective plus a KL term against a reference policy — eliminating the value network entirely. Both outcome-supervision (reward at end of output) and process-supervision (reward at each reasoning step) variants are described."
+    },
+    {
+      "title": "4.1.4 Iterative RL with GRPO",
+      "summary": "Describes iterative GRPO: after each RL iteration the reference model is reset to the current policy and the reward model is continually updated on new rollouts with 10% historical replay, preventing reward model staleness and enabling sustained improvement across iterations."
+    },
+    {
+      "title": "4.2 Training and Evaluating DeepSeekMath-RL",
+      "summary": "RL trains on ~144K CoT-format GSM8K+MATH questions starting from DeepSeekMath-Instruct 7B; DeepSeekMath-RL reaches 88.2% GSM8K and 51.7% MATH (CoT), outperforming all open-source 7B–70B models and most closed-source models — despite training only on in-domain questions, all out-of-domain benchmarks also improve."
+    },
+    {
+      "title": "5.1 Lessons Learnt in Pre-Training",
+      "summary": "Two key findings: (1) code pre-training (two-stage: code then math) improves mathematical reasoning both with and without tools, confirming a weak form of the 'code improves reasoning' hypothesis; (2) arXiv papers are ineffective — training on MathPile or ArXiv-RedPajama arXiv corpora yields no improvement or slight degradation across quantitative, multiple-choice, and formal benchmarks."
+    },
+    {
+      "title": "5.2 Insights of Reinforcement Learning",
+      "summary": "Provides a unified gradient-coefficient paradigm unifying SFT, RFT, Online RFT, DPO, PPO, and GRPO under three components (data source, reward function, gradient coefficient). Key empirical findings: online sampling beats offline; GRPO's differential gradient coefficients beat Online RFT's uniform reinforcement; process supervision (GRPO+PS) beats outcome supervision (GRPO+OS); RL boosts Maj@K but not Pass@K, suggesting distribution sharpening rather than capability expansion."
+    },
+    {
+      "title": "5.2.3 How to Achieve More Effective RL?",
+      "summary": "Summarises three open directions: richer data sources (out-of-distribution questions, tree-search decoding); algorithms robust to noisy reward signals (weak-to-strong alignment); better reward models that generalise OOD, reflect uncertainty, and provide fine-grained process supervision."
+    },
+    {
+      "title": "6. Conclusion, Limitation, and Future Work",
+      "summary": "Wraps up findings, notes limitations (weaker on geometry and theorem-proving, less effective on few-shot problems than GPT-4, data selection bias against triangles/ellipses), and points to future work on improved data pipelines and more effective RL."
+    },
+    {
+      "title": "Appendix A: Detailed RL Analysis",
+      "summary": "Provides full mathematical derivations of the gradient coefficients for SFT, RFT, Online RFT, DPO, PPO, and GRPO, grounding the unified paradigm discussion in Section 5.2 with explicit gradient expressions."
+    }
+  ],
+  "readingFocus": [
+    "GRPO algorithm (Section 4.1): understand the group-normalisation trick that replaces the PPO critic — this is exactly the algorithm used in Microlab's Phase 10 RL-on-verifiable-tasks experiments, so trace the objective (Eq. 3), the advantage calculation, and the KL regularisation term carefully.",
+    "Outcome vs. process supervision in GRPO (Sections 4.1.2–4.1.3): the paper shows process-supervision advantages (step-level rewards summed forward) outperform outcome-supervision — directly relevant to reward model design for verifiable math tasks in Phase 10.",
+    "Iterative RL (Section 4.1.4 and Algorithm 1): the replay-mechanism for keeping the reward model current mirrors the training loop Microlab will need; note how the reference model is reset each iteration.",
+    "DeepSeekMath Corpus pipeline (Section 2.1): the fastText-based iterative mining from Common Crawl is the template for building domain-specific pre-training data; pay attention to the four-iteration convergence criterion and the 10-gram decontamination filter.",
+    "Why RL improves Maj@K but not Pass@K (Section 5.2.2): this finding has direct implications for how to interpret eval results — improvement in self-consistency voting does not equal improvement in the model's raw capability ceiling.",
+    "Unified RL paradigm (Section 5.2.1, Table 10): the three-component framework (data source, reward function, gradient coefficient) is a clean mental model for comparing alignment/RL methods; useful context when choosing between RFT, DPO, and GRPO in Phase 10."
+  ]
+}

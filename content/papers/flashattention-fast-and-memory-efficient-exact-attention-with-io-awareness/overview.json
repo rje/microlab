@@ -1,0 +1,52 @@
+{
+  "paperId": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "FlashAttention computes exact self-attention with sub-quadratic HBM accesses by tiling Q/K/V into SRAM-sized blocks and recomputing the attention matrix on chip during the backward pass, achieving up to 7.6x wall-clock speedup over standard attention with linear (not quadratic) memory.",
+  "overview": "Standard attention materializes the full N×N score and softmax matrices in GPU high bandwidth memory (HBM), making it memory-bound and slow despite its modest FLOP count. FlashAttention reframes the problem as an IO-complexity question: it tiles the Q, K, V matrices into blocks that fit on-chip SRAM, fuses all attention operations into a single CUDA kernel, and avoids ever writing the large intermediate matrices to HBM. A running softmax with algebraic aggregation (tracking per-block max and normalization statistics) lets the kernel produce the correct output in one fused pass, while recomputation during the backward pass regenerates the attention matrix from SRAM blocks rather than reading it back from HBM. The result is provably optimal in HBM accesses (Θ(N²d²M⁻¹) vs. Θ(Nd + N²) for standard attention), up to 3x faster training on real models (BERT, GPT-2, LRA), and linear memory in sequence length — enabling context lengths of 16K–64K that were previously out of reach.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Identifies IO-awareness — accounting for reads and writes between HBM and on-chip SRAM — as the missing principle that explains why approximate attention methods rarely achieve wall-clock speedup despite fewer FLOPs. Proposes FlashAttention as an IO-aware exact attention algorithm using tiling and recomputation, with a lower-bound proof that it is asymptotically optimal."
+    },
+    {
+      "title": "2. Background",
+      "summary": "Reviews GPU memory hierarchy (HBM at 1.5–2 TB/s vs. SRAM at ~19 TB/s), the compute-bound vs. memory-bound distinction quantified by arithmetic intensity, and how kernel fusion is used to reduce HBM traffic. Also describes the standard three-step attention algorithm (QKᵀ → softmax → PV) and its O(N²) HBM memory requirement."
+    },
+    {
+      "title": "3.1 An Efficient Attention Algorithm With Tiling and Recomputation",
+      "summary": "Presents the core FlashAttention algorithm (Algorithm 1): blocks of K and V are loaded from HBM into SRAM in the outer loop; for each K/V block, all Q blocks are processed in an inner loop, incrementally updating the output and softmax statistics (running max m and normalizer ℓ) using an algebraic decomposition of softmax. During the backward pass, the attention matrix S and P are recomputed on-chip from stored Q, K, V blocks, avoiding O(N²) storage. Total extra memory beyond inputs and output is O(N)."
+    },
+    {
+      "title": "3.2 Analysis: IO Complexity of FlashAttention",
+      "summary": "Proves (Theorem 2) that FlashAttention requires Θ(N²d²M⁻¹) HBM accesses versus Θ(Nd + N²) for standard attention, and that for typical d and M values this is many times fewer accesses. Proposition 3 establishes a matching lower bound: no exact attention algorithm can asymptotically improve on this over all SRAM sizes, making FlashAttention optimal."
+    },
+    {
+      "title": "3.3 Extension: Block-Sparse FlashAttention",
+      "summary": "Extends FlashAttention to approximate attention by skipping zero blocks in a predefined block-sparsity mask (butterfly pattern), reducing IO complexity by a factor proportional to the sparsity ratio s. Block-sparse FlashAttention achieves 2–4x speedup over dense FlashAttention and scales to sequence length 64K, while matching dense accuracy on LRA tasks."
+    },
+    {
+      "title": "4. Experiments",
+      "summary": "Validates three claims: (1) Training speed — 15% faster than MLPerf 1.1 record on BERT-large, 3x over HuggingFace/1.7x over Megatron on GPT-2, 2.4x on Long-Range Arena. (2) Model quality — 0.7 perplexity improvement on GPT-2 with 4x longer context vs. Megatron at 1K; first Transformer to achieve better-than-chance on Path-X (16K, 61.4%) and Path-256 (64K, 63.1%). (3) Runtime and memory benchmarks confirm linear memory scaling and up to 3x speed over exact attention baselines; block-sparse FlashAttention is faster than all approximate attention methods tested."
+    },
+    {
+      "title": "5. Limitations and Future Directions",
+      "summary": "Current limitations: requires writing a new CUDA kernel per attention variant (not expressible in high-level PyTorch), limiting portability across GPU architectures. Future directions include compiling IO-aware attention from high-level language, extending IO-awareness beyond attention to other memory-bound layers, and multi-GPU IO analysis."
+    },
+    {
+      "title": "Appendix A: Related Work",
+      "summary": "Surveys IO-aware runtime optimization (database joins, image processing, numerical linear algebra), efficient Transformers (sparse approximations such as Reformer and Performer, low-rank methods such as Linformer), and structured matrix approaches; contextualizes FlashAttention relative to gradient checkpointing and state-space model alternatives."
+    },
+    {
+      "title": "Appendix B: Algorithm Details (Forward and Backward Passes)",
+      "summary": "Derives the memory-efficient forward pass (tracking softmax normalization constants L_i to avoid materializing the N×N attention matrix) and backward pass (computing dQ, dK, dV with O(N) extra memory via repeated summation). Presents Algorithm 2 (full forward pass with masking, dropout, scaling) and Algorithm 3 (standard backward pass for comparison), then the FlashAttention backward pass that recomputes attention blocks from SRAM."
+    }
+  ],
+  "readingFocus": [
+    "The IO-complexity framing: understand why HBM accesses, not FLOPs, determine wall-clock speed for memory-bound operations — this is directly applicable to any attention implementation in Microlab's Phase 3.",
+    "Tiling + online softmax: trace how the running max (m) and normalizer (ℓ) statistics enable exact softmax over blocks without global materialization — this is the core trick you must internalize before implementing attention.",
+    "Recomputation vs. storage trade-off: FlashAttention trades FLOPs for HBM traffic in the backward pass; understand why this is net-positive and how it relates to gradient checkpointing.",
+    "The lower-bound proof (Proposition 3): establishes that FlashAttention's HBM access count is asymptotically optimal — important context when evaluating whether future attention variants are genuinely better or just reorganizing the same accesses.",
+    "Block-sparse extension: the butterfly sparsity pattern and how block-sparsity reduces IO complexity proportionally — relevant for Microlab's eventual long-context or efficient attention work in Phase 3."
+  ]
+}

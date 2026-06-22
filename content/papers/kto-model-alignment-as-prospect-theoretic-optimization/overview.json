@@ -1,0 +1,52 @@
+{
+  "paperId": "kto-model-alignment-as-prospect-theoretic-optimization",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "KTO reframes LLM alignment as prospect-theoretic utility maximization, deriving a HALO loss that learns from binary good/bad signals instead of preference pairs and matches or beats DPO at scales from 1B to 30B parameters.",
+  "overview": "Ethayarajh et al. show that popular alignment objectives (DPO, PPO-Clip) implicitly encode human cognitive biases from Kahneman-Tversky prospect theory — specifically loss aversion and a reference-point-relative value function — and name this family human-aware losses (HALOs). They then derive a principled HALO, Kahneman-Tversky Optimization (KTO), that directly maximizes expected human utility rather than preference log-likelihood. KTO needs only a binary desirability label per example (no paired comparisons), making training data cheaper and more abundant. Empirically, KTO matches or exceeds SFT+DPO across Pythia-1B–12B and Llama-7B–30B, handles severe desirable/undesirable imbalances (up to 1:10), and can skip SFT entirely at sufficient scale.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Frames alignment as a prospect-theory problem: popular methods work partly because they implicitly model human cognitive biases. Motivates KTO as a HALO that learns from unpaired binary feedback — data that is more abundant, cheaper, and faster to collect than preference pairs."
+    },
+    {
+      "title": "2. Background",
+      "summary": "Surveys the standard three-stage LLM training pipeline (pretraining → SFT → alignment) and reviews the RLHF objective and DPO as closed-form alternatives, establishing the mathematical scaffolding (reward model, KL penalty, Bradley-Terry preference model) used throughout."
+    },
+    {
+      "title": "3. A Prospect Theoretic View of Alignment",
+      "summary": "Introduces prospect theory concepts (value function, weighting function, reference point, loss aversion) and formally defines HALOs. Proves that DPO and PPO-Clip are HALOs (Theorem 3.5) and shows empirically that HALOs consistently outperform non-HALOs (CSFT, SLiC) across model sizes."
+    },
+    {
+      "title": "4. Kahneman-Tversky Optimization",
+      "summary": "Derives the KTO loss from the Kahneman-Tversky value function: each example gets a piecewise sigmoid value relative to a KL-based reference point z0, with separate loss-aversion hyperparameters λ_D and λ_U for desirable and undesirable outputs. Covers the KL estimator (mismatched pairs within a microbatch), hyperparameter guidance (β, λ_D/λ_U ratio, batch size), and ablations showing each design choice matters. Reports KTO ≥ DPO at all tested scales (1B–30B), robustness to 90% data imbalance, and the ability to skip SFT at ≥13B parameters."
+    },
+    {
+      "title": "4.4. Theoretical Analysis",
+      "summary": "Explains KTO's performance through two propositions: (1) KTO updates vanish for examples with extreme implied rewards, effectively ignoring noise and mislabeled data; (2) unlike DPO, KTO deterministically produces the majority-preferred output under contradictory feedback, giving better worst-case guarantees on noisy real-world datasets."
+    },
+    {
+      "title": "4.5. KTO vs. DPO — when to use which?",
+      "summary": "Practical decision guide: KTO is natural when data is binary or imbalanced; DPO may be preferable when preference data is clean and low-noise, since KTO can underfit in that regime (mitigated with lower β). Most public preference datasets (SHP, OpenAssistant) are noisy enough that KTO matches or exceeds DPO."
+    },
+    {
+      "title": "5. Future Work",
+      "summary": "Identifies open questions: what value functions and reference distributions best model human perception of language; how to extend HALOs to granular/score-based feedback, other modalities, and online alignment; and how to handle fairness under majority-preference resolution."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "Recaps the main finding: alignment success depends on inductive biases that mirror human cognitive biases (HALOs), and there is no universally superior HALO — the best choice depends on the data distribution and setting."
+    },
+    {
+      "title": "Appendices (A–E)",
+      "summary": "Appendix A surveys related work on binary feedback and online alignment. Appendix B proves Theorems 3.5, 4.2, 4.3. Appendix C gives implementation details for KTO, DPO, SLiC, CSFT, and offline PPO. Appendix D reports human evaluation results (KTO 72.9% vs. DPO 62.1% winrate over SFT targets on OpenAssistant). Appendix E provides additional experiment tables and generation examples."
+    }
+  ],
+  "readingFocus": [
+    "The HALO definition (§3.2) is the conceptual core: understand how a value function v, reference point z0, and the non-decreasing-concave-in-gains constraint connect prospect theory to alignment losses — this is the lens for evaluating any future alignment objective you encounter.",
+    "The KTO loss formula (Eq. 8) and the KL reference-point estimator (mismatched microbatch pairs): in Phase 9 you will implement this loss, so trace exactly how z0 is estimated, why backprop is stopped through it, and how λ_D / λ_U control loss aversion.",
+    "Proposition 4.1 (gradient vanishes for extreme rewards) explains why KTO naturally ignores noisy or mislabelled examples — important for understanding when binary feedback is as good as paired preferences and when it is not.",
+    "The data-imbalance experiments (Figure 5, Table 3): KTO still beats DPO with 90% of desirable data removed; understand the λ_D / λ_U reweighting rule (Eq. 9) you will need to apply when your own training set is imbalanced.",
+    "Theorem 3.5 proof structure (Appendix B): DPO is a HALO with v = log σ(·) and Q placing all mass on (x, y_l); reading this clarifies the relationship between KTO and DPO and why swapping the value function causes the large performance drops seen in Table 2."
+  ]
+}

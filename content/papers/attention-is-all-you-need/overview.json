@@ -1,0 +1,69 @@
+{
+  "paperId": "attention-is-all-you-need",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "The Transformer dispenses with recurrence and convolution entirely, building sequence transduction solely from multi-head self-attention — achieving 28.4 BLEU on WMT 2014 EN-DE (best at the time) while training faster than any prior state-of-the-art model.",
+  "overview": "Vaswani et al. propose the Transformer, the first sequence-to-sequence model that relies solely on attention mechanisms, replacing the recurrent layers used in all prior competitive encoder-decoder architectures. The encoder and decoder each stack N=6 identical layers of multi-head self-attention followed by a position-wise feed-forward network, with residual connections and layer normalization throughout. Sinusoidal positional encodings inject sequence-order information since there is no recurrence. On WMT 2014 English-to-German the big Transformer scores 28.4 BLEU — more than 2 points above the previous best including ensembles — at 3.5 days of training on 8 P100 GPUs, a fraction of competitor costs. The architecture also generalises to English constituency parsing, outperforming all but one prior RNN model.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Recurrent models are inherently sequential, which limits parallelization and makes long-range dependencies harder to learn. The authors argue that an attention-only architecture removes these constraints and propose the Transformer."
+    },
+    {
+      "title": "2. Background",
+      "summary": "Prior work (Extended Neural GPU, ByteNet, ConvS2S) used convolutions to reduce sequential computation but still required O(n) or O(log n) operations to relate distant positions. The Transformer reduces this to O(1) sequential operations at the cost of averaging over positions, which multi-head attention counteracts."
+    },
+    {
+      "title": "3.1 Encoder and Decoder Stacks",
+      "summary": "The encoder is a stack of N=6 layers, each with a multi-head self-attention sub-layer and a position-wise feed-forward sub-layer, both wrapped in residual connections and layer normalization (d_model=512). The decoder adds a third sub-layer for cross-attention over encoder output, and masks future positions in the self-attention sub-layer to preserve auto-regression."
+    },
+    {
+      "title": "3.2 Attention (Scaled Dot-Product and Multi-Head)",
+      "summary": "Scaled dot-product attention computes Attention(Q,K,V) = softmax(QK^T / sqrt(d_k))V; scaling by 1/sqrt(d_k) prevents vanishingly small gradients when d_k is large. Multi-head attention projects Q, K, V h=8 times into d_k=d_v=64-dimensional subspaces, runs attention in parallel, and concatenates the results — allowing the model to attend to different representation subspaces simultaneously."
+    },
+    {
+      "title": "3.3 Position-wise Feed-Forward Networks",
+      "summary": "Each attention sub-layer is followed by a two-layer feed-forward network (FFN(x) = max(0, xW1+b1)W2+b2) applied identically to each position, with inner dimension d_ff=2048 and d_model=512 input/output."
+    },
+    {
+      "title": "3.4 Embeddings and Softmax",
+      "summary": "Learned embeddings map input and output tokens to d_model-dimensional vectors; the same weight matrix is shared between the two embedding layers and the pre-softmax linear projection, scaled by sqrt(d_model) in the embedding layers."
+    },
+    {
+      "title": "3.5 Positional Encoding",
+      "summary": "Since the model has no recurrence or convolution, sinusoidal positional encodings (PE(pos,2i) = sin(pos/10000^(2i/d_model)), cosine for odd indices) are added to the embeddings. The sinusoidal choice may allow extrapolation to longer sequences than seen during training."
+    },
+    {
+      "title": "4. Why Self-Attention",
+      "summary": "A comparison of self-attention, recurrent, and convolutional layers on per-layer complexity, parallelism, and maximum path length between positions shows self-attention is O(1) sequential operations and O(1) path length, versus O(n) and O(n) for recurrent layers — the key theoretical argument for the architecture."
+    },
+    {
+      "title": "5. Training",
+      "summary": "Models are trained on WMT 2014 EN-DE (~4.5M sentence pairs, BPE, shared 37K vocab) and EN-FR (36M sentences, 32K word-piece vocab) using Adam with a warmup-then-decay learning rate schedule (warmup_steps=4000), residual dropout (P_drop=0.1), and label smoothing (epsilon_ls=0.1). Base models train for 100K steps (~12 hours); big models for 300K steps (3.5 days) on 8 NVIDIA P100 GPUs."
+    },
+    {
+      "title": "6.1 Results — Machine Translation",
+      "summary": "Transformer (big) achieves 28.4 BLEU on EN-DE and 41.8 BLEU on EN-FR, surpassing all prior single models and ensembles. The base model alone beats all previously published single models at a fraction of the training FLOPs (3.3e18 vs competitors up to 2.3e20)."
+    },
+    {
+      "title": "6.2 Results — Model Variations",
+      "summary": "Ablations on the EN-DE development set show that h=8 attention heads is optimal, reducing d_k hurts quality more than reducing heads, bigger models and dropout both improve generalization, and learned vs. sinusoidal positional embeddings produce nearly identical results."
+    },
+    {
+      "title": "6.3 Results — English Constituency Parsing",
+      "summary": "A 4-layer Transformer (d_model=1024) trained on Wall Street Journal data achieves 91.3 F1 (WSJ only) and 92.7 F1 (semi-supervised), outperforming all prior RNN models except the Recurrent Neural Network Grammar — demonstrating the architecture generalises beyond translation."
+    },
+    {
+      "title": "7. Conclusion",
+      "summary": "The Transformer is the first transduction model relying entirely on self-attention, replacing recurrent layers throughout. It trains significantly faster than recurrent/convolutional architectures while setting new state-of-the-art BLEU scores on both WMT 2014 translation tasks."
+    }
+  ],
+  "readingFocus": [
+    "Scaled dot-product attention (the QK^T/sqrt(d_k) formula) is the single most important primitive — understand why the scaling factor exists before reading anything else.",
+    "Multi-head attention: how h parallel projections let the model attend to different subspaces, and why total compute stays comparable to single-head attention at full dimension.",
+    "The encoder/decoder stack layout (N=6, two vs. three sub-layers, residual + LayerNorm wrap) is the blueprint you will implement — trace each data path through Figure 1 explicitly.",
+    "Positional encoding: the sinusoidal formula is simple but motivates later work (RoPE, ALiBi) — understand what information it encodes and what it does not.",
+    "The training recipe (Adam + warmup schedule, dropout, label smoothing) is the baseline you will replicate; the hyperparameter ablations in Table 3 show which knobs matter most.",
+    "The complexity table (Table 1) is the theoretical argument for why attention replaces recurrence — important context for understanding architectural trade-offs in the Microlab curriculum."
+  ]
+}

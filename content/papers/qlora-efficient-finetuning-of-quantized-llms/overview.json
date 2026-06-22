@@ -1,0 +1,56 @@
+{
+  "paperId": "qlora-efficient-finetuning-of-quantized-llms",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "QLoRA backpropagates gradients through a frozen 4-bit NF4 quantized base model into LoRA adapters on every linear layer, reducing LLaMA 65B finetuning memory from >780 GB to <48 GB with no degradation in 16-bit performance.",
+  "overview": "QLoRA combines three innovations — 4-bit NormalFloat (NF4) quantization, Double Quantization of the quantization constants, and Paged Optimizers for gradient-checkpointing memory spikes — to make LoRA finetuning of very large models feasible on single consumer or professional GPUs. The key insight is that the base model is stored at 4-bit precision but dequantized to BFloat16 on the fly for each forward/backward pass, so only the small LoRA adapter weights are trained and kept in 16-bit. Applying LoRA adapters to every linear transformer layer (not just attention projections) is essential to recover full 16-bit finetuning performance. Using this setup the authors train the Guanaco family of instruction-following models (7B–65B) and show that Guanaco 65B reaches 99.3% of ChatGPT performance on the Vicuna benchmark after 24 hours on a single 48 GB GPU.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Regular 16-bit finetuning of a 65B model requires >780 GB of GPU memory; QLoRA reduces this to <48 GB while preserving full task performance, enabling finetuning of models that were previously impractical on academic hardware. The authors introduce three complementary memory-saving techniques and demonstrate them by training Guanaco chatbots that rival ChatGPT on the Vicuna benchmark."
+    },
+    {
+      "title": "2. Background",
+      "summary": "Reviews block-wise k-bit quantization (chunking tensors so each block has its own quantization constant, limiting the effect of outliers) and Low-rank Adapter (LoRA) finetuning (adding small factorized weight matrices L1·L2 to frozen pretrained projections). Notes that the dominant memory cost during LoRA training comes from activation gradients, not the adapter weights themselves, so using more adapters costs little extra memory."
+    },
+    {
+      "title": "3. QLoRA Finetuning",
+      "summary": "Defines the three QLoRA innovations: (a) 4-bit NormalFloat (NF4) — an information-theoretically optimal quantization data type for normally distributed weights, constructed via quantile estimation on N(0,1) and normalized into [-1,1]; (b) Double Quantization — quantizing the 32-bit quantization constants themselves to 8-bit with a blocksize of 256, saving ~0.373 bits per parameter (≈3 GB for a 65B model); (c) Paged Optimizers — using NVIDIA unified memory to page optimizer states to CPU RAM when the GPU runs out of memory during long-sequence gradient checkpointing. The combined forward pass dequantizes W^NF4 to BFloat16, computes Y = X·doubleRequant(W) + X·L1·L2, and only accumulates gradients for the LoRA weights."
+    },
+    {
+      "title": "4. QLoRA vs. Standard Finetuning",
+      "summary": "Empirically shows that NF4 outperforms 4-bit Float (FP4) and Int4 on mean zero-shot accuracy, and that double quantization does not degrade performance. The critical hyperparameter finding is that LoRA must be applied to all linear layers (not just key/query projections) to match 16-bit LoRA and full finetuning performance on GLUE and Super-NaturalInstructions. Table 4 confirms NF4 + DQ matches BFloat16 LoRA on 5-shot MMLU across LLaMA 7B–65B."
+    },
+    {
+      "title": "5. Pushing the Chatbot State-of-the-Art with QLoRA",
+      "summary": "Finetunes LLaMA 7B–65B on eight instruction datasets (OASST1, HH-RLHF, Alpaca, FLAN v2, Chip2, Self-Instruct, Unnatural Instructions, Longform) and evaluates on MMLU and two chatbot benchmarks (Vicuna and OA) using GPT-4 and human Elo ratings. Key finding: dataset quality matters far more than size — a 9k-sample OASST1 dataset outperforms a 450k-sample FLAN v2 subsampling on chatbot tasks. Guanaco 65B achieves Elo 1022 vs ChatGPT's 966, and the 33B model fits on a 24 GB GPU in 21 GB of RAM."
+    },
+    {
+      "title": "6. Qualitative Analysis",
+      "summary": "Examines Guanaco 65B generation patterns with cherry and lemon examples across factual recall, suggestibility resistance, secret-keeping, math, and Theory of Mind tasks. Finds strong suggestibility resistance and decent multi-step reasoning, but failure on multi-step math (confidently wrong) and unreliable secret-keeping under prompt injection. Also identifies that GPT-4 as judge has positional bias and assigns itself a significant Elo advantage, cautioning against uncritical reliance on automated evaluation."
+    },
+    {
+      "title": "7. Related Work",
+      "summary": "Covers quantization for inference (SmoothQuant, LLM.int8(), GPTQ) and notes QLoRA is the first to study backpropagation through quantized weights beyond 1B parameters. Also surveys PEFT methods (prompt tuning, prefix tuning, IA3, BitFit) and instruction finetuning datasets, situating QLoRA as a combination of quantization and LoRA that extends both to the finetuning regime at large scale."
+    },
+    {
+      "title": "8. Limitations and Discussion",
+      "summary": "Full 16-bit parity was only directly verified up to 3B parameters; at 33B/65B scale the comparison requires multiple high-memory GPUs and was not run. Benchmark suitability is a recurring concern: FLAN v2 training helps MMLU but hurts Vicuna-style chatbot tasks and vice versa, highlighting a mismatch between what benchmarks measure and what practitioners care about. Bias evaluation (CrowS dataset) shows Guanaco 65B is less biased than the LLaMA base on most axes."
+    },
+    {
+      "title": "9. Broader Impacts",
+      "summary": "QLoRA is the first method enabling finetuning of 65B models on a single professional GPU and 33B models on a single consumer GPU, democratizing access to large-scale instruction tuning. The authors also note potential for on-device finetuning (iPhone 12 Plus estimated at 3M tokens/night) and privacy-preserving local model ownership, while acknowledging dual-use risks of widely accessible finetuning."
+    },
+    {
+      "title": "Appendices (A–G)",
+      "summary": "Appendix A gives full hyperparameter search details (LoRA r is unimportant if adapters cover all layers; dropout 0.05 helps small models). Appendix B details the eight finetuning datasets and confirms NF4 + DQ with r=64 on all linear layers as the standard configuration. Appendix E lists the exact 16 NF4 quantile values. Appendix G shows memory footprint breakdowns: for LLaMA 65B the base model is 37 GB, input gradients 5.7 GB, and the optimizer state 1.4 GB — paged optimizers handle the occasional overflow."
+    }
+  ],
+  "readingFocus": [
+    "Understand NF4 construction end-to-end: quantile estimation on N(0,1), normalization to [-1,1], and why this is information-theoretically optimal for normally distributed weights — this is what you will implement when adding 4-bit quantization support in Phase 7.",
+    "Trace the double-dequantization formula (Eq. 5–6): storage type W^NF4, constants c2^FP8 and c1^FP32, and the BFloat16 compute path — knowing which precision is used at each step is essential for a correct QLoRA training loop.",
+    "Note the critical LoRA placement finding: adapters on every linear layer (not just attention) are required to recover 16-bit performance. This directly constrains how you wire LoRA into the frozen quantized base in your implementation.",
+    "Study paged optimizers as a memory-management pattern: they use NVIDIA unified memory to evict optimizer states to CPU RAM on OOM and page them back in during the update step — relevant to any long-sequence or large-batch training in Microlab's Phase 7 setup.",
+    "Internalize the data-quality > data-size finding (Section 5, Tables 5–6): a 9k-sample high-quality dataset beats a 450k-sample dataset for chatbot performance, which informs how to think about instruction dataset curation for Microlab's finetuning experiments."
+  ]
+}

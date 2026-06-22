@@ -1,0 +1,56 @@
+{
+  "paperId": "s1-simple-test-time-scaling",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Fine-tuning Qwen2.5-32B-Instruct on just 1,000 carefully curated reasoning examples (s1K), combined with a decoding-time 'budget forcing' trick that appends 'Wait' to extend thinking, produces s1-32B — a model that outperforms o1-preview on competition math using 800x fewer training examples than closest competitors.",
+  "overview": "s1 demonstrates that test-time scaling — using more compute at inference to improve answers — can be achieved with minimal training data and a simple inference intervention. The authors curate s1K, a dataset of 1,000 questions selected from a 59K-question pool by jointly optimizing for quality, difficulty, and diversity, with reasoning traces distilled from Gemini 2.0 Flash Thinking. Budget forcing controls test-time compute by either truncating the thinking chain early (appending end-of-thinking delimiter) or extending it by suppressing that delimiter and inserting 'Wait', prompting the model to re-examine its reasoning. Trained for just 26 minutes on 16 H100 GPUs, s1-32B exceeds o1-preview on AIME24 (56.7% vs. 44.6%) and matches it on MATH500 (93.0% vs. 85.5%), while sitting on the sample-efficiency frontier among all open-weight reasoning models. The ablations show that random, diversity-only, or difficulty-only sample selection each degrades performance by ~30% on AIME24, confirming the importance of jointly applying all three criteria.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Motivates test-time scaling as an alternative to ever-larger pretraining; identifies the gap that prior o1-replication efforts used large-scale RL or distillation on hundreds of thousands of examples. States the core claim: SFT on 1K examples plus budget forcing suffices for strong, controllable test-time scaling."
+    },
+    {
+      "title": "2.1. Initial collection of 59K samples",
+      "summary": "Collects 59,029 questions from 16 sources (NuminaMATH, MATH, OlympicArena, OmniMath, AGIEval, AIME, USACO, and others) applying three principles — Quality (no formatting artifacts), Difficulty (problems neither model can trivially solve), and Diversity (coverage across 50+ domains via AMS Mathematics Subject Classification). Reasoning traces are generated via the Gemini 2.0 Flash Thinking API."
+    },
+    {
+      "title": "2.2. Final selection of 1K samples",
+      "summary": "Applies three sequential filters — quality (removes API errors and formatting issues), difficulty (drops questions solvable by Qwen2.5-7B-Instruct or 32B-Instruct), and diversity (two-stage domain-uniform sampling with power-law weighting toward longer reasoning traces) — to distill 59K to 1,000 examples spanning 50 domains. Ablations confirm that any single criterion alone yields substantially worse models."
+    },
+    {
+      "title": "3.1. Test-time scaling method — Budget forcing",
+      "summary": "Introduces budget forcing: enforce a maximum thinking token count by appending the end-of-thinking delimiter to truncate early, or enforce a minimum by suppressing that delimiter and appending 'Wait' (or similar strings) to keep the model reasoning. Figure 3 shows a concrete example where the model initially gives an incorrect count of 'r' in 'raspberry', then self-corrects after 'Wait' is inserted."
+    },
+    {
+      "title": "3.2. Metrics",
+      "summary": "Defines three evaluation axes for any test-time scaling method: Control (fraction of runs that fall within a specified token budget), Scaling (average slope of the accuracy-vs-compute curve — must be positive), and Performance (peak accuracy achieved). Budget forcing achieves 100% Control and a Scaling score of 15, the best of all methods tested."
+    },
+    {
+      "title": "4. Results",
+      "summary": "s1-32B trained on s1K scores 56.7% on AIME24 and 93.0% on MATH500 — beating o1-preview (44.6% / 85.5%) with only 1K training examples. Budget forcing extrapolates AIME24 from 50% (no intervention) to 57% by increasing thinking budget. Sequential scaling via budget forcing outperforms parallel scaling (majority voting) in the comparable-compute regime."
+    },
+    {
+      "title": "5.1. Data ablations",
+      "summary": "Compares s1K against 1K-random, 1K-diverse, 1K-longest, and 59K-full baselines, all evaluated with budget forcing. s1K matches or exceeds 59K-full (which required 56x more GPU hours to train) and substantially outperforms any single-criterion selection, confirming that jointly applying Quality + Difficulty + Diversity is the key to sample efficiency."
+    },
+    {
+      "title": "5.2. Test-time scaling method ablations",
+      "summary": "Compares budget forcing against token-conditional, step-conditional, and class-conditional control prompts, and against rejection sampling. Budget forcing is uniquely strong: it achieves 100% control and the only positive Scaling score (15) among sequential methods. Rejection sampling exhibits an inverse scaling trend — filtering for longer generations selects for incorrect ones."
+    },
+    {
+      "title": "6. Discussion and related work",
+      "summary": "Contextualizes s1 within the sample-efficient reasoning literature (LIMA, LIMO) and the broader test-time scaling landscape (MCTS, REBASE, majority voting). Argues that SFT on 1K examples 'activates' reasoning capacity already present from pretraining, analogous to the Superficial Alignment Hypothesis. Notes budget forcing's two limits — eventual flattening and context window — and suggests combining it with parallel methods (REBASE) for further gains."
+    },
+    {
+      "title": "Appendix A. s1.1",
+      "summary": "Reports a follow-up model trained one week later using DeepSeek r1 traces instead of Gemini for the same 1K questions, producing s1K-1.1. s1.1 with budget forcing reaches 95.4% on MATH500 and 56.7% on AIME24, meaningfully improving over s1; distilling from Claude 3.7 traces did not improve results."
+    }
+  ],
+  "readingFocus": [
+    "The s1K curation pipeline — Quality + Difficulty + Diversity applied jointly — is a direct template for any Microlab Phase 11 dataset construction that needs to maximize signal per example rather than raw size.",
+    "Budget forcing ('Wait') is the mechanism to understand in depth: it requires no model changes, just inference-time string manipulation, and it is the single intervention that produces the test-time scaling curve. Understand when it helps (model was on wrong track and reconsidered) vs. when it fails (repetitive loops at very high budgets).",
+    "The three-metric framework — Control, Scaling, Performance — gives a principled way to compare any test-time scaling method. Apply it when evaluating future inference strategies in Microlab.",
+    "The result that 1K SFT examples match 59K in final performance (and beat random/diverse/longest 1K subsets) directly informs how Microlab should think about small-data fine-tuning: data quality and selection strategy dominate quantity.",
+    "The comparison between sequential scaling (budget forcing) and parallel scaling (majority voting, REBASE) is relevant to Phase 11 inference design: sequential scales better at low-to-medium compute but hits context-window limits; parallel can extend further at higher cost."
+  ]
+}

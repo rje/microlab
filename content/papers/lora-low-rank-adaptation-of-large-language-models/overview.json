@@ -1,0 +1,48 @@
+{
+  "paperId": "lora-low-rank-adaptation-of-large-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "LoRA freezes a pretrained model and injects trainable low-rank matrix pairs (BA) into each attention layer, achieving fine-tuning quality at up to 10,000x fewer trainable parameters and zero additional inference latency.",
+  "overview": "Full fine-tuning of large language models is prohibitively expensive because every downstream task requires a separate copy of all model weights. LoRA addresses this by constraining each weight update ΔW to a low-rank decomposition W₀ + ΔW = W₀ + BA, where B ∈ ℝ^{d×r} and A ∈ ℝ^{r×k} with r ≪ min(d,k); only A and B are trained while W₀ stays frozen. At inference the product BA is merged into W₀, so there is no extra compute path and no latency penalty compared to a fully fine-tuned model. Evaluated on RoBERTa, DeBERTa, GPT-2, and GPT-3 175B, LoRA matches or exceeds fine-tuning baselines on GLUE, E2E NLG, WikiSQL, MultiNLI, and SAMSum while reducing trainable parameters by up to 10,000x and GPU memory by up to 3x during training.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Full fine-tuning of 175B-parameter models is impractical at scale; LoRA proposes freezing pretrained weights and injecting rank-decomposition matrices into Transformer layers. Key advantages are parameter efficiency (r can be 1–4), no inference latency, easy task-switching by swapping small A/B pairs, and compatibility with adapter-orthogonal methods."
+    },
+    {
+      "title": "2. Problem Statement",
+      "summary": "Formalizes adaptation as learning a small parameter set Θ (|Θ| ≪ |Φ₀|) that encodes the task-specific weight increment ΔΦ(Θ), replacing the standard objective of training all |Φ₀| parameters. For GPT-3 175B, LoRA achieves |Θ| as small as 0.01% of |Φ₀|."
+    },
+    {
+      "title": "3. Aren't Existing Solutions Good Enough?",
+      "summary": "Adapter layers add depth and sequential computation, increasing inference latency measurably even with tiny bottleneck dimensions (up to +30% at batch size 1 on GPT-2). Prefix/prompt tuning is hard to optimize, degrades monotonically past ~32 special tokens, and steals usable sequence length from the downstream task."
+    },
+    {
+      "title": "4. Our Method",
+      "summary": "Section 4.1 defines the reparametrization h = W₀x + BAx, with A initialized from N(0,σ²) and B=0, so ΔW=0 at training start; the update is scaled by α/r to decouple the learning-rate sensitivity from r. Section 4.2 limits adaptation to attention weight matrices (Wq, Wk, Wv, Wo) and keeps MLP weights frozen, reducing VRAM for GPT-3 from 1.2 TB to 350 GB with r=4."
+    },
+    {
+      "title": "5. Empirical Experiments",
+      "summary": "LoRA is evaluated on RoBERTa base/large (GLUE), DeBERTa XXL (GLUE), GPT-2 M/L (E2E NLG), and GPT-3 175B (WikiSQL, MultiNLI, SAMSum). With 0.3–4.7M trainable parameters it matches or beats full fine-tuning (125M–1.5B trainable) and all adapter baselines across every benchmark, while offering 25% higher training throughput on GPT-3."
+    },
+    {
+      "title": "6. Related Works",
+      "summary": "Surveys Transformer language models, prompt/prefix tuning, parameter-efficient adapter methods (Houlsby, Rebuffi, Lin, Pfeiffer), and prior low-rank structure results in deep learning. Highlights that LoRA's key distinguishing property — mergeability at inference — is absent from all adapter variants."
+    },
+    {
+      "title": "7. Understanding the Low-Rank Updates",
+      "summary": "Section 7.1 (which weight matrices): adapting Wq and Wv jointly with r=4 outperforms adapting any single matrix at r=8, confirming that distributing capacity across more matrices beats concentrating it. Section 7.2 (optimal rank): r=1 already competes well for {Wq, Wv}, suggesting very low intrinsic rank suffices. Section 7.3 (ΔW vs W): ΔW amplifies directions already present in W but not strongly emphasized — it is not random noise and not simply repeating W's top singular vectors; amplification factor ≈21.5x at r=4."
+    },
+    {
+      "title": "8. Conclusion and Future Work",
+      "summary": "LoRA is proposed as a practical, latency-free alternative to full fine-tuning for large Transformers. Open questions include principled selection of which weight matrices to adapt, the theoretical mechanism connecting pretraining features to downstream task performance, and whether W itself is rank-deficient."
+    }
+  ],
+  "readingFocus": [
+    "The BA reparametrization (Section 4.1): understand how h = W₀x + BAx works, why B=0 initialization gives ΔW=0 at step zero, and how the α/r scaling decouples rank choice from learning-rate tuning — this is exactly the math you will implement in Phase 7.",
+    "Rank and target-module choices (Sections 7.1–7.2): adapting Wq+Wv with r=4 beats single-matrix r=8; r=1 is often enough for {Wq,Wv}. These tables are the practical guide for your LoRA config when adding PEFT to Microlab's training loop.",
+    "Zero inference latency by weight merging (Section 4.1, 'No Additional Inference Latency'): W = W₀ + BA is precomputed before serving; task-switching is just swapping the small B,A tensors. This is the property that makes LoRA production-friendly and distinguishes it from all adapter approaches.",
+    "Memory and compute savings (Section 4.2 practical benefits): VRAM cut from 1.2 TB to 350 GB for GPT-3 comes from not storing optimizer states for frozen weights — quantify what the analogous saving looks like for your Phase 7 model size.",
+    "Subspace analysis (Section 7.3): ΔW amplifies under-emphasized directions in W rather than random or top-W directions — this sheds light on why low-rank adaptation works at all and is worth understanding before designing ablations."
+  ]
+}

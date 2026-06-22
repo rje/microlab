@@ -1,0 +1,44 @@
+{
+  "paperId": "training-compute-optimal-large-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "For a fixed compute budget, model size and training tokens should be scaled in equal proportions — not model size alone — and a 70B-parameter model (Chinchilla) trained on 1.4 trillion tokens outperforms models 4x its size trained on far less data.",
+  "overview": "Hoffmann et al. challenge the then-dominant practice of scaling model parameters while keeping training data roughly constant at ~300 billion tokens. By training over 400 models from 70M to 16B parameters on 5B to 500B tokens and fitting three independent estimators of the compute-optimal frontier, the authors show that model size and token count should grow at approximately equal rates (both exponents ~0.5 vs. Kaplan et al.'s 0.73 for size and 0.27 for data). Applied to the Gopher compute budget, this predicts an optimal model of ~70B parameters on ~1.4 trillion tokens. The resulting model, Chinchilla, uniformly and significantly outperforms Gopher (280B), GPT-3 (175B), Jurassic-1 (178B), and MT-NLG (530B) on a wide range of tasks while using substantially less memory and compute at inference time.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Current large models are significantly undertrained because the field has focused on scaling parameters while holding data constant at ~300B tokens. The paper frames the problem as minimizing pre-training loss under a fixed FLOP budget and finds that model size and token count should both scale as roughly C^0.5 — contradicting Kaplan et al. (2020), who estimated size should scale as C^0.73 and data only as C^0.27."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Reviews the trajectory of dense transformer LLMs (GPT-3, Gopher, Jurassic, MT-NLG) and MoE models, and contrasts this work with Kaplan et al. (2020). Key methodological differences: Kaplan et al. fixed learning-rate schedules to a single token count, which underestimates loss at lower data volumes and biases toward larger models; this work sets schedule length to match each training run's token count and trains models up to 16B parameters rather than mostly under 100M."
+    },
+    {
+      "title": "3. Estimating the Optimal Parameter/Training Tokens Allocation",
+      "summary": "Three independent approaches are used: (1) fixing model sizes and sweeping training horizons to extract a loss envelope; (2) IsoFLOP profiles — sweeping model sizes at fixed FLOP budgets to find loss minima; and (3) fitting a parametric loss function L(N,D) = E + A/N^alpha + B/D^beta via Huber loss minimisation. All three yield exponents near 0.5 for both model size and data scaling, and Table 3 gives concrete token requirements for models from 400M to 10T parameters."
+    },
+    {
+      "title": "3.4. Optimal Model Scaling",
+      "summary": "The three approaches agree that both model size and training tokens should scale in equal proportion with compute, directly contradicting prior consensus. At the Gopher compute budget (~5.76 x 10^23 FLOPs), the optimal model is predicted to be 40–70B parameters trained on ~1.4–1.5 trillion tokens — roughly 4x fewer parameters but 4x more data than Gopher."
+    },
+    {
+      "title": "4. Chinchilla — Model and Training Details",
+      "summary": "Chinchilla is a 70B parameter model trained on 1.4 trillion tokens from MassiveText, using the same architecture and training infrastructure as Gopher but with AdamW instead of Adam, a slightly modified SentencePiece tokenizer, and a cosine schedule matched to the longer training run. Because it is 4x smaller than Gopher, its memory footprint and inference cost are substantially lower."
+    },
+    {
+      "title": "4.2. Results",
+      "summary": "Chinchilla outperforms Gopher on all subsets of The Pile, achieves 67.6% on MMLU 5-shot (vs. 60.0% for Gopher and 43.9% for GPT-3), improves BIG-bench average from 54.4% (Gopher) to 65.1%, and sets new closed-book SOTA on Natural Questions (35.5% 64-shot). Gender-bias coreference and toxicity scores are comparable to Gopher, indicating that compute-optimal training does not meaningfully change safety-relevant model properties."
+    },
+    {
+      "title": "5. Discussion & Conclusion",
+      "summary": "The race to train ever-larger models has produced substantially underperforming systems relative to what the same compute budget could achieve with smaller, data-rich models. The authors caution that data quality and scale will be the binding constraint going forward, that high-quality dataset collection is as important as architecture improvements, and that the power-law assumptions may overestimate optimal model size at very large compute budgets due to observed concavity in the frontier."
+    }
+  ],
+  "readingFocus": [
+    "The core equation: for compute budget C, optimal N and D both scale as C^0.5 — understand why Kaplan et al.'s fixed-schedule methodology biased them toward larger N and smaller D, and why this work corrects that.",
+    "The three estimation approaches (training-curve envelope, IsoFLOP profiles, parametric fit) and why their agreement across methods strengthens the result — directly relevant to designing your own scaling experiments in Phase 4.",
+    "Table 3: memorise the shape of the token-requirement curve (e.g., 10B params needs ~205B tokens, 67B params needs ~1.5T tokens) — this is the operational lookup table for Microlab's model sizing decisions.",
+    "The inference-cost argument: a compute-optimal model is smaller, so fine-tuning and serving costs drop dramatically; this frames the Chinchilla result not just as a pretraining win but as a full-lifecycle win relevant to deploying Microlab models.",
+    "Limitations flagged in Section 5 — concavity of the frontier at large compute, only two large-scale validation points (Chinchilla and Gopher), and the assumption of sub-epoch training — set the boundary conditions on how far the scaling law can be trusted."
+  ]
+}

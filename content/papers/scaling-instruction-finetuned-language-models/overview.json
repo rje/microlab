@@ -1,0 +1,52 @@
+{
+  "paperId": "scaling-instruction-finetuned-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Flan-PaLM shows that instruction finetuning improves dramatically when you scale both the number of tasks (to 1.8K) and model size, and that including just nine chain-of-thought datasets in the mixture is necessary to preserve — and extend — reasoning ability.",
+  "overview": "Chung et al. (2022) extend instruction finetuning along three axes: scaling the number of tasks from ~62 to 1,836, scaling model size from 8B to 540B parameters, and mixing chain-of-thought (CoT) annotated data into the finetuning set. The resulting Flan-PaLM 540B achieves 75.2% on five-shot MMLU (using CoT + self-consistency), outperforming the unfinetuned PaLM 540B by 9.4% on average across held-out benchmarks. A critical finding is that instruction finetuning without any CoT examples actually degrades reasoning performance; adding only nine CoT datasets recovers and surpasses that baseline. The study also demonstrates that instruction finetuning generalizes across model families (T5, PaLM, U-PaLM) and is compute-efficient, costing as little as 0.2% of pre-training FLOPs.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Instruction finetuning is extended by scaling tasks, model size, and CoT data. Key results: Flan-PaLM 540B reaches 75.2% MMLU (CoT + SC), outperforms PaLM 540B by +9.4% normalized average, and Flan-T5 checkpoints are released publicly."
+    },
+    {
+      "title": "2. Flan Finetuning",
+      "summary": "Describes the finetuning data mixture — four sources (Muffin 80 tasks, T0-SF 193 tasks, NIV2 1554 tasks, CoT 9 datasets) totalling 1,836 tasks — and the training procedure applied uniformly across T5, PaLM, and U-PaLM model families using Adafactor with packing, costing only 0.2–1.6% of pre-training compute."
+    },
+    {
+      "title": "3. Scaling to 540B Parameters and 1.8K Tasks",
+      "summary": "Scaling curves show that both larger models and more finetuning tasks improve held-out performance, with most task-count gains occurring before 282 tasks. An order-of-magnitude increase in model size consistently provides large gains; the margin of finetuning over no-finetuning does not shrink with scale."
+    },
+    {
+      "title": "4. Finetuning with Chain-of-Thought Annotations",
+      "summary": "Including nine CoT datasets in the mixture improves reasoning on held-out benchmarks (MMLU, BBH, MGSM) while maintaining non-CoT task performance; finetuning on non-CoT data alone severely degrades CoT ability. CoT finetuning also unlocks zero-shot reasoning via the 'let's think step-by-step' trigger on challenging BIG-Bench tasks where unfinetuned PaLM fails entirely."
+    },
+    {
+      "title": "5. Putting It All Together",
+      "summary": "Instruction finetuning generalizes across architectures (encoder-decoder T5 and decoder-only PaLM) and pre-training objectives. Flan-T5-XL (3B) surpasses GPT-3 175B on MMLU; Flan-U-PaLM (UL2R + instruction finetuning) achieves the strongest overall results, showing the two techniques are complementary."
+    },
+    {
+      "title": "6. Usability Evaluation of Open-Ended Generation",
+      "summary": "Human raters preferred Flan-PaLM outputs over PaLM outputs 79% of the time on 190 zero-shot and few-shot open-ended prompts across creativity, reasoning, planning, and explanation categories. Finetuning also reduces common PaLM failure modes such as repetition and not responding to the instruction."
+    },
+    {
+      "title": "7. Discussion",
+      "summary": "Summarizes four key takeaways: scaling curves for tasks and model size suggest continued gains; CoT finetuning is critical for reasoning and does not hurt non-CoT tasks; instruction finetuning generalizes across model families; and finetuning improves usability and mitigates some responsible-AI harms at low compute cost."
+    },
+    {
+      "title": "8. Related Work",
+      "summary": "Situates Flan within instruction finetuning (FLAN, T0, InstructGPT), reasoning-via-finetuning (CoT, scratchpad), and compute-efficient language model improvement (UL2R) literatures."
+    },
+    {
+      "title": "9. Conclusions",
+      "summary": "Flan-PaLM achieves state-of-the-art on several benchmarks; instruction finetuning is broadly applicable, compute-efficient, compatible with other adaptation methods, and improves both benchmark performance and real-world usability."
+    }
+  ],
+  "readingFocus": [
+    "The scaling curves in Section 3 (Figure 4) are central to Microlab Phase 6: understand how normalized held-out performance grows log-linearly with both model size and number of finetuning tasks, and where returns diminish.",
+    "The CoT ablation in Section 4 is the paper's sharpest practical lesson: finetuning without CoT examples actively harms reasoning, but adding just nine CoT datasets recovers and extends it — directly informing how to compose a finetuning mixture for any Microlab training run.",
+    "Table 2 shows that instruction finetuning costs 0.2–1.6% of pre-training FLOPs — relevant when budgeting compute for Microlab's own finetuning experiments relative to a pretrained checkpoint.",
+    "Section 5 (Flan-T5 results in Table 5) demonstrates that even a 3B model (Flan-T5-XL) can surpass GPT-3 175B on MMLU — useful calibration for what small-model instruction finetuning can realistically achieve.",
+    "Zero-shot CoT unlocking (Section 4.3, Figure 6): understand why unfinetuned PaLM cannot follow 'let's think step-by-step' on BBH while Flan-PaLM can — this connects to how instruction format during finetuning shapes inference-time behavior."
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "paperId": "training-verifiers-to-solve-math-word-problems",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Cobbe et al. introduce GSM8K, a dataset of 8.5K linguistically diverse grade-school math word problems, and show that training a separate verifier to rank candidate solutions significantly outperforms finetuning alone — equivalent to a ~30x model-size increase — with stronger data-scaling properties.",
+  "overview": "The paper addresses a fundamental weakness of autoregressive language models: once a multi-step reasoning chain goes wrong there is no recovery mechanism. The authors release GSM8K (7.5K train / 1K test problems, 2–8 steps each, natural-language solutions, <2% error rate) designed for high quality, high diversity, and moderate difficulty. Their core method trains a separate verifier model on generator completions labeled correct/incorrect purely by final-answer match; at test time the verifier re-ranks 100 candidate solutions and returns the top-ranked one. On the full GSM8K training set, a 6B verifier slightly outperforms a finetuned 175B generator, and verification scales far more favorably with additional data than finetuning. Token-level verifiers (predicting correctness after every token, not just at the end) are less prone to overfitting than solution-level verifiers, and residual dropout is a strong regularizer for both approaches.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Large models fail at multi-step math despite matching humans on many tasks. The paper introduces GSM8K and proposes training verifiers to re-rank generator solutions at test time, reporting that verification matches a 30x model-size increase in finetuning performance and scales better with more data."
+    },
+    {
+      "title": "2. Dataset",
+      "summary": "GSM8K contains 8.5K human-written grade-school math problems (7.5K train / 1K test) requiring 2–8 elementary arithmetic steps. Design principles are high quality (worker agreement checks, <2% breaking errors), high diversity (no template reuse), moderate difficulty (tractable yet challenging for large models), and natural-language solutions rather than pure expressions."
+    },
+    {
+      "title": "3. Related Work",
+      "summary": "Section 3.1 surveys prior math-word-problem datasets (Dolphin18K, AQuA-RAT, MathQA, Ape210K, ASDiv, MATH), noting GSM8K's advantages in quality, diversity, and natural-language solutions. Section 3.2 covers prior seq2seq and pretrained-encoder methods and concurrent work on generate-and-rank approaches, distinguishing this paper's focus on natural-language solutions, separate generator/verifier networks, and superior data-scaling evidence."
+    },
+    {
+      "title": "4.1 Finetuning",
+      "summary": "The finetuning baseline updates GPT-3 family models (3B–175B) with the standard language-modeling objective for 20 epochs. The 175B model significantly outperforms smaller ones, but a log-linear extrapolation suggests ~10^16 parameters would be needed to reach 80% solve rate on the full training set — evidence that scaling alone is insufficient."
+    },
+    {
+      "title": "4.2 Verification",
+      "summary": "The verification pipeline: (1) finetune a generator for 2 epochs, (2) sample 100 completions per training problem and label each correct/incorrect by final-answer match, (3) train a separate verifier for 1 epoch with a joint language-modeling + correctness objective. At test time, 100 completions are ranked by verifier score and the top one is returned. Verification beats finetuning at all but the smallest dataset sizes, with the gap growing with more data."
+    },
+    {
+      "title": "4.3 Verification Ablations",
+      "summary": "Token-level verifiers (predicting correctness after each token) outperform solution-level verifiers (single prediction at the end) because the full value function discourages memorizing final answers and stays well-calibrated longer. Adding a language-modeling auxiliary objective strictly improves over verification-only training. Increasing generator size matters more than increasing verifier size."
+    },
+    {
+      "title": "5.1 Test Time Compute",
+      "summary": "Performance peaks at ~400 completions per problem for 6B verification; beyond that, adversarial solutions that fool the verifier begin to dominate. Taking a majority vote among the top-k verifier-ranked solutions (rather than picking only the single best) further improves accuracy, with the optimal k growing with the total number of completions."
+    },
+    {
+      "title": "5.2 Regularization",
+      "summary": "Residual dropout (20%) is a strong regularizer for both finetuning and verification. For solution-level verifiers, dropout with dropout nearly eliminates overfitting and reaches parity with token-level verifiers without dropout. Token-level verifiers already resist overfitting, so dropout provides a smaller but still positive gain."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "Verification provides a significant performance boost over finetuning: a 6B verifier on the full GSM8K training set slightly exceeds a finetuned 175B model and scales more favorably with data. Token-level verifiers and residual dropout are both recommended. The authors expect verification to generalize to harder mathematical reasoning distributions."
+    },
+    {
+      "title": "Appendices (A–E)",
+      "summary": "Appendix A details the GSM8K collection process (Upwork + Surge AI, pairwise similarity checks to prevent template reuse). Appendix B lists hyperparameters. Appendix C explains the calculator annotation mechanism (special <<…>> tokens, Python eval at sampling time). Appendix D shows cherry-picked example solutions. Appendix E describes the verifier architecture (scalar head via bias+gain on the final-unembedding logit for a special token, joint training objective)."
+    }
+  ],
+  "readingFocus": [
+    "GSM8K dataset design: understand why high diversity (no template reuse) and natural-language solutions matter — these same principles apply to any verifiable task dataset you build for Microlab Phase 10.",
+    "The generate-and-rank pipeline (Section 4.2): the three-step train-generator / label-completions / train-verifier loop is the direct precursor to outcome reward models (ORMs) used in modern RLHF and the verification approach you will implement for Microlab's verifiable tasks.",
+    "Token-level vs. solution-level verifiers (Section 4.3): token-level verifiers act as a value function over partial solutions — a key concept for process reward models (PRMs) versus outcome reward models (ORMs), a distinction central to Phase 10 design decisions.",
+    "Data-scaling advantage of verification over finetuning (Figure 5): the empirical evidence that verifiers improve faster with more labeled data than a finetuned generator informs how to prioritize annotation effort in Microlab.",
+    "Test-time compute tradeoffs (Section 5.1): the performance peak at ~400 completions and the majority-vote variant illustrate the inference-budget decisions you will face when deploying verifiable-task evaluation in Microlab."
+  ]
+}

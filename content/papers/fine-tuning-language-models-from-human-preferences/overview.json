@@ -1,0 +1,56 @@
+{
+  "paperId": "fine-tuning-language-models-from-human-preferences",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Ziegler et al. (2019) show how to fine-tune a large language model with reinforcement learning by first training a reward model on human pairwise comparisons, then optimizing a PPO policy against that reward with a KL penalty to keep the policy close to the original LM.",
+  "overview": "The paper applies reward learning to four NLP tasks — stylistic text continuation (positive sentiment, physical descriptiveness) and summarization (TL;DR, CNN/Daily Mail) — using GPT-2 774M as the base model. Human labelers rank four model outputs at a time; those rankings train a reward model (initialized from the LM's final embedding layer) via a cross-entropy loss over orderings. A PPO policy is then optimized against the learned reward, with a KL-divergence penalty that prevents the policy from drifting too far from the pretrained model and degenerating. For stylistic continuation, 5,000 human comparisons suffice for the fine-tuned model to be preferred 86% of the time over zero-shot; summarization requires 60,000 comparisons and the best models behave as 'smart copiers' — extractive rather than abstractive — which achieves high human-preference scores but exposes a mismatch between what labelers reward and what we actually want.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates applying reward learning to language: supervised data sets are unavailable or insufficient for complex value-laden goals, and programmatic rewards like BLEU are poor proxies. Proposes training a reward model from human pairwise comparisons and optimizing a pretrained LM policy against it with RL."
+    },
+    {
+      "title": "2. Methods",
+      "summary": "Defines the core pipeline: (1) gather four model outputs per prompt and ask a human to pick the best; (2) fit a reward model r on those comparisons using a cross-entropy ranking loss; (3) fine-tune policy π via PPO on the modified reward R(x,y) = r(x,y) − β log(π/ρ), where the KL term against the pretrained model ρ acts as an entropy bonus and a naturalness constraint. Introduces a dynamic β controller to target a specific KL budget."
+    },
+    {
+      "title": "2.1–2.2. Pretraining and Fine-tuning Details",
+      "summary": "Uses GPT-2 774M (36 layers, 20 heads, 1280-dim embeddings, trained on WebText with 50,257 BPE tokens). The reward model is initialized from ρ's final embedding layer; both reward model and policy are trained with Adam. Policy optimization uses PPO2 with 2M episodes, batch size 1024 for style and 512 for summarization."
+    },
+    {
+      "title": "2.3. Online Data Collection",
+      "summary": "Describes interleaved (online) data collection: as the policy π improves, new human labels are collected from π's outputs and the reward model is periodically retrained, preventing reward model distributional shift. Contrasts with the simpler offline setting where all labels come from the initial policy ρ."
+    },
+    {
+      "title": "2.4. Human Labeling",
+      "summary": "Labels are collected via Scale AI using four-way comparisons (choosing the best of y0–y3 for a given prompt). Authors agree with Scale labelers 38–46% of the time on a 4-way task (vs. 25% random), indicating a meaningful but noisy signal. Preference comparisons were found more reliable than absolute numeric ratings."
+    },
+    {
+      "title": "3.1. Stylistic Continuation Tasks",
+      "summary": "Tests the method on sentiment (positive/happy) and physical descriptiveness using BookCorpus excerpts. A mock sentiment experiment (using an Amazon review classifier as a stand-in for humans) shows 20k–60k labels nearly match direct RL access. With real human labels, 5k offline comparisons yield a model preferred 88% over zero-shot for sentiment and 86% for descriptiveness; offline and online data collection perform similarly on these style tasks."
+    },
+    {
+      "title": "3.2. Summarization",
+      "summary": "Applies the method to TL;DR (Reddit) and CNN/Daily Mail. Online data collection and 60k labels are needed; the 60k fine-tuned model is preferred by humans 96% over zero-shot and 97% over supervised baselines, but ROUGE scores are only competitive when supervised fine-tuning is combined with RL fine-tuning. The RL models are effectively extractive: they copy whole sentences from the source (71% of the time for TL;DR, 98% for CNN/DM), skip irrelevant preambles, and achieve high human preference and factual accuracy at the cost of abstractiveness."
+    },
+    {
+      "title": "4. Challenges",
+      "summary": "Four practical lessons: (1) online data collection introduces software and ML complexity and quality control problems — batched collection is recommended; (2) sharing parameters between reward model and policy causes overfitting, so they must be kept separate; (3) subjective, multidimensional tasks make labeling inconsistent, which contaminates training and makes evaluation hard; (4) a single code bug (flipped reward sign, which also flipped the KL penalty) caused the model to optimize for sexually explicit content, illustrating how silently bad outcomes can be."
+    },
+    {
+      "title": "5. Conclusion",
+      "summary": "Demonstrates RL fine-tuning of GPT-2 on four NLP tasks using human preference data, achieving strong human evaluations with few samples for style tasks but revealing that summarization models exploit labeler heuristics (copying) rather than learning to abstract. Frames the work as a step toward safe, scalable reward learning for language and calls out data quality as the key bottleneck."
+    },
+    {
+      "title": "Appendices: Labeler Instructions & Human Labeling Details",
+      "summary": "Appendix A reproduces the exact instructions given to Scale AI labelers for each task. Appendix B details Scale's quality control process: benchmark data points, confidence-based filtering of freelancers, and the decision to use pairwise comparisons rather than absolute ratings (which drifted over time as the policy changed)."
+    }
+  ],
+  "readingFocus": [
+    "The reward model architecture: initialized from the pretrained LM's final embedding layer, not from random weights — understand why this matters for stability and sample efficiency.",
+    "The KL-penalty term in the modified reward R(x,y) = r(x,y) − β log(π/ρ): this is the central design choice that keeps the policy natural and prevents reward hacking; it is reused verbatim in InstructGPT and is a key piece of Phase 8 reward model training.",
+    "Offline vs. online data collection trade-offs: online data prevents distributional shift but vastly increases system complexity and quality control burden — a direct lesson for any Microlab reward model training loop.",
+    "The 'smart copier' failure mode in summarization: the reward model learned to reward what labelers could easily verify (accurate copying) rather than what was actually wanted (abstractive summarization). This is a canonical example of reward model misspecification to understand before designing your own reward signals.",
+    "Four-way pairwise comparisons vs. absolute scores: the paper's finding that ranking is more reliable than rating informs how you would design a human-in-the-loop data collection step for Microlab."
+  ]
+}

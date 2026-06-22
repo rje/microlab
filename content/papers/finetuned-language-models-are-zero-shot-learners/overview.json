@@ -1,0 +1,77 @@
+{
+  "paperId": "finetuned-language-models-are-zero-shot-learners",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Instruction tuning — finetuning a 137B language model on 60+ NLP datasets described via natural language instructions — substantially improves zero-shot performance on unseen tasks, producing FLAN, which outperforms zero-shot GPT-3 175B on 20 of 25 datasets and even beats few-shot GPT-3 on several.",
+  "overview": "The paper introduces instruction tuning, a simple method that bridges the pretrain–finetune and prompting paradigms: a pretrained language model (LaMDA-PT, 137B) is finetuned on a mixture of 62 NLP datasets expressed as natural language instructions, then evaluated zero-shot on held-out task clusters not seen during tuning. The resulting model, FLAN (Finetuned Language Net), substantially outperforms its unmodified base on every instruction-amenable task type and surpasses zero-shot GPT-3 175B on 20 of 25 datasets. Ablation studies establish three key findings: more instruction tuning task clusters monotonically improve held-out performance (with no apparent saturation at 7 clusters), benefits only emerge at sufficient model scale (instruction tuning hurts models ≤8B parameters), and natural language instructions during finetuning are essential — removing them collapses performance to well below FLAN even if task names are provided. Instruction tuning also synergizes with few-shot prompting and soft prompt tuning.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Introduces instruction tuning as a method to improve zero-shot performance of large LMs. LMs are good at few-shot but poor at zero-shot; instruction tuning closes that gap by training on tasks described as instructions, with evaluation on held-out task clusters the model never saw during tuning."
+    },
+    {
+      "title": "2. FLAN: Instruction Tuning Improves Zero-Shot Learning",
+      "summary": "Describes the overall FLAN setup: 62 publicly available NLP datasets are transformed into an instructional format, grouped into 12 task clusters, and each cluster is held out in turn for evaluation while the model is instruction-tuned on all others. This inter-cluster split ensures the evaluation task type was never seen during tuning."
+    },
+    {
+      "title": "2.1 Tasks & Templates",
+      "summary": "Each of the 62 datasets receives 10 manually authored instruction templates (including up to 3 'turned the task around' variants for diversity); the model is finetuned on randomly selected templates per example. Task clusters span NLI, reading comprehension, commonsense reasoning, summarization, translation, struct-to-text, and more."
+    },
+    {
+      "title": "2.2 Evaluation Splits",
+      "summary": "An unseen task is defined conservatively: no dataset from the same task cluster as the evaluation dataset may appear in instruction tuning. This means c separate models are trained, each holding out one of the c clusters, making the evaluation a clean zero-shot generalization test."
+    },
+    {
+      "title": "2.3 Classification with Options",
+      "summary": "For classification tasks, FLAN appends an OPTIONS token followed by the list of valid output classes, making the model explicitly aware of the label set. This avoids the probability-mass distribution problem of rank-classification used by GPT-3."
+    },
+    {
+      "title": "2.4 Training Details",
+      "summary": "Base model is LaMDA-PT (137B decoder-only transformer). Instruction tuning mixes all datasets with examples-proportional sampling capped at 30k per dataset, runs for 30k gradient steps with Adafactor at lr 3e-5, and takes ~60 hours on a TPUv3 with 128 cores — less than 2% of the pretraining compute."
+    },
+    {
+      "title": "3. Results",
+      "summary": "FLAN outperforms zero-shot GPT-3 175B on 20 of 25 datasets and surpasses few-shot GPT-3 on 10. Gains are largest on tasks naturally expressed as instructions (NLI, reading comprehension, closed-book QA, translation). Instruction tuning provides little benefit for tasks formatted as language-model completions (commonsense reasoning, coreference resolution), where instructions are largely redundant with the pretraining objective."
+    },
+    {
+      "title": "4.1 Ablation: Number of Instruction Tuning Clusters",
+      "summary": "Adding more task clusters to instruction tuning monotonically improves average zero-shot performance on held-out clusters, rising from 49.9% with 1 cluster to 63.5% with 7, with no sign of saturation — suggesting that breadth of task coverage during SFT is a key lever."
+    },
+    {
+      "title": "4.2 Ablation: Scaling Laws",
+      "summary": "Instruction tuning helps large models (68B, 137B) substantially but hurts smaller models (≤8B), likely because small models use their entire capacity just to memorize the ~40 finetuning tasks, leaving nothing for generalization. Benefits emerge only at sufficient scale."
+    },
+    {
+      "title": "4.3 Ablation: Role of Instructions",
+      "summary": "Models finetuned without instructions (no template, or only dataset name) score dramatically lower on held-out tasks than FLAN (37.3% and 46.6% vs 55.2% average), confirming that natural language instructions during finetuning — not merely multi-task exposure — are the source of zero-shot gains."
+    },
+    {
+      "title": "4.4 Instructions with Few-Shot Exemplars",
+      "summary": "Adding few-shot exemplars at inference time consistently improves over zero-shot FLAN across all task clusters; gains are largest for tasks with complex output spaces (translation, struct-to-text). Instruction tuning and few-shot prompting are complementary, not competing."
+    },
+    {
+      "title": "4.5 Instruction Tuning Facilitates Prompt Tuning",
+      "summary": "FLAN is a better starting point for soft prompt tuning than the untuned LaMDA-PT base, achieving higher SuperGLUE performance with both full training data and only 32 examples — instruction tuning makes the model more amenable to downstream adaptation."
+    },
+    {
+      "title": "5. Related Work",
+      "summary": "Situates FLAN relative to multi-task learning, zero-shot prompting (GPT-3), QA-as-task-unification (UnifiedQA, T0), and concurrent instruction tuning work (Mishra et al., Sanh et al., InstructGPT). Key distinction: FLAN's goal is zero-shot generalization via natural language instructions at large scale, not few-shot transfer or RLHF."
+    },
+    {
+      "title": "6. Discussion",
+      "summary": "Frames instruction tuning as complementary to general language modeling: labeled data from many tasks, expressed as instructions, teaches large models to follow instructions and generalize — a result that motivates further research on generalist models. Notes limitations: subjective cluster boundaries, short single-sentence instructions only, and high serving cost of 137B."
+    },
+    {
+      "title": "7. Conclusions",
+      "summary": "Instruction tuning is a simple, effective method for improving zero-shot performance of large language models; FLAN compares favorably to GPT-3 and signals that language models at scale can learn to follow instructions on novel tasks from purely supervised finetuning on instruction-formatted data."
+    }
+  ],
+  "readingFocus": [
+    "The inter-cluster evaluation protocol is the conceptual core: holding out an entire task type (not just a dataset) is a strict test of instruction-following generalization — understand why this is a stronger claim than standard held-out test sets.",
+    "The scale threshold finding (§4.2) is directly relevant to Microlab's Phase 6 SFT: instruction tuning hurts models ≤8B, so the benefit depends heavily on base model capacity. Consider what this implies for the model size you plan to finetune.",
+    "The role-of-instructions ablation (§4.3) establishes that multi-task finetuning alone is insufficient — the natural language instruction format is necessary for zero-shot transfer. This motivates careful instruction template design in your SFT data pipeline.",
+    "The OPTIONS suffix trick (§2.3) is a practical implementation detail for classification tasks in your eval harness: appending the label set to the prompt improves calibration and avoids the rank-classification probability-mass problem.",
+    "The breadth-over-depth finding (§4.1) — more task clusters improve generalization with no saturation at 7 — suggests that for Phase 6 SFT, covering more task types in finetuning data matters more than adding more examples of any single type.",
+    "FLAN finetuning costs less than 2% of pretraining compute (60 hours on 128 TPU cores for 30k steps), a data point for understanding the efficiency of SFT relative to pretraining in Microlab's compute planning."
+  ]
+}

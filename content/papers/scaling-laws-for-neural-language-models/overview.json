@@ -1,0 +1,60 @@
+{
+  "paperId": "scaling-laws-for-neural-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Cross-entropy loss for Transformer language models follows smooth power-laws in model size N, dataset size D, and compute C — spanning over seven orders of magnitude — and the optimal compute allocation strategy is to train very large models on relatively modest data, stopping well before convergence.",
+  "overview": "Kaplan et al. empirically characterize how language model test loss scales with three key factors: non-embedding parameter count N, dataset size D in tokens, and training compute C. Each factor produces a clean power-law relationship (L ~ N^-0.076, L ~ D^-0.095, L ~ C^-0.05) that holds over many orders of magnitude, while architectural hyperparameters like depth and width have minimal independent effect when total parameter count is fixed. A unified equation L(N, D) governs joint scaling and predicts the degree of overfitting: to avoid overfitting as model size grows 8x, data need only grow ~5x. The central practical finding is that for a fixed compute budget, the optimal strategy is to allocate most of the increase to model size — optimal N scales as C^0.73 — with only modest growth in training steps (S ~ C^0.03), making large-scale under-trained models significantly more compute-efficient than small converged ones.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Motivates studying cross-entropy loss as a function of model size, dataset size, and compute for Transformer LMs. Previews the seven key findings: smooth power-laws, hyperparameter near-irrelevance, universality of overfitting, predictable training curves, transfer improvement, sample efficiency of large models, and the compute-inefficiency of training to convergence."
+    },
+    {
+      "title": "1.2 Summary of Scaling Laws",
+      "summary": "States the three primary power-law equations with fitted exponents: L(N) = (Nc/N)^0.076 with Nc ~ 8.8e13; L(D) = (Dc/D)^0.095 with Dc ~ 5.4e13 tokens; L(Cmin) = (Cc^min/Cmin)^0.050 with Cc^min ~ 3.1e8 PF-days. Also gives the critical batch size B_crit ~ 2e8 tokens / L^0.21 and the unified L(N,D) equation that governs simultaneous scaling."
+    },
+    {
+      "title": "2. Background and Methods",
+      "summary": "Describes the WebText2 training corpus (96 GB, ~2.3e10 tokens after BPE tokenization), the decoder-only Transformer architecture, Adam optimizer with cosine decay schedule, and the notation conventions — in particular that N counts only non-embedding parameters and C ~ 6NBS estimates non-embedding training compute."
+    },
+    {
+      "title": "3. Empirical Results and Basic Power Laws",
+      "summary": "Trains models ranging from 768 to 1.5 billion non-embedding parameters across dataset sizes from 22M to 23B tokens, establishing power-law fits for L vs. N, L vs. D, and L vs. C. Shows that model shape (depth, width, head count) has minimal effect on loss when N is fixed, and that transfer loss to held-out distributions tracks training loss with a roughly constant offset."
+    },
+    {
+      "title": "4. Charting the Infinite Data Limit and Overfitting",
+      "summary": "Derives and validates L(N, D) = [(Nc/N)^(aN/aD) + Dc/D]^aD (Eq. 1.5), which captures both the infinite-data limit and the overfitting regime in one formula. Fits give aN=0.076, aD=0.103, Nc=6.4e13, Dc=1.8e13; the overfitting ratio dL depends almost entirely on N^0.74/D, implying data requirements grow sublinearly with model size."
+    },
+    {
+      "title": "5. Scaling Laws with Model Size and Training Time",
+      "summary": "Introduces the critical batch size B_crit(L) and the normalized step count S_min, which together let training curves from any batch size collapse onto L(N, S_min). Fits to this equation give aN=0.077, aS=0.76, Nc=6.5e13, Sc=2.1e3. Early portions of the training curve suffice to predict final converged loss, and the optimal early-stopping step can be lower-bounded from L(N,D)."
+    },
+    {
+      "title": "6. Optimal Allocation of the Compute Budget",
+      "summary": "Derives how to split a fixed compute budget Cmin between model size and training duration. Empirically, N_opt ~ Cmin^0.73 (optimal model size grows rapidly with compute), S_min ~ Cmin^0.03 (training steps barely increase), and D_opt ~ Cmin^0.27 (data grows slowly). The headline implication: for a given budget, invest nearly all the gain in a larger model rather than more data or more steps."
+    },
+    {
+      "title": "6.3 Contradictions and a Conjecture",
+      "summary": "Notes an internal tension: the data requirements of compute-efficient training grow so slowly that eventually the L(Cmin) prediction drops below what the data-limited L(D) law permits. The intersection at C* ~ 1e4 PF-days, N* ~ 1e12 params, L* ~ 1.7 nats/token is conjectured to be the point at which Transformer LM scaling laws break down or reach a performance ceiling."
+    },
+    {
+      "title": "7. Related Work",
+      "summary": "Places findings in context of earlier power-law observations in density estimation and random forests, prior work on neural scaling by Hestness et al. and Rosenfeld et al., EfficientNet depth/width tradeoffs, and theoretical frameworks from the noisy quadratic model and random matrix theory."
+    },
+    {
+      "title": "8. Discussion",
+      "summary": "Interprets the scaling laws as analogous to ideal gas laws — macroscopic regularities independent of microscopic architectural details. Cautions that smooth loss improvement may mask qualitative capability changes, and calls for investigation of whether these laws hold across domains (images, audio, video) and for finding a theoretical derivation of the observed power-law exponents."
+    },
+    {
+      "title": "Appendix A — Summary of Power Laws",
+      "summary": "Provides a consolidated reference table (Tables 4, 5, 6) of all power-law equations, empirically fitted exponents, and compute-efficient optimal allocations. Key values: aN=0.076, aD=0.095, aC^min=0.050, aB=0.21, aS=0.76; optimal model size Nopt = 1.3e9 * Cmin^0.73 params."
+    }
+  ],
+  "readingFocus": [
+    "The three primary power-law exponents (aN~0.076, aD~0.095, aC^min~0.050) are the numbers to internalize — they govern how much improvement to expect when you double N, D, or compute.",
+    "The joint L(N,D) equation (Eq. 1.5) and its implication that dataset size needs to grow only as N^0.74 to avoid overfitting — directly relevant to sizing Microlab Phase 4 scaling experiments without wasting tokens.",
+    "The optimal compute allocation result (N ~ C^0.73, S ~ C^0.03): for Phase 4, this means that when you increase your compute budget, put almost all of it into a larger model, not more training steps.",
+    "Why non-embedding parameters are the right measure of model size — embedding parameters do not follow the same scaling laws and should be excluded when comparing runs of different vocabulary sizes.",
+    "The training-curve predictability finding (Section 5): early loss trajectories extrapolate well to final loss, which means you can run short pilot runs to predict the outcome of long training runs before committing compute."
+  ]
+}

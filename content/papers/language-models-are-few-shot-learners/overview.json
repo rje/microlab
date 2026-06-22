@@ -1,0 +1,76 @@
+{
+  "paperId": "language-models-are-few-shot-learners",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "GPT-3, a 175B-parameter autoregressive language model, demonstrates that scaling dramatically improves in-context (zero-, one-, and few-shot) learning — sometimes matching fine-tuned systems — without any gradient updates at test time.",
+  "overview": "Brown et al. train GPT-3, an autoregressive transformer 10x larger than any prior non-sparse language model (175B parameters, 300B training tokens), and systematically evaluate its in-context learning abilities across more than two dozen NLP tasks. The key finding is that few-shot performance scales sharply with model size — larger models become increasingly efficient meta-learners — and that GPT-3 in the few-shot setting often approaches or matches fine-tuned baselines on tasks like closed-book QA, translation, and completion, while still lagging on NLI and tasks requiring sentence comparison. The paper also introduces a careful contamination-analysis methodology and a substantive discussion of bias, misuse risk, and energy cost.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Fine-tuning requires thousands of task-specific labeled examples and risks overfitting to narrow distributions; the paper argues that in-context learning — conditioning a pretrained LM on a few demonstrations at inference time with no weight updates — is a more flexible alternative. The authors frame this as meta-learning: pretraining builds a broad skill set, and the inner loop at test time rapidly adapts to the task."
+    },
+    {
+      "title": "2. Approach — In-Context Learning Settings",
+      "summary": "The paper defines and contrasts four evaluation regimes: fine-tuning (not used for GPT-3), few-shot (K examples in context, typically 10–100), one-shot (exactly one example), and zero-shot (natural language instruction only). GPT-3 uses the same GPT-2 architecture scaled to 96 layers and d_model = 12288, with alternating dense and locally banded sparse attention; all models use a 2048-token context window."
+    },
+    {
+      "title": "2.1–2.3 Model, Training Data, and Training Process",
+      "summary": "Eight model sizes from 125M to 175B parameters are trained on a filtered, deduplicated mix of Common Crawl (60%), WebText2 (22%), Books1/2 (16%), and Wikipedia (3%) totaling ~400B tokens. Higher-quality datasets are upsampled so GPT-3 sees them 2–3 times; all models train for 300B tokens total on V100 GPUs via model parallelism."
+    },
+    {
+      "title": "2.4 Evaluation",
+      "summary": "For multiple-choice tasks, GPT-3 scores completions by per-token log-likelihood (optionally normalized by unconditional probability). For free-form tasks it uses beam search scored by F1, BLEU, or exact match. K is swept on a dev set and the best value used on test; the model is never fine-tuned."
+    },
+    {
+      "title": "3.1 Language Modeling, Cloze, and Completion Tasks",
+      "summary": "GPT-3 sets a new zero-shot SOTA on Penn Treebank (perplexity 20.5 vs prior 35.8) and achieves 86.4% accuracy on LAMBADA few-shot — 18 points above previous SOTA — by framing the task as fill-in-the-blank rather than open-ended generation, illustrating how prompt framing unlocks in-context learning."
+    },
+    {
+      "title": "3.2 Closed Book Question Answering",
+      "summary": "On TriviaQA, GPT-3 few-shot achieves 71.2%, matching state-of-the-art open-domain fine-tuned retrieval systems; on WebQuestions it reaches 41.5% few-shot and on Natural Questions 29.9% few-shot, in all cases without any external retrieval or fine-tuning. Performance scales smoothly with model size, consistent with knowledge absorption growing with capacity."
+    },
+    {
+      "title": "3.3 Translation",
+      "summary": "Despite training on 93% English text, GPT-3 few-shot matches or exceeds prior unsupervised NMT baselines on 4 of 6 language pairs, and on Fr→En and Ro→En outperforms all prior unsupervised work; it is weakest on English→X directions, likely due to the English-centric BPE tokenizer."
+    },
+    {
+      "title": "3.4–3.6 Winograd, Common Sense, and Reading Comprehension",
+      "summary": "On Winograd schemas GPT-3 achieves 88.3% zero-shot (near human); on the harder Winogrande it reaches 77.7% few-shot, competitive with a fine-tuned RoBERTa-large. On PIQA, GPT-3 exceeds the fine-tuned SOTA. Reading comprehension results are mixed: near human on CoQA (85.0 F1) but well below SOTA on RACE and SQuAD v2."
+    },
+    {
+      "title": "3.7 SuperGLUE",
+      "summary": "GPT-3 few-shot (K=32) scores 71.8 on SuperGLUE — matching fine-tuned BERT-Large overall and exceeding it on 4 of 8 tasks — but is near random on WiC (49.4%) and weak on tasks requiring pairwise sentence comparison, revealing a structural limitation of unidirectional models."
+    },
+    {
+      "title": "3.8 NLI",
+      "summary": "Natural language inference (RTE and ANLI) remains difficult: models below 175B hover around random chance on ANLI; GPT-3 175B few-shot closes roughly half the gap from random to SOTA on ANLI Round 3, but NLI is still far from solved by in-context learning alone."
+    },
+    {
+      "title": "3.9 Synthetic and Qualitative Tasks",
+      "summary": "GPT-3 achieves 100% on 2-digit addition and 98.9% on 2-digit subtraction few-shot, with meaningful accuracy on 3-digit operations and up to 94.2% on 3-digit subtraction; it solves word unscrambling, SAT analogies (65.2% vs 57% average college applicant), and generates news articles that human raters can barely distinguish from real ones (~52% detection accuracy for the 175B model)."
+    },
+    {
+      "title": "4. Measuring and Preventing Benchmark Memorization",
+      "summary": "The authors develop a contamination-analysis framework: for each benchmark they produce a 'clean' subset by removing examples with 13-gram overlap to the pretraining data, then compare clean vs full-set performance. Most benchmarks are unaffected; PIQA and Winograd show small drops and are marked with asterisks, while LAMBADA contamination is substantial but the fill-in-the-blank format appears to prevent direct memorization."
+    },
+    {
+      "title": "5. Limitations",
+      "summary": "GPT-3 struggles with common-sense physics, pairwise-comparison tasks, and long-passage coherence; its unidirectional objective is ill-suited to tasks that benefit from bidirectionality (e.g. fill-in-the-blank, WiC, ANLI). Deeper open questions include whether few-shot learning truly learns new tasks at inference time or merely recognizes patterns from pretraining, and whether scaling pure self-supervised prediction will ultimately be sufficient."
+    },
+    {
+      "title": "6. Broader Impacts",
+      "summary": "The paper documents gender bias (83% of tested occupations lean male), racial and religious sentiment skews, and misuse risk — particularly that GPT-3-generated ~200-word news articles are identified as machine-generated only ~52% of the time. Energy cost of training the 175B model is several thousand petaflop/s-days, though inference amortizes cheaply."
+    },
+    {
+      "title": "7. Related Work & 8. Conclusion",
+      "summary": "The conclusion positions GPT-3 as evidence that very large language models with predictable power-law scaling can be an important ingredient in adaptable general language systems, while acknowledging that combining this scale with architectural innovations (bidirectionality, RLHF, grounding) is a key direction for future work."
+    }
+  ],
+  "readingFocus": [
+    "The zero-/one-/few-shot taxonomy (Section 2): understand exactly what 'no gradient updates' means and how K examples are formatted in context — this is the operational definition of in-context learning that the Microlab curriculum builds on.",
+    "Figure 1.2 and Figure 1.3: the in-context learning curves showing that larger models make increasingly efficient use of examples in context — the central empirical claim that scale unlocks few-shot ability.",
+    "The evaluation protocol (Section 2.4): how log-likelihood scoring, answer normalization, and prompt framing affect results — directly relevant to designing your own eval harness.",
+    "The contamination methodology (Section 4): 13-gram overlap filtering and clean-subset evaluation — a practical pattern for any eval pipeline that draws from web-scraped data.",
+    "Section 3.9 arithmetic and word-scrambling tasks: evidence that in-context learning can generalize to tasks unlikely to appear verbatim in training data, distinguishing pattern-recognition from rote memorization."
+  ]
+}

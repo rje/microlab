@@ -1,0 +1,60 @@
+{
+  "paperId": "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "implement",
+  "tldr": "SentencePiece is an open-source, language-independent subword tokenizer and detokenizer that trains directly from raw sentences (no pre-tokenization required), enabling purely end-to-end, language-agnostic NMT pipelines.",
+  "overview": "Most NMT systems still depend on language-specific pre- and post-processors that are expensive to maintain and block multilingual models. SentencePiece removes this dependency by treating the input as a raw Unicode character sequence, using a whitespace meta-symbol to enable lossless, reversible tokenization and detokenization. It implements both BPE and unigram language model segmentation, manages vocabulary-to-id mapping directly, and embeds all normalization rules inside a self-contained model file. Validation on English-Japanese translation (KFTT, 440k sentences) shows SentencePiece without pre-tokenization matches or exceeds pre-tokenized baselines in BLEU, while segmenting raw Japanese roughly 380 times faster than subword-nmt.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Existing subword tools assume pre-tokenized (whitespace-segmented) input, which breaks for non-segmented languages like Japanese and Chinese and prevents true end-to-end pipelines. SentencePiece trains subword models directly from raw sentences, making the full system language-independent."
+    },
+    {
+      "title": "2. System Overview",
+      "summary": "The library has four components: Normalizer (Unicode normalization), Trainer (learns the subword model), Encoder (tokenizes raw text to subword/id sequences), and Decoder (inverts Encoder exactly). The Decoder is defined as the inverse of the Encoder, so Decode(Encode(Normalize(text))) = Normalize(text)."
+    },
+    {
+      "title": "3.1 Lossless Tokenization",
+      "summary": "Whitespace is escaped to a meta-symbol _ (U+2581) and kept in the tokenized sequence, making detokenization unambiguous via a simple string replace. This contrasts with subword-nmt's @@ boundary marker, which cannot encode consecutive whitespace and cannot always reconstruct the original."
+    },
+    {
+      "title": "3.2 Efficient Subword Training and Segmentation",
+      "summary": "BPE naively costs O(N^2) per iteration; SentencePiece uses a binary heap (priority queue) to achieve O(N log N). Unigram language model training and segmentation are both linear in input size. This enables training directly on large raw corpora without a pre-tokenization step."
+    },
+    {
+      "title": "3.3 Vocabulary ID Management",
+      "summary": "SentencePiece fixes the final vocabulary size (--vocab_size) rather than a number of merge operations, making it algorithm-agnostic across BPE and unigram. It reserves ids for <unk>, <s>, </s>, and <pad>, and supports custom virtual tokens (e.g. language-indicator tags for multilingual models)."
+    },
+    {
+      "title": "3.4 Customizable Character Normalization",
+      "summary": "NFKC Unicode normalization is applied by default via an Aho-Corasick automaton compiled into a finite state transducer. Users can supply additional TSV rules (longest-match applied) to handle domain- or language-specific Unicode edge cases."
+    },
+    {
+      "title": "3.5 Self-Contained Models",
+      "summary": "The model file (Protocol Buffer binary) embeds the vocabulary, segmentation parameters, and the pre-compiled normalization transducer. Behavior is determined solely by the model file with no external dependencies, guaranteeing reproducibility across systems and Unicode versions."
+    },
+    {
+      "title": "3.6 Library API for On-the-Fly Processing",
+      "summary": "SentencePiece exposes C++, Python, and TensorFlow APIs so NMT frameworks can encode/decode inside the training graph rather than in a separate offline script. This enables on-the-fly subword regularization (sampling alternative segmentations per training step) as described in Kudo (2018)."
+    },
+    {
+      "title": "4.1 Comparison of Different Preprocessing",
+      "summary": "On English-Japanese KFTT translation using GNMT (512-unit, 6-layer LSTM), SentencePiece with a shared 8k vocabulary matches or outperforms the 80k word baseline (e.g. ja→en: 28.24 baseline vs. 29.55 SentencePiece). Pre-tokenization does not consistently help and hurts en→ja BLEU."
+    },
+    {
+      "title": "4.2 Segmentation Performance",
+      "summary": "Without pre-tokenization on Japanese, SentencePiece trains in 217 s vs. subword-nmt's 528 s, and segments at 5.9 s vs. subword-nmt's 216 s — roughly 380x faster segmentation. On English (pre-segmented), speeds are comparable. BPE and unigram language models show almost identical BLEU."
+    },
+    {
+      "title": "5. Conclusions",
+      "summary": "SentencePiece delivers a stable, reproducible, language-agnostic preprocessing pipeline by training on raw text, embedding all rules in the model file, and providing native library APIs — removing the last language-specific component from end-to-end NMT."
+    }
+  ],
+  "readingFocus": [
+    "The lossless tokenization design (whitespace as U+2581 meta-symbol) is the key idea to internalize: it is what lets Decode be a true inverse of Encode, which is directly relevant to building a Microlab tokenizer that round-trips text reliably.",
+    "Vocabulary-id management (fixed --vocab_size, reserved special tokens) is the interface your Phase 1 tokenizer pipeline will expose — understand why size is fixed rather than number of merges, and how special tokens are allocated.",
+    "The self-contained model file design (all normalization compiled in, no external deps) is a strong engineering pattern: aim for the same property in Microlab's tokenizer artifact so experiments are reproducible.",
+    "The on-the-fly API section motivates why tokenization should be integrated into the training loop rather than run offline — relevant for Phase 1 data pipeline design and for subword regularization during training.",
+    "Table 2 segmentation timings are the concrete evidence that pre-tokenization is unnecessary overhead for non-segmented languages — use this to justify skipping language-specific preprocessing in Microlab's language-independent tokenization path."
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "paperId": "react-synergizing-reasoning-and-acting-in-language-models",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "ReAct prompts LLMs to interleave free-form reasoning traces with task-specific actions in a single trajectory, grounding chain-of-thought in external observations and outperforming reasoning-only or action-only baselines on QA, fact verification, and interactive decision-making tasks.",
+  "overview": "ReAct augments an LLM's action space with a language space so the model can emit a 'thought' at any step — decomposing goals, tracking progress, handling exceptions — and then emit an environment action whose observation feeds the next reasoning step. This tight loop prevents hallucination by grounding reasoning in retrieved facts, while reasoning prevents aimless acting by maintaining a working plan. Evaluated on HotpotQA, FEVER, ALFWorld, and WebShop using PaLM-540B with only 1–6 in-context examples, ReAct matches or beats chain-of-thought, act-only, imitation learning, and reinforcement learning baselines, with the best results from hybrid ReAct+CoT-SC strategies. Fine-tuning smaller models (PaLM-8/62B) on 3,000 ReAct trajectories yields further gains, and human evaluators find ReAct traces more interpretable and trustworthy than CoT.",
+  "sections": [
+    {
+      "title": "Abstract",
+      "summary": "Introduces the ReAct paradigm — interleaving reasoning traces and task actions using LLMs — and reports its advantages over standalone reasoning (CoT) and action baselines on four diverse benchmarks, including a 34% and 10% absolute improvement on ALFWorld and WebShop respectively with only one or two in-context examples."
+    },
+    {
+      "title": "1. Introduction",
+      "summary": "Motivates combining reasoning and acting by analogy with human inner speech and tool use. Surveys prior work showing CoT is a static black box prone to hallucination, while action-only methods lack high-level planning. Summarises ReAct's four key properties: intuitive to design, general, performant, and human-aligned."
+    },
+    {
+      "title": "2. ReAct: Synergizing Reasoning + Acting",
+      "summary": "Formalises ReAct by augmenting the agent's action space A with a language space L; actions in L ('thoughts') do not affect the environment but update the context for future steps. Describes how a frozen LLM (PaLM-540B) is prompted with human-annotated trajectories that mix thoughts, actions, and observations, letting the model decide asynchronously when to reason and when to act."
+    },
+    {
+      "title": "3. Knowledge-Intensive Reasoning Tasks",
+      "summary": "Tests ReAct on HotpotQA (multi-hop QA) and FEVER (fact verification) with a simple Wikipedia API providing search, lookup, and finish actions. ReAct (27.4 EM / 60.9 Acc) outperforms Act-only and matches CoT on HotpotQA, with a hallucination rate half that of CoT; combining CoT-SC → ReAct achieves 35.1 / 64.6, the best prompting result. Fine-tuning on 3,000 trajectories makes ReAct the best method at all model sizes."
+    },
+    {
+      "title": "3.3 Results and Observations",
+      "summary": "Detailed error analysis on 200 HotpotQA trajectories shows ReAct has far fewer hallucinations (6% false positives vs. 14% for CoT) but more reasoning errors due to the structural constraint of interleaving; non-informative search results are the second-largest failure mode, motivating hybrid strategies."
+    },
+    {
+      "title": "4. Decision Making Tasks",
+      "summary": "Evaluates ReAct on ALFWorld (text-based household game, 134 games) and WebShop (online shopping with 1.18M real products, 500 test instructions). ReAct achieves 71% average success on ALFWorld (vs. 45% Act, 37% BUTLER trained on 10^5 expert trajectories) and 40% success rate on WebShop (vs. 30% Act, 28.7% IL+RL), demonstrating that sparse reasoning is a more data-efficient alternative to large-scale imitation or RL."
+    },
+    {
+      "title": "5. Related Work",
+      "summary": "Situates ReAct against chain-of-thought reasoning variants (CoT, least-to-most, STaR, Scratchpad) and LLM-based decision-making systems (WebGPT, SayCan, Inner Monologue). Key distinction: ReAct integrates reasoning into the action loop rather than treating them as separate modules, and learns from language descriptions of reasoning rather than expensive human feedback or RL."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "ReAct is simple yet effective across reasoning and decision-making tasks, with interpretable traces and strong few-shot generalisation. Limitations include context-length constraints for large action spaces and dependence on high-quality human-annotated trajectories; future directions include multi-task fine-tuning and combining ReAct with reinforcement learning."
+    }
+  ],
+  "readingFocus": [
+    "The core mechanism: augmenting action space with a language space so thoughts are first-class actions that update context without affecting the environment — this is the direct conceptual blueprint for how Microlab's tool-calling loop should interleave reasoning steps with tool invocations in Phase 12.",
+    "How prompting is designed: human-annotated trajectories mix Thought/Act/Obs triples in natural prose, with no special format — understand this before designing Microlab's few-shot prompt templates for tool-using agents.",
+    "The ablation contrast between Act-only, CoT-only, and ReAct: Act-only fails to decompose goals; CoT hallucinates because it never retrieves; ReAct grounds reasoning in observations. This motivates requiring an explicit reasoning step before every tool call in Microlab.",
+    "Failure mode taxonomy (Table 2): reasoning errors, empty search results, hallucinations, label ambiguity — directly relevant to designing robust error-handling and retry logic in Microlab's tool execution loop.",
+    "The hybrid ReAct+CoT-SC strategy: fall back to internal CoT when tool retrieval fails, and fall back to ReAct when CoT confidence is low — a practical pattern for Microlab's orchestration layer to adopt."
+  ]
+}

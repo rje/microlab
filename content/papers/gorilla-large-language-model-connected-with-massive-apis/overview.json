@@ -1,0 +1,60 @@
+{
+  "paperId": "gorilla-large-language-model-connected-with-massive-apis",
+  "generatedAt": "2026-06-22",
+  "depthSuggestion": "understand",
+  "tldr": "Gorilla is a retrieval-aware finetuned LLaMA-7B model that outperforms GPT-4 at selecting and invoking ML APIs accurately while substantially reducing hallucination, evaluated on APIBench, a new benchmark of 1,645 TorchHub, TensorHub, and HuggingFace API calls.",
+  "overview": "Current LLMs, including GPT-4, frequently hallucinate nonexistent API calls or pick the wrong library when asked to invoke real-world tools. Gorilla addresses this by combining self-instruct data generation with retrieval-aware finetuning: the model is trained with retrieved API documentation appended to the prompt, so at inference time it can consume a live retriever's output and stay current with documentation changes without retraining. The authors introduce APIBench (1,645 structured API calls across three ML model hubs, each paired with 10 synthetic instructions) and an AST sub-tree matching metric that cleanly separates hallucination (invented API not in the dataset) from errors (real API, wrong call). Gorilla zero-shot surpasses all baselines on TorchHub and HuggingFace; retriever-aware training further narrows the gap to an oracle retriever and lets the model adapt gracefully to test-time documentation changes and constraint-aware API selection.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "LLMs fail at API calls due to hallucination and stale knowledge; Gorilla (finetuned LLaMA-7B with retrieval) surpasses GPT-4 on API accuracy while reducing hallucination. The paper introduces APIBench and shows retrieval-aware training enables test-time adaptation to documentation changes."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Situates Gorilla against LLM advances (LLaMA, Alpaca, Vicuna), tool-use work (Toolformer, ChatGPT plugins), and program synthesis research. Key differentiator: prior API-calling work relied on prompting a small fixed set of well-documented APIs; Gorilla systematically fine-tunes on a large, overlapping, changing API corpus."
+    },
+    {
+      "title": "3.1 Dataset Collection",
+      "summary": "APIBench is scraped from TorchHub (94 APIs, exhaustive), TensorFlow Hub (626 APIs, exhaustive), and HuggingFace (925 APIs, top-20 per domain across 7 task families). Each API card is converted to a JSON object with domain, framework, functionality, api_call, arguments, environment requirements, example code, performance, and description. GPT-4 is then used to generate 10 synthetic user instructions per API via Self-Instruct, yielding ~16,450 instruction–API pairs."
+    },
+    {
+      "title": "3.2 Gorilla Model & Retriever-Aware Training",
+      "summary": "Gorilla is LLaMA-7B instruction-finetuned in a user–agent chat format. Two training modes: zero-shot (instruction only) and retriever-aware (instruction + retrieved API doc appended as 'Use this API documentation for reference:'). Retriever-aware training teaches the model to use the second half of its context, making it robust to real-time doc changes and reducing in-context hallucination."
+    },
+    {
+      "title": "3.3 Verifying APIs — AST Sub-Tree Matching",
+      "summary": "Test cases are unreliable for API evaluation because many functionally equivalent APIs exist. Instead, generated code is parsed into an AST; the candidate call is correct if its subtree matches a reference API subtree in the dataset. Hallucination is defined precisely: an API call whose AST matches no entry in the database, as distinct from a real-but-wrong API selection (an error)."
+    },
+    {
+      "title": "4.1 AST Accuracy on API Call",
+      "summary": "Gorilla zero-shot scores 59.13% on TorchHub, 71.68% on HuggingFace, and 83.79% on TensorFlow Hub — beating GPT-4 zero-shot (38.7 / 20.8 / 18.2%) by large margins and achieving the lowest hallucination rates (6.98 / 10.95 / 5.40%). GPT-3.5 (RLHF-tuned) shows systematically lower hallucination than GPT-4, suggesting RLHF calibrates truthfulness. Retrieval with BM25 or GPT-Index helps weaker models but can hurt Gorilla if the retriever is poor."
+    },
+    {
+      "title": "4.2 Test-Time Documentation Change",
+      "summary": "Retriever-aware training lets Gorilla adapt to updated API docs at inference time (e.g., ResNet-50 → ResNet-101 backbone upgrade, or model registry change from pytorch/vision to NVIDIA/DeepLearningExamples:torchhub) without any retraining — a capability absent from zero-shot-only models."
+    },
+    {
+      "title": "4.3 API Call with Constraints",
+      "summary": "Users often impose constraints (e.g., 'model under 10M parameters with ≥70% ImageNet accuracy'). Gorilla leads in zero-shot constraint-aware accuracy on TorchHub and matches GPT-3.5 with retrievers, demonstrating that retrieval-aware finetuning improves the model's ability to reason over performance/cost trade-offs embedded in API metadata."
+    },
+    {
+      "title": "5. Conclusion",
+      "summary": "Gorilla demonstrates that finetuning with retrieval — not just prompting — is the right method for large-scale API calling. The open-source release (model, data, demo) and APIBench provide a reusable foundation for future LLM-tool integration work."
+    },
+    {
+      "title": "6. Limitations & Social Impacts",
+      "summary": "The ML-API focus means biased training data could yield biased model recommendations. The authors release the full 11,000+ instruction–API dataset to support auditing and fairer benchmarking of API-calling systems."
+    },
+    {
+      "title": "8. Appendix",
+      "summary": "Dataset details (domain breakdowns: 6 TorchHub / 57 TensorHub / 37 HuggingFace domains), Gorilla training hyperparameters (LR 2e-5, batch 64, 5 epochs, 8×A100 40G), evaluation protocol (AST argument matching rules per hub), and hallucination examples showing GPT-4 inventing GitHub repo paths on HuggingFace."
+    }
+  ],
+  "readingFocus": [
+    "Retrieval-aware finetuning: understand how appending retrieved API docs during training (not just inference) teaches the model to use live context — this is directly applicable to Microlab Phase 12 tool-calling and grounding work.",
+    "Hallucination measurement: the AST sub-tree matching metric gives a clean, programmatic definition of hallucination (invented API) vs. error (wrong real API) — a template for designing eval harness metrics that distinguish failure modes.",
+    "The accuracy/hallucination trade-off plot (Figure 2) shows that retrieval improves accuracy and lowers hallucination together; study the cases where a non-oracle retriever hurts Gorilla to understand retriever quality requirements.",
+    "The test-time documentation change experiment (Section 4.2) illustrates that retrieval-aware training is essential for staying current with rapidly evolving APIs — relevant to any Microlab eval that tracks shifting model hubs or tool schemas.",
+    "Self-Instruct data generation pipeline (Section 3.1): GPT-4 generates 10 synthetic instructions per API from 3 in-context examples — a reusable recipe for bootstrapping instruction datasets from structured API documentation."
+  ]
+}
