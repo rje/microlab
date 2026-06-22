@@ -363,3 +363,21 @@ def test_recall_review_bad_grade_400(client, project_root):
     assert client.post("/api/recall/review",
                        json={"cardId": "mmlu#1", "paperId": "mmlu", "grade": 99},
                        headers={"X-CSRF-Token": csrf}).status_code == 400
+
+
+def test_public_cards_no_auth(client, project_root):
+    import json
+    _seed_mmlu(project_root)
+    cards = project_root / "content" / "papers" / "mmlu" / "cards.json"
+    cards.parent.mkdir(parents=True, exist_ok=True)
+    cards.write_text(json.dumps({"paperId": "mmlu", "cards": [
+        {"id": "mmlu#1", "question": "Q1?", "answer": "A1"}]}), encoding="utf-8")
+    resp = client.get("/public/api/papers/mmlu/cards")  # NO login
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["cards"][0]["question"] == "Q1?"
+
+
+def test_public_cards_empty_when_none(client, project_root):
+    _seed_mmlu(project_root)
+    assert client.get("/public/api/papers/mmlu/cards").get_json() == {"cards": []}

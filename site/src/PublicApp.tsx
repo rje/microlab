@@ -22,6 +22,7 @@ type PaperEntry = {
 };
 type PhaseGroup = { id: string; title: string; papers: PaperEntry[] };
 type Library = { phases: PhaseGroup[]; additional: PaperEntry[] };
+type Card = { id: string; question: string; answer: string };
 
 function paperIdFromPath(): string | null {
   const m = window.location.pathname.match(/^\/public\/p\/(.+)$/);
@@ -122,6 +123,7 @@ function LibraryView({ library, onOpen }: { library: Library; onOpen: (id: strin
 
 function PaperReader({ paper, onBack }: { paper: PaperEntry; onBack: () => void }) {
   const [tab, setTab] = useState<"paper" | "summary">("summary");
+  const [paneMode, setPaneMode] = useState<"summary" | "cards">("summary");
   const ov = paper.overview;
   return (
     <div className="pub-reader">
@@ -164,36 +166,88 @@ function PaperReader({ paper, onBack }: { paper: PaperEntry; onBack: () => void 
           <PdfView url={paper.pdfUrl} />
         </section>
         <section className={`pub-pane pub-summary-pane ${tab === "summary" ? "active" : ""}`}>
-          {ov ? (
-            <div className="pub-summary">
-              {ov.tldr && <p className="pub-lede">{ov.tldr}</p>}
-              {ov.overview && <p className="pub-overview">{ov.overview}</p>}
-              {ov.sections && ov.sections.length > 0 && (
-                <div className="pub-block">
-                  <h4>Section guide</h4>
-                  {ov.sections.map((s) => (
-                    <div className="pub-sec" key={s.title}>
-                      <strong>{s.title}</strong>
-                      <p>{s.summary}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {ov.readingFocus && ov.readingFocus.length > 0 && (
-                <div className="pub-block">
-                  <h4>Reading focus</h4>
-                  <ul>
-                    {ov.readingFocus.map((f) => (
-                      <li key={f}>{f}</li>
+          <div className="pub-pane-toggle">
+            <button type="button" className={paneMode === "summary" ? "active" : ""} onClick={() => setPaneMode("summary")}>Summary</button>
+            <button type="button" className={paneMode === "cards" ? "active" : ""} onClick={() => setPaneMode("cards")}>Flashcards</button>
+          </div>
+          {paneMode === "summary" ? (
+            ov ? (
+              <div className="pub-summary">
+                {ov.tldr && <p className="pub-lede">{ov.tldr}</p>}
+                {ov.overview && <p className="pub-overview">{ov.overview}</p>}
+                {ov.sections && ov.sections.length > 0 && (
+                  <div className="pub-block">
+                    <h4>Section guide</h4>
+                    {ov.sections.map((s) => (
+                      <div className="pub-sec" key={s.title}>
+                        <strong>{s.title}</strong>
+                        <p>{s.summary}</p>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+                {ov.readingFocus && ov.readingFocus.length > 0 && (
+                  <div className="pub-block">
+                    <h4>Reading focus</h4>
+                    <ul>
+                      {ov.readingFocus.map((f) => (
+                        <li key={f}>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="pub-empty">A summary for this paper is coming soon.</p>
+            )
           ) : (
-            <p className="pub-empty">A summary for this paper is coming soon.</p>
+            <StudyCards paperId={paper.id} />
           )}
         </section>
+      </div>
+    </div>
+  );
+}
+
+function StudyCards({ paperId }: { paperId: string }) {
+  const [cards, setCards] = useState<Card[] | null>(null);
+  const [idx, setIdx] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/public/api/papers/${encodeURIComponent(paperId)}/cards`)
+      .then((r) => (r.ok ? r.json() : { cards: [] }))
+      .then((d) => active && setCards(d.cards))
+      .catch(() => active && setCards([]));
+    return () => {
+      active = false;
+    };
+  }, [paperId]);
+
+  if (!cards) {
+    return <p className="pub-study-empty">Loading flashcards…</p>;
+  }
+  if (cards.length === 0) {
+    return <p className="pub-study-empty">No flashcards for this paper yet.</p>;
+  }
+  const card = cards[idx];
+  const go = (delta: number) => {
+    setIdx((i) => Math.min(cards.length - 1, Math.max(0, i + delta)));
+    setRevealed(false);
+  };
+  return (
+    <div className="pub-study">
+      <div className="pub-study-count">Card {idx + 1} of {cards.length}</div>
+      <div className="pub-study-q">{card.question}</div>
+      {revealed ? (
+        <div className="pub-study-a">{card.answer}</div>
+      ) : (
+        <button type="button" className="pub-study-reveal" onClick={() => setRevealed(true)}>Show answer</button>
+      )}
+      <div className="pub-study-nav">
+        <button type="button" onClick={() => go(-1)} disabled={idx === 0}>Prev</button>
+        <button type="button" onClick={() => go(1)} disabled={idx === cards.length - 1}>Next</button>
       </div>
     </div>
   );

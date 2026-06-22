@@ -56,3 +56,16 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "
   .pub-pane.active { display: block; }
   .pub-pdf-pane.active { display: flex; }
 }
+
+.pub-pane-toggle { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+.pub-pane-toggle button { flex: 1; padding: 0.4rem; border: 1px solid #ddd6c5; background: #fffdf8; border-radius: 7px; cursor: pointer; font-weight: 600; }
+.pub-pane-toggle button.active { background: #e7f1ef; border-color: #9ec7c2; }
+.pub-study { padding: 0.5rem 0; }
+.pub-study-count { color: #8a8175; font-size: 0.8rem; margin-bottom: 0.6rem; }
+.pub-study-q { font-size: 1.1rem; line-height: 1.45; color: #1f1e1a; margin-bottom: 1rem; }
+.pub-study-a { background: #f4f9f7; border: 1px solid #cfe3de; border-radius: 10px; padding: 0.8rem; color: #2d2b27; line-height: 1.55; margin-bottom: 1rem; }
+.pub-study-reveal { padding: 0.5rem 0.9rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fff; font-weight: 600; cursor: pointer; margin-bottom: 1rem; }
+.pub-study-nav { display: flex; gap: 0.5rem; }
+.pub-study-nav button { flex: 1; padding: 0.45rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fff; cursor: pointer; }
+.pub-study-nav button:disabled { opacity: 0.4; cursor: default; }
+.pub-study-empty { color: #8a8175; padding: 1rem 0; }

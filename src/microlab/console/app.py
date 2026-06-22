@@ -126,6 +126,10 @@ def register_content_routes(app: Flask) -> None:
     def public_library_api():
         return jsonify(content.public_library(root))
 
+    @app.route("/public/api/papers/<paper_id>/cards")
+    def public_cards(paper_id: str):
+        return jsonify({"cards": content.read_cards(root, paper_id)})
+
     @app.route("/public/pdf/<paper_id>")
     def public_pdf(paper_id: str):
         path = content.public_pdf_path(root, paper_id)
