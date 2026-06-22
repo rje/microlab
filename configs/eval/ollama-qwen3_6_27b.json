@@ -1,0 +1,10 @@
+{
+  "name": "ollama-qwen3.6-27b",
+  "backend": {
+    "type": "ollama",
+    "model": "qwen3.6:27b",
+    "host": "http://127.0.0.1:11434",
+    "temperature": 0,
+    "timeout_seconds": 600
+  }
+}

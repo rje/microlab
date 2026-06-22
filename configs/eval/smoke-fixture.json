@@ -1,0 +1,10 @@
+{
+  "name": "smoke-fixture",
+  "backend": {
+    "type": "fixture",
+    "answers": {
+      "smoke-exact-001": "4",
+      "smoke-json-001": "{\"answer\": 4}"
+    }
+  }
+}

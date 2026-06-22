@@ -1,0 +1,2 @@
+{"id":"smoke-exact-001","category":"math","prompt":"Answer only with 4.","checks":[{"type":"exact_match","value":"4"}],"max_new_tokens":8,"metadata":{"skill":"exact-answer"}}
+{"id":"smoke-json-001","category":"json","prompt":"Return exactly one JSON object with an integer field named answer set to 4.","checks":[{"type":"json_valid"},{"type":"json_field_equals","path":"answer","value":4}],"max_new_tokens":64,"metadata":{"skill":"structured-output"}}
