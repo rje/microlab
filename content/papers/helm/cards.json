@@ -1,0 +1,45 @@
+{
+  "paperId": "helm",
+  "cards": [
+    {
+      "id": "helm#1",
+      "question": "Why does HELM argue that prior benchmarks make meaningful model comparison impossible?",
+      "answer": "Prior benchmarks are fragmented: different models are evaluated on different datasets, under different prompting conditions, and almost always on accuracy alone. Without a shared measurement system, you cannot tell whether one model truly outperforms another or simply had an easier evaluation setup."
+    },
+    {
+      "id": "helm#2",
+      "question": "What are HELM's three core design principles for evaluation?",
+      "answer": "Broad scenario coverage with explicit acknowledgment of what is not covered; multi-metric measurement (accuracy, calibration, robustness, fairness, bias, toxicity, and efficiency together for every scenario); and standardization — all models evaluated under identical few-shot prompting conditions on the same scenarios."
+    },
+    {
+      "id": "helm#3",
+      "question": "How does HELM define the three components of an evaluation run, and why must all three be recorded together?",
+      "answer": "A run is a tuple of scenario (a task/domain/language triple), adaptation (the prompting procedure that turns a language model into a system for that scenario), and metrics (the desiderata measured on completions). Recording all three together is required to reproduce or compare results — changing any one component produces a different measurement."
+    },
+    {
+      "id": "helm#4",
+      "question": "Why does HELM measure seven metric categories rather than accuracy alone?",
+      "answer": "Measuring only accuracy hides important trade-offs: the most accurate model is often not the most robust or most fair, and calibration can move in the opposite direction from accuracy depending on the scenario. Measuring all seven together makes these trade-offs visible and prevents non-accuracy metrics from being treated as second-class concerns."
+    },
+    {
+      "id": "helm#5",
+      "question": "What does the jump from 17.9% to 96.0% shared scenario coverage reveal about standardization?",
+      "answer": "Before HELM, models shared on average only 17.9% of core evaluation scenarios, meaning almost no direct head-to-head comparisons were possible. By fixing the prompting strategy and scenarios for all 30 models, HELM raised shared coverage to 96.0%, showing how much comparative information is lost when models are evaluated under different conditions."
+    },
+    {
+      "id": "helm#6",
+      "question": "What is HELM's taxonomy-plus-incompleteness approach, and why is explicitly naming gaps a design principle?",
+      "answer": "HELM operates at two levels: an abstract taxonomy that maps the full design space of scenarios and metrics (including what is absent), and a concrete implemented subset. Explicitly stating what your benchmark does not cover — such as non-English languages or non-text modalities — is treated as equally important as stating what it does cover, because unstated gaps mislead users into thinking coverage is complete."
+    },
+    {
+      "id": "helm#7",
+      "question": "How does HELM's finding on upstream perplexity challenge a common assumption about language model evaluation?",
+      "answer": "HELM finds that upstream perplexity on The Pile is a poor predictor of downstream task accuracy across model families. This undermines the assumption that a lower perplexity language model will automatically perform better on user-facing tasks, motivating direct task-level evaluation rather than relying on pre-training metrics as a proxy."
+    },
+    {
+      "id": "helm#8",
+      "question": "Why does HELM treat prompt sensitivity as a reason to record the exact prompt alongside every result?",
+      "answer": "HELM finds that accuracy can swing by tens of percentage points depending on in-context example choice and prompt formatting. Because the prompt is a variable that directly determines the outcome, omitting it from the evaluation record makes results irreproducible and comparisons unreliable."
+    }
+  ]
+}

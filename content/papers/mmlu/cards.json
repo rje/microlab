@@ -1,0 +1,45 @@
+{
+  "paperId": "mmlu",
+  "cards": [
+    {
+      "id": "mmlu#1",
+      "question": "Why is MMLU's test format deliberately different from typical pretraining data?",
+      "answer": "The format is designed so the test probes acquired knowledge rather than a fitted train/test distribution. If the format matched pretraining, high scores would reflect pattern-matching on seen text rather than genuine understanding."
+    },
+    {
+      "id": "mmlu#2",
+      "question": "How is MMLU structured in terms of subjects, questions, and splits?",
+      "answer": "It covers 57 subjects across STEM, humanities, social science, and professional domains, with 15,908 total questions split into a 5-per-subject few-shot dev set, a 1,540-question validation set, and a 14,079-question test set."
+    },
+    {
+      "id": "mmlu#3",
+      "question": "What were the key results for GPT-3 at publication, and what did they reveal about scale?",
+      "answer": "The three smaller GPT-3 models (up to 13B parameters) scored near the 25% random baseline, while GPT-3 175B reached only 43.9% few-shot — far below the ~89.8% estimated expert human level — suggesting scale alone was insufficient at the time."
+    },
+    {
+      "id": "mmlu#4",
+      "question": "Why did fine-tuned UnifiedQA outperform the much larger GPT-3 175B on MMLU?",
+      "answer": "UnifiedQA, a fine-tuned T5 model, reached 48.9% despite having far fewer parameters than GPT-3 175B (43.9%), showing that task-specific fine-tuning can compensate for smaller model size on this type of benchmark."
+    },
+    {
+      "id": "mmlu#5",
+      "question": "What does 'lopsided capability' mean in MMLU's results, and which subject areas were weakest?",
+      "answer": "Models scored up to ~70% on their best subjects but near-random on others, meaning capability was uneven across domains. The weakest areas were calculation-heavy STEM subjects and socially important topics like law and morality."
+    },
+    {
+      "id": "mmlu#6",
+      "question": "What is the declarative-versus-procedural gap exposed by MMLU?",
+      "answer": "Models could recall declarative facts (e.g., knowing the PEMDAS acronym) but could not reliably apply them to solve problems. This gap explains why calculation-heavy subjects lagged even when relevant facts appeared in pretraining data."
+    },
+    {
+      "id": "mmlu#7",
+      "question": "How poorly calibrated were models on MMLU, and why does calibration matter for an eval harness?",
+      "answer": "Model confidence was off by up to 24%, meaning models were often wrong while appearing confident and did not know what they didn't know. For an eval harness, poor calibration means raw accuracy scores can mask systematic blind spots that require per-subject breakdown to detect."
+    },
+    {
+      "id": "mmlu#8",
+      "question": "What does MMLU's construction suggest about the limits of scaling for improving performance on rare subjects?",
+      "answer": "The discussion notes that a 10x model size increase requires roughly 5x more data (per Kaplan et al.), and text on esoteric subjects is scarce on the internet, so scaling alone may not close the gap on specialized or underrepresented topics."
+    }
+  ]
+}

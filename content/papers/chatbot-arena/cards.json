@@ -1,0 +1,45 @@
+{
+  "paperId": "chatbot-arena",
+  "cards": [
+    {
+      "id": "chatbot-arena#1",
+      "question": "Why does Chatbot Arena use pairwise preference rather than ground-truth accuracy to rank LLMs?",
+      "answer": "Open-ended assistant prompts have no single gold answer, so ground-truth accuracy cannot be computed. Pairwise preference lets users judge which response is better without needing a reference answer, making it applicable exactly where automated accuracy metrics stop working."
+    },
+    {
+      "id": "chatbot-arena#2",
+      "question": "How does the Bradley-Terry model convert pairwise battle outcomes into a ranked leaderboard?",
+      "answer": "Each model is assigned a BT coefficient; the probability that one model beats another follows a logistic function of the difference in their coefficients. All coefficients are estimated jointly by maximum-likelihood (minimising binary cross-entropy over observed battles), yielding a total ranking with statistically valid confidence intervals."
+    },
+    {
+      "id": "chatbot-arena#3",
+      "question": "Why did Chatbot Arena switch from Elo scores to Bradley-Terry coefficients?",
+      "answer": "BT coefficients are better suited to statistical estimation than Elo scores — they are fit by maximum-likelihood over the full history of battles, supporting confidence intervals and hypothesis tests that Elo's incremental update rule does not naturally provide."
+    },
+    {
+      "id": "chatbot-arena#4",
+      "question": "What is the active sampling rule in Chatbot Arena, and why does it matter?",
+      "answer": "The active sampling rule selects model pairs proportionally to the expected reduction in confidence-interval width, concentrating battles on closely matched pairs. This required 5–54% fewer votes than random sampling to reach the same ranking precision, showing that even with human voters you should spend comparisons efficiently."
+    },
+    {
+      "id": "chatbot-arena#5",
+      "question": "How does Chatbot Arena guard against coordinated or anomalous voting?",
+      "answer": "A Fisher-combination anomaly detector flags IP addresses whose vote distributions diverge significantly from the historical population. In small-scale tests it achieved roughly a 90% true-positive rate."
+    },
+    {
+      "id": "chatbot-arena#6",
+      "question": "What did the comparison between crowd voters and expert raters reveal about the reliability of crowdsourced preferences?",
+      "answer": "Re-labeling 160 battles showed crowd-user agreement with experts at 72–83%, comparable to inter-expert agreement of 79–90%. The gap is attributed mainly to crowd users occasionally overlooking factual errors, meaning crowdsourced preference is noisy but not random."
+    },
+    {
+      "id": "chatbot-arena#7",
+      "question": "How does Chatbot Arena's prompt distribution limit the generalisability of its model rankings?",
+      "answer": "The user base is skewed toward LLM hobbyists and researchers who tend to ask coding and reasoning questions, biasing the prompt distribution away from production or specialised-domain usage. A model's rank is therefore relative to that distribution — no benchmark is distribution-free."
+    },
+    {
+      "id": "chatbot-arena#8",
+      "question": "What evidence does Chatbot Arena provide that its crowd-sourced prompts are diverse and discriminating?",
+      "answer": "BERTopic clustering identified 600 topic clusters with no single cluster exceeding 1% of prompts, confirming long-tail diversity. Separately, Arena Bench — constructed from crowd prompts — revealed larger performance gaps between proprietary and open models than MT-Bench did, showing the prompts are also discriminating."
+    }
+  ]
+}
