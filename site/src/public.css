@@ -1,0 +1,58 @@
+:root { color: #24231f; background: #f6f4ee; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.pub-center { display: grid; place-items: center; min-height: 100vh; color: #6f675c; }
+
+.pub-shell { max-width: 1040px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+.pub-hero { padding: 1rem 0 1.5rem; border-bottom: 1px solid #e2dbcf; margin-bottom: 1.5rem; }
+.pub-eyebrow { margin: 0; color: #116466; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; }
+.pub-hero h1 { margin: .2rem 0 .4rem; font-size: clamp(2rem, 5vw, 3rem); color: #191814; }
+.pub-sub { margin: 0; max-width: 60ch; color: #4d4942; line-height: 1.6; }
+
+.pub-phase { margin-top: 2rem; }
+.pub-phase h2 { font-size: 1.15rem; color: #2d2b27; border-left: 3px solid #116466; padding-left: .6rem; margin-bottom: 1rem; }
+.pub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.pub-card { border: 1px solid #ddd6c5; border-radius: 10px; background: #fffdf8; padding: 16px; display: flex; flex-direction: column; }
+.pub-card-meta { display: flex; justify-content: space-between; color: #8a8175; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.pub-card h3 { margin: .5rem 0 .25rem; font-size: 1.02rem; line-height: 1.25; }
+.pub-authors { margin: 0; color: #6f675c; font-size: .82rem; }
+.pub-tldr { margin: .6rem 0 0; color: #4d4942; font-size: .9rem; line-height: 1.5; }
+.pub-card-actions { margin-top: auto; padding-top: .9rem; display: flex; gap: .5rem; align-items: center; }
+.pub-card-actions button { background: #116466; color: #fff; border: 0; border-radius: 7px; padding: .45rem .8rem; font-weight: 600; cursor: pointer; }
+.pub-card-actions a { color: #116466; font-weight: 600; font-size: .85rem; }
+.pub-footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #e2dbcf; color: #8a8175; font-size: .82rem; text-align: center; }
+
+.pub-reader { position: fixed; inset: 0; display: flex; flex-direction: column; background: #f6f4ee; }
+.pub-reader-head { display: flex; align-items: center; gap: 1rem; padding: .7rem 1rem; border-bottom: 1px solid #e2dbcf; background: #fffdf8; }
+.pub-back { background: none; border: 1px solid #ddd6c5; border-radius: 7px; padding: .4rem .7rem; cursor: pointer; font-weight: 600; }
+.pub-reader-title { flex: 1; min-width: 0; }
+.pub-reader-title h2 { margin: 0; font-size: 1rem; line-height: 1.2; }
+.pub-reader-title p { margin: 0; color: #6f675c; font-size: .8rem; }
+.pub-arxiv { color: #116466; font-weight: 600; white-space: nowrap; }
+.pub-tabs { display: none; gap: .25rem; padding: .4rem 1rem; border-bottom: 1px solid #e2dbcf; background: #fffdf8; }
+.pub-tabs button { flex: 1; border: 1px solid #ddd6c5; background: #fffdf8; border-radius: 7px; padding: .45rem; cursor: pointer; }
+.pub-tabs button.active { background: #e7f1ef; border-color: #9ec7c2; font-weight: 600; }
+.pub-reader-body { flex: 1; display: flex; min-height: 0; }
+.pub-pane { min-width: 0; min-height: 0; }
+.pub-pdf-pane { flex: 1.3; border-right: 1px solid #e2dbcf; }
+.pub-summary-pane { flex: 1; overflow-y: auto; }
+.pub-summary { padding: 1.25rem 1.4rem; max-width: 64ch; }
+.pub-lede { font-size: 1.05rem; font-weight: 600; line-height: 1.5; margin: 0 0 1rem; color: #1f1e1a; }
+.pub-overview { color: #3f3b34; line-height: 1.6; }
+.pub-block { margin-top: 1.4rem; }
+.pub-block h4 { margin: 0 0 .5rem; color: #116466; font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; }
+.pub-sec { margin-bottom: .7rem; }
+.pub-sec strong { display: block; font-size: .92rem; }
+.pub-sec p { margin: .15rem 0 0; color: #4d4942; font-size: .88rem; line-height: 1.5; }
+.pub-block ul { margin: 0; padding-left: 1.1rem; }
+.pub-block li { color: #4d4942; font-size: .88rem; line-height: 1.5; margin-bottom: .4rem; }
+.pub-empty { padding: 1.5rem; color: #8a8175; }
+
+@media (max-width: 860px) {
+  .pub-tabs { display: flex; }
+  .pub-reader-body { flex-direction: column; }
+  .pub-pdf-pane { border-right: 0; }
+  .pub-pane { display: none; flex: 1; }
+  .pub-pane.active { display: block; }
+  .pub-pdf-pane.active { display: flex; }
+}
