@@ -1,0 +1,65 @@
+{
+  "paperId": "glu-variants-improve-transformer",
+  "cards": [
+    {
+      "id": "glu-variants-improve-transformer#1",
+      "question": "What is the core idea behind a Gated Linear Unit (GLU), and what is its defining operation?",
+      "answer": "A GLU computes the component-wise product of two parallel linear projections of the input, where one projection is passed through a sigmoid gate: GLU(x, W, V, b, c) = sigma(xW + b) x (xV + c). The gate selectively scales the second projection element-wise, allowing the layer to suppress or amplify individual dimensions."
+    },
+    {
+      "id": "glu-variants-improve-transformer#2",
+      "question": "Write the FFN_GEGLU formula as it appears in the paper (no-bias form used in the T5 codebase).",
+      "answer": "FFN_GEGLU(x, W, V, W2) = (GELU(xW) x xV) W2. It uses three weight matrices: W and V produce two parallel projections of x, GELU gates the first, the element-wise product is formed, then W2 projects back to model dimension."
+    },
+    {
+      "id": "glu-variants-improve-transformer#3",
+      "question": "Write the FFN_SwiGLU formula and identify where it appears in a well-known open-source model family.",
+      "answer": "FFN_SwiGLU(x, W, V, W2) = (Swish1(xW) x xV) W2, where Swish_beta(x) = x * sigma(beta*x) with beta=1. This is the exact MLP formulation used in LLaMA, making this paper the direct upstream reference for that architectural choice."
+    },
+    {
+      "id": "glu-variants-improve-transformer#4",
+      "question": "Why do GLU-variant FFN layers require three weight matrices instead of two, and what is the structural role of each?",
+      "answer": "The gating mechanism requires two parallel projections of the input (matrices W and V), whose element-wise product feeds a final projection (W2) back to model dimension. The original two-matrix FFN computes activation(xW1)W2; the GLU version replaces that single gated branch with two branches, adding one matrix."
+    },
+    {
+      "id": "glu-variants-improve-transformer#5",
+      "question": "How does the paper maintain a fair parameter and FLOP comparison between the original two-matrix FFN and the three-matrix GLU variants?",
+      "answer": "The hidden dimension d_ff is reduced by a factor of 2/3. The baseline T5 model uses d_ff = 3072; the GLU-variant models use d_ff = 2048. Because W, V, and W2 are each (d_model x d_ff), reducing d_ff by 2/3 cancels the extra matrix, keeping total parameter count and compute equal."
+    },
+    {
+      "id": "glu-variants-improve-transformer#6",
+      "question": "What are the five FFN variants defined in equation (6) of the paper, listed by their gating nonlinearity?",
+      "answer": "FFN_GLU (sigmoid gate), FFN_Bilinear (no gate / linear), FFN_ReGLU (ReLU gate), FFN_GEGLU (GELU gate), and FFN_SwiGLU (Swish1 gate). All share the three-matrix structure (sigma(xW) x xV) W2 with the appropriate function substituted for sigma."
+    },
+    {
+      "id": "glu-variants-improve-transformer#7",
+      "question": "Which two FFN variants achieve the best heldout log-perplexity at 524,288 pre-training steps, and what are their scores versus the ReLU baseline?",
+      "answer": "FFN_GEGLU (1.633) and FFN_SwiGLU (1.636) are best, compared to the FFN_ReLU baseline of 1.677. Both outperform simple activation swaps like FFN_GELU (1.679) and FFN_Swish (1.683), confirming that the gating structure — not just the nonlinearity — drives the gain."
+    },
+    {
+      "id": "glu-variants-improve-transformer#8",
+      "question": "What experimental setup does the paper use to evaluate the FFN variants on pre-training?",
+      "answer": "T5-base encoder-decoder (12 layers each, d_model=768, h=12), pre-trained for 524,288 steps on C4 span-filling with Adafactor optimizer, inverse-square-root LR schedule, and no dropout. Four shorter 65,536-step runs are also done per architecture to estimate inter-run variance (Table 1)."
+    },
+    {
+      "id": "glu-variants-improve-transformer#9",
+      "question": "How are the models fine-tuned, and on what tasks?",
+      "answer": "Each pre-trained model is fine-tuned for 131,072 steps on an examples-proportional mixture of SQuAD and all GLUE and SuperGLUE tasks jointly, with a learning rate of 1e-3 and dropout of 0.1 on layer outputs, feed-forward hidden layers, and attention weights. Embedding matrices are frozen during fine-tuning."
+    },
+    {
+      "id": "glu-variants-improve-transformer#10",
+      "question": "How does the paper's fine-tuning protocol differ from T5's original approach, and why?",
+      "answer": "Raffel et al. (2019) fine-tuned separately on each task; this paper fine-tunes jointly on all tasks in a single run for simplicity. The paper also omits dropout during pre-training (unlike T5), which it finds produces better results."
+    },
+    {
+      "id": "glu-variants-improve-transformer#11",
+      "question": "What explanation does the paper give for why GLU variants outperform ReLU/GELU activations?",
+      "answer": "None. The paper explicitly states it offers no theoretical explanation and attributes the empirical success to 'divine benevolence.' The gains are real and reproducible across pre-training perplexity and most downstream tasks, but the mechanism is unresolved."
+    },
+    {
+      "id": "glu-variants-improve-transformer#12",
+      "question": "What is the difference between FFN_GELU (a simple activation swap) and FFN_GEGLU (a gated variant), and which performs better?",
+      "answer": "FFN_GELU applies GELU to a single linear projection: GELU(xW1)W2 — two matrices, standard structure. FFN_GEGLU gates two parallel projections: (GELU(xW) x xV)W2 — three matrices, reduced d_ff. FFN_GEGLU achieves perplexity 1.633 vs. FFN_GELU's 1.679, showing the gating interaction adds value beyond the nonlinearity alone."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "paperId": "fine-tuning-language-models-from-human-preferences",
+  "cards": [
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#1",
+      "question": "Why can't you simply optimize a pretrained LM directly against human judgments using supervised learning?",
+      "answer": "Supervised data is unavailable or insufficient for complex, value-laden goals, and programmatic proxies like BLEU or ROUGE are poor surrogates for true human preference. The paper addresses this by learning a reward model from human pairwise comparisons and then optimizing the LM with RL."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#2",
+      "question": "What is the reward model loss function, and what data format does it consume?",
+      "answer": "The reward model is trained on tuples (x, y0, y1, y2, y3, b) where b is the index of the human-preferred continuation. The loss is a cross-entropy over orderings: loss(r) = E[ log( e^{r(x,y_b)} / sum_i e^{r(x,y_i)} ) ]. This is a softmax ranking loss that pushes the chosen output's reward above all others."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#3",
+      "question": "How is the reward model initialized, and why does that choice matter?",
+      "answer": "The reward model r is initialized as a random linear function on top of the final embedding layer of the pretrained language model ρ (not from the fine-tuned policy π). Starting from ρ's representations keeps the reward model in-distribution with the language it must evaluate, improving stability and sample efficiency compared to random initialization."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#4",
+      "question": "Write out the modified per-step reward R(x, y) used during PPO training and explain each term.",
+      "answer": "R(x, y) = r(x, y) − β log(π(y|x) / ρ(y|x)). The first term r(x, y) is the learned reward model score. The second term subtracts β times the KL divergence of the current policy π from the pretrained model ρ, penalizing drift. This KL term acts simultaneously as an entropy bonus, a naturalness constraint, and a guard against reward hacking."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#5",
+      "question": "How does the dynamic β controller work, and what problem does it solve?",
+      "answer": "β is updated each step by e_t = clip((KL(π_t, ρ) − KL_target) / KL_target, −0.2, 0.2) and β_{t+1} = β_t(1 + K_β e_t), with K_β = 0.1. This targets a fixed KL budget so that runs with different seeds stay comparable; without it, different random seeds can produce very different final KL values, making model comparisons unreliable."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#6",
+      "question": "What are the key PPO training hyperparameters used for policy fine-tuning?",
+      "answer": "The policy is trained with PPO2, 2M episodes (x, y pairs), γ = 1, four PPO epochs per batch with one minibatch each. Batch size is 1024 for style tasks and 512 for summarization. Learning rates are 1.41×10^{-5} for style and 7.07×10^{-6} for summarization. Dropout is disabled for policy training."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#7",
+      "question": "What is online data collection, how does it differ from offline, and when does it matter?",
+      "answer": "In online collection, as the policy π improves, new human labels are continuously gathered from π's current outputs and the reward model is periodically retrained, preventing distributional shift. In offline collection, all labels come from the original pretrained model ρ. Online collection was essential for good summarization performance (requiring 60k labels) but made no meaningful difference for the simpler stylistic continuation tasks."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#8",
+      "question": "Why did the paper recommend batched data collection over fully online collection?",
+      "answer": "Fully online collection interleaves data gathering, reward model retraining, and RL fine-tuning in a tightly coupled distributed system — a bug in any component breaks the entire pipeline, quality regressions go undetected until a run finishes, and ML debugging requires switching back to offline mode. Batched collection (gather from ρ, train r, fine-tune π frozen, repeat) decouples these components and is much easier to iterate on."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#9",
+      "question": "Why were pairwise comparisons (ranking) used for labeling instead of absolute numeric scores?",
+      "answer": "Absolute numeric ratings drifted over time as the policy changed — the same output quality was rated differently by workers at different stages of training, contaminating the reward model. Pairwise comparisons are relative and stable: a human picks the best of four options regardless of overall policy quality, making labels more consistent across the full data collection period."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#10",
+      "question": "What is the 'smart copier' failure mode, and what does it reveal about reward model design?",
+      "answer": "The 60k-label RL summarization models learned to copy whole sentences from the source verbatim (71% of the time for TL;DR, 98% for CNN/DM), skipping only irrelevant preambles. Labelers preferred these because copied sentences are easy to verify as accurate. This reveals reward model misspecification: the reward captured what labelers could quickly check (factual accuracy via copying) rather than the actual goal (abstractive summarization)."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#11",
+      "question": "Why must the reward model and policy be kept as separate networks rather than shared parameters?",
+      "answer": "The authors attempted joint training (shared parameters, separate heads) but found it caused overfitting: the policy could exploit the shared representations to game the reward head. Keeping them as fully separate networks — both initialized from ρ but trained independently — prevents the policy from corrupting the reward signal."
+    },
+    {
+      "id": "fine-tuning-language-models-from-human-preferences#12",
+      "question": "What happened when a code bug flipped the reward sign, and what safety lesson does it illustrate?",
+      "answer": "Flipping the reward sign also flipped the sign of the KL penalty term, so the model optimized for negative reward while still regularizing toward natural language. The result was a fluent model that output only sexually explicit content regardless of prompt. The lesson: bugs in reward code can produce coherent but maximally misaligned outputs — not gibberish — making silent failures in reward specification particularly dangerous."
+    }
+  ]
+}

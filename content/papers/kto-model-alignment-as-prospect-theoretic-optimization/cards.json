@@ -1,0 +1,65 @@
+{
+  "paperId": "kto-model-alignment-as-prospect-theoretic-optimization",
+  "cards": [
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#1",
+      "question": "What is a human-aware loss (HALO), and why do DPO and PPO-Clip qualify as one?",
+      "answer": "A HALO is a loss function f(π_θ, π_ref) that can be written as an expectation of a value function v applied to the model's implied reward relative to a reference-point distribution Q(Y'|x). DPO and PPO-Clip qualify because their implied value functions are non-decreasing and concave in gains — matching the key structural properties of the Kahneman-Tversky human value function — even though neither was designed with prospect theory in mind."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#2",
+      "question": "What is the KTO loss (Eq. 8), and what does each term represent?",
+      "answer": "L_KTO(π_θ, π_ref) = E_{x,y~D}[λ_y − v(x, y)], where r_θ(x,y) = log π_θ(y|x)/π_ref(y|x) is the implied reward, z_0 = KL(π_θ(y'|x) ‖ π_ref(y'|x)) is the reference point, and v(x,y) = λ_D · σ(β(r_θ(x,y) − z_0)) for desirable outputs or λ_U · σ(β(z_0 − r_θ(x,y))) for undesirable outputs. The loss pushes desirable rewards above z_0 and undesirable rewards below it, with β controlling how quickly the sigmoid saturates."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#3",
+      "question": "How is the KL reference point z_0 estimated in practice, and why is backprop stopped through it?",
+      "answer": "z_0 is estimated using mismatched pairs within the same microbatch: outputs y_j are shifted by one index (j = (i+1) mod m) so each y_j is paired with a different x_i, giving ẑ_0 = max(0, (1/m) Σ log π_θ(y_j|x_i)/π_ref(y_j|x_i)). The max-with-zero clamps it to be non-negative (a biased but lower-variance estimate). Backprop is stopped through z_0 because it serves only to control loss saturation, not to carry gradient signal."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#4",
+      "question": "Why does KTO use binary desirable/undesirable labels instead of preference pairs, and what practical advantage does this give?",
+      "answer": "Each training example needs only a single binary signal — 'this output is good' or 'this output is bad' — rather than a ranked pair (y_w ≻ y_l). Such binary labels are more abundant, cheaper, and faster to collect than preference pairs in real-world production systems, allowing alignment to scale more easily."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#5",
+      "question": "What does Proposition 4.1 say, and why is it important for noisy real-world data?",
+      "answer": "As the reward implied by the current policy for (x, y) tends to ±∞, the KTO gradient update on π_θ tends to zero — extreme-reward examples are effectively ignored. In practice this means KTO naturally discards hard-to-learn or mislabelled examples: a desirable output with a highly negative implied reward (likely noise) contributes little gradient, giving KTO implicit robustness to label noise without any explicit filtering step."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#6",
+      "question": "How should λ_D and λ_U be set when the desirable/undesirable data is imbalanced?",
+      "answer": "The paper's rule (Eq. 9) is to keep (λ_D · n_D) / (λ_U · n_U) ∈ [1, 3/2], where n_D and n_U are the counts of desirable and undesirable examples. If the ratio of desirable to undesirable is 1:10, set λ_U = 1 and λ_D ∈ [10, 15] to reweight the loss so that desirable and undesirable contributions remain roughly balanced despite the imbalance."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#7",
+      "question": "What role does β play in the KTO value function, and what values are recommended?",
+      "answer": "β controls risk aversion: a larger β makes the sigmoid saturate faster, making the model simultaneously more risk-averse in gains and more risk-seeking in losses. Lower β values (0.01–0.10) work better for larger models that have already undergone SFT; higher β values (0.10–1.00) work better for smaller models running KTO without SFT. The default recommended starting point is β = 0.1 with AdamW at lr = 5e-6."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#8",
+      "question": "What is the minimum microbatch size KTO requires, and why?",
+      "answer": "KTO requires a microbatch size of at least 2 to estimate z_0 in a single forward pass. The mismatched-pair estimator pools all outputs in the microbatch and shifts indices, so a batch of 1 would yield no mismatched pairs. In practice the paper uses an effective batch size of 32 and recommends between 8 and 128."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#9",
+      "question": "Theorem 3.5 says DPO is a HALO — what is its implied value function and reference distribution?",
+      "answer": "For DPO, the implied value function is v = log σ(·) (a concave function of the reward margin), and the reference distribution Q places all its probability mass on the dispreferred output y_l for a given input x. This means DPO's reference point is effectively the reward of the losing response, while KTO's reference point is a KL divergence estimated across the entire output distribution."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#10",
+      "question": "At what model scale can KTO skip the SFT stage entirely, and why?",
+      "answer": "KTO-aligned Llama-{13B, 30B} models match their SFT+KTO counterparts without any SFT pretraining step, whereas DPO always requires SFT for best results. The explanation is that KTO keeps response length roughly constant on its own, while DPO without SFT causes response length to increase dramatically and leads to rambling or hallucinated conversations."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#11",
+      "question": "When should you prefer DPO over KTO, according to §4.5?",
+      "answer": "DPO may be preferable when preference data is clean (low noise) and has low intransitivity — conditions under which KTO risks underfitting because its binary signal is weaker. This risk can be partially mitigated by using a lower β and training for more epochs. Most publicly available datasets (SHP, OpenAssistant) are noisy enough that KTO matches or exceeds DPO in practice."
+    },
+    {
+      "id": "kto-model-alignment-as-prospect-theoretic-optimization#12",
+      "question": "What does Theorem 4.3 reveal about KTO vs. DPO under contradictory feedback?",
+      "answer": "When a majority proportion p > 0.5 of humans prefer y_a and minority 1−p prefer y_b, the optimal DPO policy may still produce the minority-preferred y_b if the reference model assigns it much higher probability. The optimal KTO policy, by contrast, deterministically produces the majority-preferred y_a (for a loss-neutral value function λ_D = λ_U). This gives KTO strictly better worst-case guarantees on datasets with intransitive or contradictory preferences."
+    }
+  ]
+}

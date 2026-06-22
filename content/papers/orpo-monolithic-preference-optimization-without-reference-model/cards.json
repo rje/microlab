@@ -1,0 +1,65 @@
+{
+  "paperId": "orpo-monolithic-preference-optimization-without-reference-model",
+  "cards": [
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#1",
+      "question": "What core problem with supervised fine-tuning motivates ORPO?",
+      "answer": "Cross-entropy loss has no mechanism to penalise rejected responses. When fine-tuning only on chosen responses, the log probabilities of rejected responses rise in lockstep with chosen ones, so SFT alone cannot distinguish preferred from disfavoured generation styles."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#2",
+      "question": "What is the ORPO training objective, written out explicitly?",
+      "answer": "L_ORPO = E[(x, y_w, y_l)] [ L_SFT + lambda * L_OR ], where L_SFT is the standard causal NLL loss on the chosen response and L_OR = -log sigma( log( odds_theta(y_w|x) / odds_theta(y_l|x) ) ). Lambda is a scalar weighting the preference penalty."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#3",
+      "question": "How is the odds of a response defined in ORPO, and how does it differ from a plain probability?",
+      "answer": "The odds of generating sequence y given input x is odds_theta(y|x) = P_theta(y|x) / (1 - P_theta(y|x)), the average token-level log-probability converted to an odds form. The odds ratio OR_theta(y_w, y_l) is then odds(y_w|x) / odds(y_l|x), measuring how much more likely the model is to generate the chosen response than the rejected one."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#4",
+      "question": "Why does ORPO use the odds ratio rather than the simpler probability ratio for contrasting chosen and rejected responses?",
+      "answer": "When SFT is incorporated, the probability ratio produces a sharper, more extreme distribution that over-suppresses logits for disfavoured tokens before the model has adapted to the domain, potentially causing degeneration. The odds ratio is more sensitive to preference strength but discriminates more mildly, making it stable when SFT and alignment are joint."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#5",
+      "question": "How does the gradient of L_OR decompose, and what does each term do?",
+      "answer": "The gradient is nabla L_OR = delta(d) * h(d). delta(d) = [1 + odds(y_w|x)/odds(y_l|x)]^-1 is an adaptive penalty weight that approaches zero when the model already strongly prefers the chosen response, effectively switching off the penalty term. h(d) = nabla log P(y_w|x)/(1-P(y_w|x)) - nabla log P(y_l|x)/(1-P(y_l|x)) contrasts chosen and rejected gradients, amplifying updates when token probabilities are low."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#6",
+      "question": "What is the role of lambda in ORPO and what happens when it is set too high?",
+      "answer": "Lambda scales the strength of the odds-ratio preference penalty relative to the NLL loss. Higher lambda strengthens preference discrimination but hurts deterministic tasks such as math and coding, because the aggressive penalty suppresses token diversity needed for structured outputs. The paper uses lambda=0.1 for Mistral and lambda=0.25 for Phi-2; the lambda ablation (Appendix E) confirms conservative values are safer when eval tasks require reasoning."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#7",
+      "question": "Why does ORPO need no reference model, and what is the compute saving relative to DPO?",
+      "answer": "ORPO trains directly from a pre-trained checkpoint with no warm-up SFT stage; the NLL term serves the adaptation role that the reference (SFT) model played in DPO. Eliminating the reference model halves the number of forward passes per batch: DPO requires four forward passes per batch (two models × chosen and rejected), while ORPO requires only two."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#8",
+      "question": "How would you implement the L_OR loss term in a training loop given a batch of (prompt, chosen, rejected) triples?",
+      "answer": "For each sequence in the batch, compute average token-level log-probabilities log P(y_w|x) and log P(y_l|x). Convert each to odds: odds = exp(log_prob) / (1 - exp(log_prob)). Take the log odds ratio: log(odds_w / odds_l). Wrap in a log-sigmoid: L_OR = -log_sigmoid(log_odds_ratio). Average over the batch and add lambda * L_OR to the NLL loss on the chosen sequence."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#9",
+      "question": "What did ORPO achieve on AlpacaEval compared to larger RLHF-trained models?",
+      "answer": "Mistral-ORPO-beta (7B), trained for a single epoch on UltraFeedback alone, reached 91.41% on AlpacaEval 1.0 and 12.20% on AlpacaEval 2.0, surpassing Zephyr-beta (7B) and Llama-2-Chat (13B) — models that used a full SFT warm-up plus a separate DPO or RLHF stage."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#10",
+      "question": "What do the lexical diversity results reveal about how ORPO-trained models respond compared to DPO-trained models?",
+      "answer": "ORPO models have higher per-input cosine similarity (lower within-prompt diversity) but lower across-input cosine similarity (higher diversity across different prompts). This means ORPO generates more instruction-specific responses rather than generic ones, a property consistent with stronger adaptation to the chosen response distribution."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#11",
+      "question": "What training infrastructure did the ORPO experiments use, and what datasets were tested?",
+      "answer": "Training used Flash-Attention 2 and DeepSpeed ZeRO (Appendix C) on A100/A6000 GPUs. Models were trained on two datasets: Anthropic HH-RLHF and binarized UltraFeedback. Instances where y_w = y_l or either response was empty were filtered out. Evaluation used AlpacaEval 1.0/2.0 with GPT-4/GPT-4-turbo as judges and MT-Bench."
+    },
+    {
+      "id": "orpo-monolithic-preference-optimization-without-reference-model#12",
+      "question": "ORPO's reward-model win-rate over DPO scales with model size — what does this imply for deployment decisions?",
+      "answer": "On HH-RLHF, ORPO's win rate over DPO grows from ~42% at OPT-125M to 70.9% at OPT-1.3B. This means the monolithic approach becomes increasingly advantageous over DPO as the model scales, making ORPO especially attractive for larger deployments where the compute savings from eliminating the reference model are also greatest."
+    }
+  ]
+}

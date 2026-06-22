@@ -1,0 +1,65 @@
+{
+  "paperId": "finetuned-language-models-are-zero-shot-learners",
+  "cards": [
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#1",
+      "question": "What is instruction tuning, and what problem does it solve?",
+      "answer": "Instruction tuning finetuning a pretrained language model on a collection of NLP datasets expressed as natural language instructions. It addresses the gap where large LMs excel at few-shot prompting but perform poorly at zero-shot — without exemplars, models struggle when the prompt format differs from pretraining data. Instruction tuning teaches the model to follow instructions so it can generalize zero-shot to unseen tasks."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#2",
+      "question": "How does FLAN's held-out cluster evaluation protocol define an 'unseen task', and why is this stricter than a standard held-out test set?",
+      "answer": "A dataset D is considered unseen only if no dataset from the same task cluster as D appeared during instruction tuning. This means the entire task type (e.g., all NLI datasets) is excluded — not just the specific test set. To evaluate on c clusters FLAN trains c separate models, each holding out one cluster. This is stricter than a standard held-out set because it rules out transfer from any related task formulation, not just the identical dataset."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#3",
+      "question": "How are instruction templates constructed for each dataset in FLAN, and what does 'turning the task around' mean?",
+      "answer": "For each of the 62 datasets, 10 unique natural language instruction templates are manually written. Up to 3 of those 10 are 'turned the task around' variants that invert the original task — for a sentiment classification dataset, for example, a turned-around template asks the model to generate a movie review of a given sentiment. During finetuning, one template is selected randomly per training example. This diversity prevents the model from overfitting to a single instruction phrasing."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#4",
+      "question": "What is the OPTIONS suffix in FLAN's classification setup, and why is it preferable to rank classification?",
+      "answer": "For classification tasks, FLAN appends the token OPTIONS followed by the list of valid output classes to the end of the prompt. This explicitly informs the model which choices are valid. Rank classification (used by GPT-3) picks the class with highest token probability, but probability mass can be diluted across many surface forms of the same label (e.g., many ways to express 'yes'), making it miscalibrated. The OPTIONS suffix avoids this by letting the decoder generate the answer string directly."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#5",
+      "question": "What are the key hyperparameters and compute cost of FLAN's instruction tuning procedure?",
+      "answer": "FLAN instruction-tunes LaMDA-PT (137B decoder-only transformer) for 30,000 gradient steps using the Adafactor optimizer at learning rate 3e-5. Input and target sequence lengths are 1024 and 256 tokens respectively. Dataset mixing caps each dataset at 30k examples and uses examples-proportional sampling with a maximum mixing rate of 3k. Packing combines multiple examples into a single sequence separated by EOS tokens. Training takes ~60 hours on a TPUv3 with 128 cores — less than 2% of pretraining compute."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#6",
+      "question": "Why does instruction tuning hurt models at or below 8B parameters but substantially help models at 68B and 137B?",
+      "answer": "For small models (≤8B), the ~40 instruction tuning tasks consume the model's entire representational capacity just to memorize those tasks, leaving no capacity for generalization to novel ones. Large models (68B, 137B) have sufficient spare capacity that instruction tuning both learns the finetuning tasks and — in the remaining capacity — learns a general instruction-following behavior that transfers to unseen tasks."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#7",
+      "question": "What does the role-of-instructions ablation reveal about why instruction tuning improves zero-shot performance?",
+      "answer": "Two ablations — finetuning with no template (inputs and outputs only) and finetuning with only the dataset name prepended — scored 37.3% and 46.6% average on four held-out clusters, compared to 55.2% for FLAN. This shows that the zero-shot gains come from the natural language instruction format during finetuning, not merely from multi-task exposure. Multi-task finetuning alone is insufficient; the instructions are essential."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#8",
+      "question": "How does adding more task clusters to instruction tuning affect held-out performance, and does it saturate?",
+      "answer": "Average zero-shot performance on held-out clusters rises monotonically from 49.9% with 1 tuning cluster to 63.5% with 7 clusters (clusters added in decreasing order of dataset count). Performance does not appear to saturate at 7 clusters, suggesting that breadth of task coverage during instruction tuning is a key driver of generalization and that further gains are likely with more clusters."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#9",
+      "question": "For which task types does instruction tuning provide the largest gains, and for which is it largely ineffective — and why?",
+      "answer": "Instruction tuning provides large gains on tasks naturally verbalized as instructions: NLI, reading comprehension, closed-book QA, and translation. It provides little benefit for tasks formatted as language model completions — commonsense reasoning and coreference resolution — because those tasks are already aligned with the pretraining objective, making instructions redundant rather than informative."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#10",
+      "question": "How does FLAN extend to few-shot inference, and what format does it use to incorporate exemplars?",
+      "answer": "For few-shot inference, each exemplar (x_i, y_i) is formatted using the same zero-shot instruction template instruct(x_i), concatenated with the output y_i, then chained: instruct(x_1) ⊕ y_1 ⊕ instruct(x_2) ⊕ y_2 ⊕ … ⊕ instruct(x). A delimiter token separates each pair. Exemplars are randomly drawn from training data; count is capped at 16 and total sequence length at 960 tokens. Few-shot exemplars improve over zero-shot FLAN on all task clusters, with largest gains for tasks with complex output spaces (translation, struct-to-text)."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#11",
+      "question": "How does instruction tuning affect soft prompt tuning, and what does this imply about FLAN as a base model?",
+      "answer": "FLAN is a better starting point for soft prompt tuning than the untuned LaMDA-PT base: on SuperGLUE, prompt tuning on FLAN outperforms prompt tuning on LaMDA-PT in both the full-data setting and the low-resource 32-example setting (>10% improvement in the latter). This implies instruction tuning makes models more amenable to downstream adaptation, not just better at zero-shot inference directly."
+    },
+    {
+      "id": "finetuned-language-models-are-zero-shot-learners#12",
+      "question": "How does FLAN compare to GPT-3 175B zero-shot and few-shot, and on which cluster types does instruction tuning fall short?",
+      "answer": "Zero-shot FLAN (137B) outperforms zero-shot GPT-3 175B on 20 of 25 evaluated datasets and surpasses GPT-3's few-shot performance on 10 datasets — despite FLAN being smaller. The gains are concentrated on instruction-amenable tasks (NLI, QA, translation). FLAN falls short on commonsense reasoning and coreference resolution — tasks formatted as sentence completions where GPT-3's pretraining objective is directly applicable."
+    }
+  ]
+}

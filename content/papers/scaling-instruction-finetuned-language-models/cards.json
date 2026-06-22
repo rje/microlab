@@ -1,0 +1,55 @@
+{
+  "paperId": "scaling-instruction-finetuned-language-models",
+  "cards": [
+    {
+      "id": "scaling-instruction-finetuned-language-models#1",
+      "question": "What are the four finetuning task mixtures in Flan, and how many tasks does each contribute?",
+      "answer": "Muffin (80 tasks), T0-SF (193 tasks), NIV2 (1,554 tasks), and CoT (9 datasets) — totalling 1,836 tasks across 473 datasets and 146 task categories."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#2",
+      "question": "What optimizer and packing strategy does Flan finetuning use, and why is masking applied at pack boundaries?",
+      "answer": "Flan uses Adafactor with a constant learning rate schedule. Multiple training examples are packed into a single sequence separated by end-of-sequence tokens; masking prevents tokens from attending to examples across the packed boundary, keeping each example's context self-contained."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#3",
+      "question": "How is the 'normalized average' aggregate metric computed across the four held-out benchmarks?",
+      "answer": "It is the macro-average over six normalized scores: MMLU-Direct, MMLU-CoT, BBH-Direct, BBH-CoT, TyDiQA-Direct, and MGSM-CoT. Normalization scales each raw score relative to a task-specific lower bound (e.g., random guessing) so that scores from different tasks are comparable."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#4",
+      "question": "What does the task-count scaling curve show about where gains from more finetuning tasks diminish?",
+      "answer": "The majority of the normalized-average improvement occurs before 282 tasks; gains from adding tasks beyond 282 are small. This may be because additional tasks are not diverse enough to provide new knowledge, or because finetuning mainly teaches the model to better express knowledge already learned during pretraining."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#5",
+      "question": "What happens to CoT reasoning ability when a model is instruction-finetuned on non-CoT data only?",
+      "answer": "Finetuning on non-CoT data alone severely degrades performance on held-out CoT benchmarks (MMLU, BBH, MGSM). The model learns to respond in the direct-answer prompting paradigm, losing the ability to produce reasoning chains — even though it improves on non-CoT tasks."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#6",
+      "question": "What is the CoT finetuning mixture, and how were its annotations produced?",
+      "answer": "Nine datasets covering arithmetic reasoning, multi-hop reasoning, and natural language inference. For each dataset, human raters manually wrote chain-of-thought annotations for a training corpus; ten instruction templates per dataset were then manually composed."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#7",
+      "question": "How does including CoT data alongside non-CoT data affect non-CoT task performance?",
+      "answer": "Adding the nine CoT datasets to the mixture does not hurt performance on held-out non-CoT benchmarks — it matches or slightly exceeds finetuning on non-CoT data alone. This means the CoT mixture can be included at no cost to NLP task performance."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#8",
+      "question": "What compute cost does Flan finetuning add relative to pre-training, and what does that translate to for Flan-PaLM 540B?",
+      "answer": "Instruction finetuning costs 0.2–1.6% of pre-training FLOPs. For Flan-PaLM 540B specifically it is 0.2%, corresponding to approximately 512 v4 TPU chips running for 37 hours."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#9",
+      "question": "Why can Flan-PaLM perform zero-shot CoT reasoning via 'let's think step-by-step' while unfinetuned PaLM cannot?",
+      "answer": "Instruction finetuning on CoT data teaches the model to follow the CoT prompting format, so at inference time the trigger phrase successfully elicits a reasoning chain. Unfinetuned PaLM has not been trained to respond to that instruction format and fails to generate useful chains on BBH tasks."
+    },
+    {
+      "id": "scaling-instruction-finetuned-language-models#10",
+      "question": "What does Flan-T5-XL (3B parameters) achieving 52.4% on MMLU reveal about small-model instruction finetuning?",
+      "answer": "A 3B finetuned model can surpass GPT-3 175B (43.9% on MMLU), showing that instruction finetuning can recover much of the capability gap from having far fewer parameters — and that model size alone is not the primary driver of MMLU performance at this scale."
+    }
+  ]
+}

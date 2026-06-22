@@ -1,0 +1,65 @@
+{
+  "paperId": "self-instruct-aligning-language-models-with-self-generated-instructions",
+  "cards": [
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#1",
+      "question": "What problem does Self-Instruct solve, and what is the key insight that makes it work?",
+      "answer": "Collecting human-written instruction data is costly, limited in diversity, and creativity-constrained. Self-Instruct's insight is that a pretrained LM can bootstrap its own instruction-tuning data — generating, classifying, and instantiating tasks — then be finetuned on that data, requiring no human labeling beyond 175 seed tasks."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#2",
+      "question": "What are the four steps of the Self-Instruct data-generation pipeline, in order?",
+      "answer": "(1) Instruction Generation — prompt the LM with 8 in-context examples to produce new task instructions; (2) Classification Task Identification — few-shot prompt to decide if each instruction is classification or generation; (3) Instance Generation — input-first for generation tasks, output-first for classification tasks; (4) Filtering — remove near-duplicates and low-quality examples via ROUGE-L and heuristics."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#3",
+      "question": "How does instruction generation use the task pool, and what is the mix of seed vs. model-generated examples in each prompt?",
+      "answer": "At each step, 8 task instructions are sampled from the pool as in-context examples. Of those 8, exactly 6 come from the human-written seed tasks and 2 come from model-generated tasks added in previous iterations — the mix promotes diversity while keeping generation grounded."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#4",
+      "question": "Why does Self-Instruct use an output-first approach for classification tasks instead of the standard input-first approach?",
+      "answer": "Input-first prompting for classification tasks tends to generate inputs biased toward a single label (e.g., grammar error detection almost always produces grammatical inputs). Output-first prompting generates possible class labels first, then conditions input generation on each label, preventing this label-distribution collapse."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#5",
+      "question": "What is the ROUGE-L deduplication rule, and what is it computed against?",
+      "answer": "A newly generated instruction is added to the task pool only if its ROUGE-L similarity with every existing instruction in the pool is below 0.7. The check is run against all instructions already in the pool — not just the current batch — so the filter loop must load the full pool each round."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#6",
+      "question": "What additional heuristic filters are applied beyond the ROUGE-L threshold?",
+      "answer": "Instructions containing certain keywords (e.g., image, picture, graph) that LMs cannot process are excluded. Instances where the output is an exact copy of the input, or where the input is identical but the output differs, are discarded. Instructions that are too long or too short are also removed."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#7",
+      "question": "How is finetuning performed in Self-Instruct, and how are prompt tokens handled in the loss?",
+      "answer": "The instruction and instance input are concatenated into a prompt using multiple templates (e.g., with or without 'Task:' / 'Input:' prefixes, varying line breaks). The model is trained with standard supervised cross-entropy to predict the instance output; prompt tokens are masked from the loss so only the output tokens contribute to gradient updates."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#8",
+      "question": "What is the seed task bootstrap, and why 175 tasks specifically?",
+      "answer": "The 175 seed tasks are manually written by the authors and their collaborators without reference to existing datasets, each with one instruction and one instance. They seed the initial task pool from which the iterative generation loop samples. The number is not a principled hyperparameter — it reflects practical author effort to cover a broad range of task types before automated expansion takes over."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#9",
+      "question": "What scale of data did applying Self-Instruct to GPT3-davinci produce, and what was the quality breakdown?",
+      "answer": "The pipeline produced 52,445 instructions and 82,439 instances. Expert quality review found 92% of instructions described a valid task, 79% of inputs were appropriate, 58% of outputs were correct, and only 54% of all fields (instruction + input + output) were fully valid — output quality is the noisiest component."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#10",
+      "question": "What does the data-size ablation reveal about diminishing returns in Self-Instruct?",
+      "answer": "Performance improves consistently as the number of instructions grows but plateaus around 16K instructions. Beyond that volume, data quality matters more than volume — using InstructGPT003 to regenerate output fields for all instances (a distillation step) adds a further ~10% gain on the human evaluation set."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#11",
+      "question": "How does GPT3-Self-Inst perform on SUPERNI zero-shot generalization, and what does this comparison tell us?",
+      "answer": "GPT3-Self-Inst achieves 39.9 ROUGE-L on SUPERNI's unseen tasks, a +33.1% absolute gain over vanilla GPT3 (6.8) and ahead of T0-11B (33.1) and GPT3+T0-Training (37.9). It falls just 0.9 points below InstructGPT001 (40.8), showing that purely self-generated data nearly matches privately annotated human data."
+    },
+    {
+      "id": "self-instruct-aligning-language-models-with-self-generated-instructions#12",
+      "question": "What are the key limitations of Self-Instruct that the authors identify?",
+      "answer": "The pipeline inherits the biases and tail-phenomena of the underlying LM (e.g., skewed toward high-frequency instruction types, potential stereotypes). Effectiveness scales with model size, limiting accessibility. The 16K plateau suggests that mixing instruction sources rather than adding more self-generated data is the better path forward."
+    }
+  ]
+}

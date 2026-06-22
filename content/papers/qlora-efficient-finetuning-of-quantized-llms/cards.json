@@ -1,0 +1,65 @@
+{
+  "paperId": "qlora-efficient-finetuning-of-quantized-llms",
+  "cards": [
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#1",
+      "question": "What is the core memory-reduction claim of QLoRA, and how does it achieve it without losing performance?",
+      "answer": "QLoRA reduces LLaMA 65B finetuning memory from >780 GB to <48 GB by storing the base model in 4-bit NF4 precision and only training small LoRA adapter weights kept in 16-bit BFloat16. The key insight is that the base model is never updated — it is dequantized on the fly for each forward/backward pass, so no 16-bit copy of the full model is ever materialized in GPU memory."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#2",
+      "question": "How are the 2^k quantization bin edges for the NF4 data type computed, and why does this make NF4 information-theoretically optimal for normally distributed weights?",
+      "answer": "The 2^k values q_i are computed as the average of adjacent quantiles of the standard normal distribution N(0,1): q_i = 0.5 * (Q_X(i / (2^k + 1)) + Q_X((i+1) / (2^k + 1))). Because pretrained weights are approximately N(0, σ), rescaling σ to match the data type range means each quantization bin receives an equal number of weight values — maximizing the information content of each bit."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#3",
+      "question": "How does NF4 handle the zero-representation problem that arises from symmetric k-bit quantization, and what does it call the result?",
+      "answer": "Symmetric quantile quantization produces two zero values (one from the negative range, one from the positive), which wastes a quantization bin. NF4 resolves this by estimating quantiles separately for the negative side (2^(k-1) values) and positive side (2^(k-1) + 1 values), then removing one of the duplicate zeros, yielding 2^k values with an exact discrete zero. The result is called k-bit NormalFloat (NFk)."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#4",
+      "question": "Describe the Double Quantization procedure: what is quantized in the second pass, what precision and blocksize are used, and how much memory does it save?",
+      "answer": "Double Quantization takes the 32-bit quantization constants c2^FP32 produced by the first (NF4) quantization pass and quantizes them to 8-bit Floats (FP8) using a blocksize of 256 for the second pass, yielding 8-bit constants c2^FP8 and a small set of 32-bit second-level constants c1^FP32. Using blocksize 64 for W, the first-level constants alone cost 32/64 = 0.5 bits/param; after DQ this falls to 8/64 + 32/(64·256) = 0.127 bits/param — a reduction of 0.373 bits/param, approximately 3 GB saved for a 65B model."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#5",
+      "question": "Write out the QLoRA forward pass equation (Eq. 5) and explain the role of each term.",
+      "answer": "Y^BF16 = X^BF16 · doubleRequant(c1^FP32, c2^FP8, W^NF4) + X^BF16 · L1^BF16 · L2^BF16. The first term dequantizes the frozen 4-bit base weight W^NF4 through two nested dequantization steps back to BFloat16 and performs the main linear projection. The second term is the low-rank LoRA correction (rank-r adapter L1·L2) computed entirely in BFloat16. Only gradients with respect to L1 and L2 are needed; W^NF4 never receives a gradient."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#6",
+      "question": "How does the doubleRequant function recover BFloat16 weights from storage, and in what order are the two dequantization levels applied?",
+      "answer": "doubleRequant(c1^FP32, c2^FP8, W^NF4) = dequant(dequant(c1^FP32, c2^FP8), W^NF4) = W^BF16. The inner dequantization recovers the first-level FP32 quantization constants from their FP8 storage using c1^FP32. The outer dequantization then uses those recovered constants to map W^NF4 back to BFloat16 weights for matrix multiplication."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#7",
+      "question": "How do Paged Optimizers work, and what specific memory problem during QLoRA training do they solve?",
+      "answer": "Paged Optimizers use NVIDIA's unified memory feature to allocate optimizer states (e.g., Adam momentum buffers) in paged CPU-accessible memory. When the GPU runs out of memory — which happens during gradient checkpointing on long-sequence mini-batches — the optimizer states are automatically evicted to CPU RAM and paged back into GPU memory only during the optimizer update step. This prevents OOM crashes without requiring a smaller model or batch size."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#8",
+      "question": "What is the critical LoRA placement finding, and why does it matter for matching full 16-bit finetuning performance?",
+      "answer": "LoRA adapters must be applied to every linear transformer layer — not only the query and value attention projections as in standard LoRA practice — to recover full 16-bit finetuning performance. The projection rank r itself is not the critical hyperparameter; it is the total number of LoRA adapters across all layers. Adding more adapters costs very little extra memory because the dominant memory cost is activation gradients, not the adapter weights."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#9",
+      "question": "How does NF4 empirically compare to 4-bit Float (FP4) and 4-bit Integer (Int4) on zero-shot accuracy, and does Double Quantization hurt performance?",
+      "answer": "NF4 significantly outperforms both FP4 and Int4 on mean zero-shot accuracy across OPT, LLaMA, BLOOM, and Pythia models (125M–65B). Double Quantization alone produces only minor accuracy gains but allows fine-grained memory control that makes 33B and 65B models fit on 24/48 GB GPUs. NF4 with DQ matches BFloat16 LoRA performance on 5-shot MMLU across all LLaMA sizes (Table 4)."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#10",
+      "question": "What did QLoRA's instruction-finetuning experiments reveal about dataset quality versus dataset size?",
+      "answer": "Dataset quality matters far more than size for chatbot performance: a 9k-sample high-quality crowd-sourced dataset (OASST1) outperforms a 450k-sample FLAN v2 subsampling on the Vicuna chatbot benchmark, even though FLAN v2 produces higher MMLU scores. This dissociation shows that benchmark performance (MMLU) does not predict chatbot quality (Vicuna Elo), and that curating a small high-quality instruction set is more effective than scaling a lower-quality one."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#11",
+      "question": "What did the Guanaco 65B result demonstrate about the accessibility of large-model finetuning, and what were the key numbers?",
+      "answer": "Guanaco 65B, trained for 24 hours on a single 48 GB GPU using QLoRA, achieved 99.3% of ChatGPT's performance on the Vicuna benchmark (Elo 1022 vs ChatGPT's 966). Guanaco 33B fit in 21 GB on a 24 GB consumer GPU. This was previously impossible without hundreds of gigabytes of GPU memory and demonstrated that 4-bit finetuning can produce competitive instruction-following models on academic hardware."
+    },
+    {
+      "id": "qlora-efficient-finetuning-of-quantized-llms#12",
+      "question": "Why does QLoRA compute gradients with respect to the LoRA adapter weights but not the base model weights, and what does this mean for the backward pass through W^NF4?",
+      "answer": "Only the LoRA adapter parameters L1 and L2 are updated during training, so only ∂E/∂L is needed. However, computing ∂E/∂L requires ∂E/∂X (the input gradient), which flows through the base model projection via Eq. 5. This backward pass through W^NF4 requires dequantizing W^NF4 to BFloat16 — the same doubleRequant step as the forward pass — so that the matrix multiplication and gradient accumulation happen in full 16-bit precision. The base model weights themselves are never modified."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "paperId": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity",
+  "cards": [
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#1",
+      "question": "What is the core architectural change Switch Transformers make to a standard Transformer, and how does the output of that layer get computed?",
+      "answer": "The dense FFN sublayer in every other Transformer block is replaced with a Switch FFN layer. A learned router dispatches each token to exactly one expert FFN; the expert's output is multiplied by the router gate value (the softmax probability for that expert) and added to the residual stream."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#2",
+      "question": "How does Switch routing (k=1) compute gate values, and why does routing to a single expert still yield non-trivial gradients for the router?",
+      "answer": "The router computes logits h(x) = W_r · x and normalises them via softmax over all N experts: p_i(x) = exp(h(x)_i) / Σ_j exp(h(x)_j). Differentiability is preserved because the gate value p_i(x) — the probability of the selected expert — multiplies the expert output, so gradients flow back through that scalar into the router weights even though only one expert is activated."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#3",
+      "question": "What is the expert capacity formula, and what happens to tokens that exceed it?",
+      "answer": "Expert capacity = (tokens_per_batch / num_experts) × capacity_factor. If more tokens are routed to an expert than its capacity allows, the excess tokens are dropped: their representation bypasses the expert and is passed unchanged to the next layer via the residual connection."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#4",
+      "question": "What is the auxiliary load-balancing loss used in Switch Transformers, and what is the recommended value of its coefficient α?",
+      "answer": "For a layer with N experts and a batch B of T tokens, the auxiliary loss is: loss = α · N · Σ_i f_i · P_i, where f_i is the fraction of tokens dispatched to expert i (argmax routing) and P_i is the mean router probability allocated to expert i across the batch. This is minimised under uniform routing. The paper uses α = 10⁻² throughout, finding it large enough to balance load without swamping the cross-entropy objective."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#5",
+      "question": "Why does the load-balancing loss multiply by N (the number of experts)?",
+      "answer": "Under perfectly uniform routing, Σ(f_i · P_i) = Σ(1/N · 1/N) = 1/N. Multiplying by N keeps this sum constant at 1 regardless of how many experts are used, so the same α coefficient works across model configurations with different expert counts."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#6",
+      "question": "What is selective precision training in Switch Transformers, and why is it needed?",
+      "answer": "The router's internal computations (logits, softmax) are cast to float32, but the resulting dispatch and combine tensors are recast to bfloat16 before being broadcast to other devices. This stabilises training — bfloat16-only routing diverges — while matching bfloat16 speed since the float32 tensors never leave the local device."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#7",
+      "question": "What weight initialisation change do Switch Transformers use for stability, and what does it improve?",
+      "answer": "The default Transformer initialisation scale s=1.0 is reduced to s=0.1 (drawing weights from truncated Normal with σ = √(s/n)). This single change dramatically reduces training variance — at 3.5k steps, Std. Dev. of quality drops from 0.68 to 0.01 in negative log perplexity — and improves average model quality, making the approach viable up to trillion-parameter scale."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#8",
+      "question": "How does expert parallelism work in Switch Transformers, and what communication primitive does it require?",
+      "answer": "In expert-parallel mode each expert is assigned to a separate device. During the forward pass, tokens are routed via all-to-all communication: each device sends each token to the device hosting the chosen expert, that expert processes it, and the results are all-to-all'd back. This separates parameter scaling (more experts = more parameters) from per-device compute (each device still processes the same total tokens)."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#9",
+      "question": "What expert dropout strategy is used during fine-tuning, and why is standard uniform dropout insufficient?",
+      "answer": "During fine-tuning, the dropout rate inside expert FFN layers is raised to 0.4 while keeping non-expert layers at the standard 0.1 rate ('expert dropout'). Uniform high dropout across all layers hurts performance; the high rate specifically inside experts is needed because the sparse model has far more parameters than a FLOP-matched dense baseline, making it prone to overfitting on small downstream datasets."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#10",
+      "question": "What is the key finding about parameter count as a scaling axis, independent of FLOPs?",
+      "answer": "Parameter count is a separately useful axis for scaling, distinct from compute (FLOPs per token) and data size. Increasing experts keeps FLOPs per token constant while adding parameters, and this consistently improves pre-training quality — Switch-Base 64e reaches T5-Base quality in one-seventh the wall-clock time despite identical per-token compute."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#11",
+      "question": "How are large Switch Transformer models distilled into small dense models, and how much of the quality gain is preserved?",
+      "answer": "The dense student is initialised with the non-expert weights from the sparse teacher (possible because both are FLOP-matched and share FFN dimensions). Training uses a 0.75/0.25 mix of hard labels and teacher soft labels. This preserves approximately 30% of the sparse teacher's quality gain while compressing parameters by up to 99% — e.g. a 3.8B-parameter Switch-Base distilled into a 223M T5-Base."
+    },
+    {
+      "id": "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity#12",
+      "question": "Why do Switch Transformers perform better at lower capacity factors (1.0–1.25) relative to MoE Transformers, and what does this imply for large-scale deployment?",
+      "answer": "MoE models route tokens to top-2 experts, so their minimum per-expert batch size is twice that of Switch (top-1). Switch can therefore operate at capacity factor 1.0 without needing extra buffer slots, reducing wasted computation and memory. In large-model regimes where accelerator memory is scarce, minimising the capacity factor is critical — and Switch's single-expert routing makes this feasible at a smaller computational footprint."
+    }
+  ]
+}

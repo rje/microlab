@@ -1,0 +1,65 @@
+{
+  "paperId": "lora-low-rank-adaptation-of-large-language-models",
+  "cards": [
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#1",
+      "question": "What is the core reparametrization LoRA applies to a pretrained weight matrix, and what is the forward pass equation?",
+      "answer": "LoRA constrains each weight update to a low-rank product: W₀ + ΔW = W₀ + BA, where B ∈ ℝ^{d×r} and A ∈ ℝ^{r×k} with r ≪ min(d,k). The modified forward pass is h = W₀x + BAx, where the pretrained W₀ is frozen and only A and B receive gradient updates."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#2",
+      "question": "How are the LoRA matrices A and B initialized at the start of training, and why does this choice matter?",
+      "answer": "A is initialized with a random Gaussian (N(0, σ²)) and B is initialized to zero, so ΔW = BA = 0 at training step zero. This means the model starts from exactly the pretrained weights with no perturbation, providing a stable training baseline."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#3",
+      "question": "What is the α/r scaling in LoRA, and why does the paper recommend setting α = r and not tuning it?",
+      "answer": "The update ΔW is scaled by α/r before being added to W₀x. When optimizing with Adam, tuning α is roughly equivalent to tuning the learning rate scaled by r, so setting α to the first r tried and not retuning it decouples hyperparameter sensitivity from the choice of rank."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#4",
+      "question": "How does LoRA achieve zero additional inference latency compared to full fine-tuning?",
+      "answer": "Before deployment the adapted weight is explicitly computed as W = W₀ + BA and stored. Inference then uses this merged matrix with the same compute path as the original model — no extra branches or adapter modules are executed. Switching tasks means subtracting BA and adding a different B'A', which requires only a small memory operation."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#5",
+      "question": "Which weight matrices does the paper target with LoRA in practice, and which are left frozen?",
+      "answer": "The paper applies LoRA only to the attention weight matrices (Wq, Wk, Wv, Wo) in the self-attention module and keeps the MLP feedforward weights frozen. This is done for parameter efficiency and simplicity; the ablations in Section 7.1 confirm this is a good default."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#6",
+      "question": "Given a fixed parameter budget, should you adapt one attention matrix at high rank or spread LoRA across more matrices at lower rank?",
+      "answer": "Spread across more matrices. With an 18M-parameter budget on GPT-3, adapting both Wq and Wv at r=4 matches or exceeds adapting only Wq at r=8. The paper concludes it is preferable to distribute capacity across more weight types than to concentrate it in one."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#7",
+      "question": "How small can the LoRA rank r be while still yielding competitive performance?",
+      "answer": "As small as r=1 on many tasks. Table 6 shows that for {Wq, Wv} on WikiSQL and MultiNLI, r=1 already competes with r=8 or r=64. This suggests the task-specific weight update has very low intrinsic rank, and increasing r beyond a small value adds noise rather than signal."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#8",
+      "question": "How many trainable parameters does LoRA use for GPT-3 175B, and what VRAM saving does this produce during training?",
+      "answer": "With r=4 adapting Wq and Wv only, LoRA uses 4.7M trainable parameters — about 0.003% of the 175B total. This reduces training VRAM from 1.2 TB (full fine-tuning with Adam) to 350 GB, roughly a 3× reduction, because optimizer states for frozen weights are never allocated."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#9",
+      "question": "Why do adapter layers introduce inference latency even with tiny bottleneck dimensions, and how does LoRA avoid this?",
+      "answer": "Adapter layers extend model depth with sequential operations that cannot be parallelized out on hardware; at batch size 1 on GPT-2 medium they add up to +30% latency. LoRA avoids this entirely because its matrices are merged into the base weight before serving, leaving model depth and the compute graph unchanged."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#10",
+      "question": "What does the Section 7.3 subspace analysis reveal about the relationship between ΔW and W?",
+      "answer": "ΔW is not aligned with the top singular directions of W, nor is it random noise. Instead it amplifies directions that are present but under-emphasized in W, with an amplification factor of approximately 21.5× at r=4 for GPT-3. This suggests LoRA selectively strengthens features the pretrained model already partially learned for the target task."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#11",
+      "question": "How does LoRA reduce the memory cost of training beyond saving optimizer states?",
+      "answer": "Because W₀ is frozen it requires no gradient storage; gradients only flow through the small A and B matrices. For GPT-3 175B with r=4, the checkpoint of the LoRA adapters is ~35 MB versus ~350 GB for the base model, so 100 adapted task variants cost 350 GB + 100×35 MB ≈ 354 GB rather than 100×350 GB."
+    },
+    {
+      "id": "lora-low-rank-adaptation-of-large-language-models#12",
+      "question": "On what benchmarks does LoRA match or exceed full fine-tuning, and what is the approximate parameter reduction?",
+      "answer": "LoRA matches or beats full fine-tuning on GLUE (RoBERTa base/large, DeBERTa XXL), E2E NLG (GPT-2 medium/large), WikiSQL, MultiNLI, and SAMSum (GPT-3 175B). Trainable parameters are reduced by up to 10,000× — from 175B to 4.7M for GPT-3 — while also achieving 25% higher training throughput."
+    }
+  ]
+}

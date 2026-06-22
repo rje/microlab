@@ -1,0 +1,65 @@
+{
+  "paperId": "proximal-policy-optimization-algorithms",
+  "cards": [
+    {
+      "id": "proximal-policy-optimization-algorithms#1",
+      "question": "Why can't vanilla policy gradient methods simply run multiple gradient steps on the same batch of trajectory data?",
+      "answer": "Taking more than one gradient step on the same data is not theoretically justified and empirically leads to destructively large policy updates. The L^PG objective has no mechanism to prevent the policy from moving far from the policy that collected the data, so repeated steps cause instability."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#2",
+      "question": "What is the probability ratio r_t(θ) in PPO, and what is its value at the start of each policy update?",
+      "answer": "r_t(θ) = π_θ(a_t | s_t) / π_θ_old(a_t | s_t) — the ratio of action probabilities under the new versus old policy. At the start of each update r_t(θ_old) = 1 by definition, since the new and old policies are identical before any gradient step."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#3",
+      "question": "Write out the L^CLIP objective and explain why taking the minimum of two terms gives a pessimistic lower bound.",
+      "answer": "L^CLIP(θ) = Ê_t[min(r_t(θ)Â_t, clip(r_t(θ), 1−ε, 1+ε)Â_t)]. The clipped term removes the incentive to push r_t outside [1−ε, 1+ε]. Taking the minimum of the clipped and unclipped terms means the objective ignores ratio changes only when they would improve the estimate, and penalises them when they would make the estimate worse — forming a lower bound (pessimistic estimate) on true policy performance."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#4",
+      "question": "What does clipping do differently for positive versus negative advantages?",
+      "answer": "When Â_t > 0, the ratio is capped at 1+ε so the objective stops increasing if the action is made much more likely. When Â_t < 0, the ratio is floored at 1−ε so the objective stops decreasing if the action is made much less likely. In both cases the clip prevents the policy from moving too far in the direction favoured by the current batch."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#5",
+      "question": "What is the adaptive KL penalty algorithm, and how does it adjust the coefficient β between updates?",
+      "answer": "Each policy update optimises L^KLPEN(θ) = Ê_t[r_t(θ)Â_t − β·KL[π_θ_old, π_θ]]. After the update, measure d = Ê_t[KL[π_θ_old, π_θ]]: if d < d_targ/1.5, halve β; if d > d_targ × 1.5, double β. This keeps KL near the target d_targ across different tasks and stages of training without manual tuning."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#6",
+      "question": "Why does TRPO use a hard KL constraint rather than a fixed KL penalty coefficient β?",
+      "answer": "The right value of β varies across problems and changes over the course of training within a single problem. A fixed β that works on one task may cause too-large or too-small updates on another, so TRPO enforces a hard constraint to guarantee bounded policy change regardless of β."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#7",
+      "question": "Describe Algorithm 1 (PPO, Actor-Critic Style): what happens each iteration and what gets optimised?",
+      "answer": "Each iteration: N parallel actors each run the current policy π_θ_old for T timesteps, collecting NT samples. Advantage estimates Â_1…Â_T are computed for each actor. Then the surrogate loss L (L^CLIP or L^CLIP+VF+S) is optimised with minibatch SGD or Adam for K epochs with minibatch size M ≤ NT. Finally θ_old ← θ."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#8",
+      "question": "What is the combined objective L^CLIP+VF+S (Eq. 9), and why are the value-function and entropy terms included?",
+      "answer": "L^CLIP+VF+S(θ) = Ê_t[L^CLIP(θ) − c1·L^VF(θ) + c2·S[π_θ](s_t)], where L^VF = (V_θ(s_t) − V^targ_t)² is a squared-error value loss and S is an entropy bonus. Both are needed when policy and value function share network parameters — the value loss trains the shared layers to predict returns, and the entropy bonus discourages premature convergence to a deterministic policy."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#9",
+      "question": "How does Generalised Advantage Estimation (GAE) compute Â_t, and what does the λ parameter control?",
+      "answer": "Â_t = δ_t + (γλ)δ_{t+1} + … + (γλ)^{T−t−1}δ_{T−1}, where δ_t = r_t + γV(s_{t+1}) − V(s_t) is the one-step TD error. λ ∈ [0,1] interpolates between high-bias/low-variance (λ=0, pure TD) and low-bias/high-variance (λ=1, Monte Carlo return). PPO uses λ=0.95 in MuJoCo experiments."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#10",
+      "question": "What MuJoCo hyperparameters did the authors use, and how many epochs and minibatch steps per data collection?",
+      "answer": "Horizon T=2048, K=10 epochs per update, minibatch size M=64, discount γ=0.99, GAE λ=0.95, Adam stepsize 3×10⁻⁴. Each update therefore runs 10 full passes over the 2048 collected transitions using 64-sample minibatches."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#11",
+      "question": "What did the surrogate-objective ablation (Table 1) show, and which ε value won?",
+      "answer": "Without any clipping or penalty the average normalised score was −0.39. Clipping with ε=0.2 scored 0.82, the best of all variants. Adaptive KL peaked at 0.74. This ablation is the empirical justification for ε=0.2 as the standard PPO default."
+    },
+    {
+      "id": "proximal-policy-optimization-algorithms#12",
+      "question": "How does PPO's data efficiency compare to TRPO, and why does PPO win on the simplicity-versus-performance trade-off?",
+      "answer": "PPO matches or exceeds TRPO on MuJoCo continuous control tasks (1M timesteps each) while requiring only first-order optimization — no conjugate gradient or Fisher-vector products. It also works with shared policy/value-function networks and with dropout, which TRPO's second-order constraint formulation cannot easily accommodate."
+    }
+  ]
+}

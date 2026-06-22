@@ -1,0 +1,55 @@
+{
+  "paperId": "constitutional-ai-harmlessness-from-ai-feedback",
+  "cards": [
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#1",
+      "question": "What problem does Constitutional AI solve that prior HH RLHF could not?",
+      "answer": "Prior HH RLHF models learned evasiveness — crowdworkers rewarded refusal, so models simply refused harmful queries rather than engaging thoughtfully. CAI trains a harmless model that explains its objections instead of refusing, and does so without any human labels for harmlessness."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#2",
+      "question": "What are the two stages of the CAI training pipeline and what does each accomplish?",
+      "answer": "The SL stage finetunes the model on its own critiqued-and-revised responses to red-team prompts, getting it 'on distribution' and reducing exploration cost for RL. The RL stage (RLAIF) then trains a preference model on AI-generated harmlessness labels and runs RL against it, significantly improving harmlessness and reliability beyond what the SL stage alone achieves."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#3",
+      "question": "Walk through the exact prompt sequence used in one SL-stage critique-revision step.",
+      "answer": "The helpful RLHF model first generates a response to a red-team prompt. A pre-written critique request is appended (e.g. 'Identify specific ways in which the assistant's last response is harmful…') and the model samples a critique. A revision request is then appended (e.g. 'Please rewrite the assistant response to remove any and all harmful… content') and the model samples a revision. The revised response replaces the original in the context, and the whole critique-revision cycle can repeat up to four times with a freshly sampled constitutional principle each round."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#4",
+      "question": "How does the number of critique-revision rounds affect harmlessness, and how many rounds does the paper use?",
+      "answer": "Harmlessness PM scores improve monotonically with each revision round (Figure 5), with the largest gain at round 1. The paper samples 4 revisions per red-team prompt and trains SL-CAI on all revisions (SL-CAI-n is finetuned through the nth revision for n = 1, 2, 3, 4), though helpfulness scores decline slightly with each additional revision."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#5",
+      "question": "Why does the SL stage include helpfulness samples alongside the revised harmlessness responses during finetuning?",
+      "answer": "To prevent the finetuned model from losing helpfulness. The paper sampled responses from the helpful RLHF model on 135,296 human-written helpfulness prompts and mixed them with the harmlessness revisions during SL-CAI finetuning, training for one epoch at batch size 1024 with a constant learning rate of 0.5× the pre-training rate."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#6",
+      "question": "In the RLAIF stage, what exact prompt format does the feedback model use to generate harmlessness preference labels?",
+      "answer": "The feedback model receives: the human/assistant conversation, a constitutional principle phrased as a multiple-choice criterion (e.g. 'Which of these assistant responses is less harmful? Choose the response that a wise, ethical, polite and friendly person would more likely say'), then 'Options: (A) [Response A] (B) [Response B] The answer is:'. The log probabilities of tokens (A) and (B) are computed and normalized to form soft preference targets."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#7",
+      "question": "Why must CoT probability targets be clamped, and to what range?",
+      "answer": "Chain-of-thought samples typically state which option to prefer explicitly, making the resulting probabilities very confident — close to 0 or 1 — and therefore poorly calibrated. The paper clamps CoT-derived probability targets to the 40–60% range; without clamping, RL-CAI would learn to produce more extreme responses."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#8",
+      "question": "How does CAI's constitution enter the RLAIF stage, and why does using 16 principles matter?",
+      "answer": "At each preference-labeling step a principle is randomly sampled from the 16 constitutional principles and used as the multiple-choice evaluation criterion. Using more principles does not raise harmlessness PM scores but does increase the diversity of response pairs, which is valuable for exploration during RL training."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#9",
+      "question": "What data mix is used to train the final preference model in the RL stage?",
+      "answer": "The preference model is trained on 135,296 human-feedback helpfulness comparisons mixed with 182,831 constitutionally-generated harmlessness comparisons (one AI-labeled comparison per SL-CAI red-team prompt). Human labels are used for helpfulness; AI labels replace human labels entirely for harmlessness."
+    },
+    {
+      "id": "constitutional-ai-harmlessness-from-ai-feedback#10",
+      "question": "Why does CAI prefer critiqued revisions over direct revisions, even though large models close the gap?",
+      "answer": "Critiqued revisions consistently achieve slightly better harmlessness scores than direct revisions across all model sizes, and are always better for smaller models (Figure 7). More importantly, the explicit critique step makes the model's reasoning transparent — it can surface subtle harms and unintended consequences — so the paper uses critiqued revisions throughout for both performance and interpretability reasons."
+    }
+  ]
+}

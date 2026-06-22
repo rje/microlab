@@ -1,0 +1,65 @@
+{
+  "paperId": "root-mean-square-layer-normalization",
+  "cards": [
+    {
+      "id": "root-mean-square-layer-normalization#1",
+      "question": "What is the central hypothesis of the RMSNorm paper, and what does it imply about LayerNorm?",
+      "answer": "The paper hypothesizes that re-scaling invariance (dividing by a magnitude statistic) is the load-bearing property of LayerNorm, while re-centering invariance (mean subtraction) contributes little to training stability. This implies that the mean-computation step in LayerNorm is dispensable overhead."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#2",
+      "question": "Write the RMSNorm formula for normalized output ā_i given summed inputs a.",
+      "answer": "ā_i = (a_i / RMS(a)) * g_i, where RMS(a) = sqrt((1/n) * sum(a_i^2)). The gain vector g is a learnable parameter initialized to 1. There is no mean subtraction and no bias term in the normalization itself."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#3",
+      "question": "What invariance properties does RMSNorm have, and what invariance does it lack compared to LayerNorm?",
+      "answer": "RMSNorm is invariant to weight-matrix re-scaling and dataset (input) re-scaling, because RMS(αx) = α·RMS(x) makes the scaling cancel out. It is NOT invariant to re-centering (shifting inputs or weights by an additive constant), unlike LayerNorm."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#4",
+      "question": "How does RMSNorm act as an implicit learning-rate adaptor during training?",
+      "answer": "The gradient of the weight matrix W through RMSNorm contains a term R that is negatively correlated with the scale of W. When weights grow large (δW), R scales by 1/δ, reducing the effective update magnitude automatically — this damps large-weight updates without an explicit LR schedule."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#5",
+      "question": "Why does LayerNorm's convergence advantage over a baseline not translate into a wall-clock advantage in RNN training?",
+      "answer": "LayerNorm reduces the number of training steps to convergence, but each step is more expensive due to the mean and variance computation. As models grow larger and deeper, this per-step overhead counter-balances the convergence gain, leaving no net wall-clock improvement (Figure 1 in the paper)."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#6",
+      "question": "What is pRMSNorm and how does it estimate RMS differently from RMSNorm?",
+      "answer": "pRMSNorm estimates RMS from only the first p% of summed inputs: RMS_bar(a) = sqrt((1/k) * sum_{i=1}^{k} a_i^2), where k = ceil(n * p). The default p is 6.25%. It exploits the approximately i.i.d. structure of neurons in a layer, and retains the same re-scaling invariance properties as RMSNorm."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#7",
+      "question": "What is the practical limitation of pRMSNorm identified in the paper?",
+      "answer": "pRMSNorm shows gradient instability when model width (m) is small — gradients can explode. Also, tensor-slicing to extract the first p% of inputs is not optimally implemented in TensorFlow/PyTorch/Theano, so pRMSNorm sometimes runs slower than RMSNorm in practice despite fewer FLOPs in theory."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#8",
+      "question": "What wall-clock speedups over LayerNorm did RMSNorm achieve across the paper's experiments, and which task showed the largest gain?",
+      "answer": "RMSNorm reduced per-step training time by 7%–64% relative to LayerNorm. The largest speedup (40%–64%) was on image-caption retrieval with an order-embedding model (Table 8), where normalization was a relatively large fraction of step cost. Transformer translation showed the smallest gains (7%–9%)."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#9",
+      "question": "What did the CIFAR-10 experiment reveal about LayerNorm that RMSNorm does not suffer from?",
+      "answer": "On ConvPool-CNN-C, LayerNorm degraded test error to 10.49% vs the 8.96% baseline — worse than no normalization at all. RMSNorm achieved 8.83% test error (better than baseline) with a 20.5% training time saving. The result suggests that re-centering in convolutional settings can hurt generalization."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#10",
+      "question": "Why does L2-Norm fail as a substitute for RMS normalization, according to the paper's ablation?",
+      "answer": "L2-Norm (Euclidean norm) differs from RMS by only a factor of sqrt(n), yet it failed to improve translation BLEU over the unnormalized baseline in the RNNSearch experiment. The authors hypothesize that RMS — which scales the sphere by sqrt(n), tying normalization strength to layer width — is more robust across layers and input vector sizes than the fixed Euclidean norm."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#11",
+      "question": "How does implementing RMSNorm differ from implementing LayerNorm as a code change?",
+      "answer": "RMSNorm removes two operations from LayerNorm: (1) computing the per-layer mean μ = (1/n)Σa_i, and (2) subtracting μ from each input before dividing. The divisor changes from the standard deviation σ to RMS(a) = sqrt((1/n)Σa_i^2). The learnable gain g remains; the bias b can be dropped since there is no longer a standardization step that would require re-centering."
+    },
+    {
+      "id": "root-mean-square-layer-normalization#12",
+      "question": "What does the robustness ablation (weight initialization center = 0.2) show about RMSNorm vs LayerNorm?",
+      "answer": "When weight initialization is shifted to an abnormal center (0.2 instead of 0), LayerNorm becomes very unstable and fails to converge well, while RMSNorm remains more stable under the same abnormal initialization. This suggests RMSNorm's implicit learning-rate adaptation via the gradient term R provides robustness that LayerNorm's re-centering does not."
+    }
+  ]
+}

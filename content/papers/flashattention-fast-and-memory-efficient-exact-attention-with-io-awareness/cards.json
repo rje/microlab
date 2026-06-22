@@ -1,0 +1,65 @@
+{
+  "paperId": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness",
+  "cards": [
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#1",
+      "question": "Why does standard attention fail to achieve wall-clock speedup even when approximate methods reduce its FLOP count?",
+      "answer": "Standard attention is memory-bound, not compute-bound: its bottleneck is reads and writes between slow HBM and on-chip SRAM, not arithmetic operations. Approximate methods that reduce FLOPs do not reduce HBM accesses proportionally, so they rarely produce real speedups."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#2",
+      "question": "What are the two techniques FlashAttention uses to compute exact attention with sub-quadratic HBM accesses?",
+      "answer": "Tiling: Q, K, V are split into blocks sized to fit on-chip SRAM so the N×N attention matrix is never materialized in HBM. Recomputation: during the backward pass the attention matrix is regenerated on-chip from stored Q, K, V blocks rather than read back from HBM."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#3",
+      "question": "How does FlashAttention's tiling algorithm (Algorithm 1) structure its loops over Q, K, and V blocks?",
+      "answer": "The outer loop iterates over T_c blocks of K and V, loading each K_j, V_j block from HBM to SRAM. The inner loop then iterates over all T_r blocks of Q; for each Q_i block it computes the local score S_ij = Q_i K_j^T, updates the running softmax statistics (m, ℓ), and accumulates the output O_i — all on-chip — before writing the updated O_i back to HBM."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#4",
+      "question": "What per-block statistics does the online softmax in FlashAttention track, and how are they merged across blocks?",
+      "answer": "For each row the algorithm tracks the running max m and the running sum of shifted exponentials ℓ. When a new block arrives with local max m̃ and local sum ℓ̃, the merged max is max(m, m̃) and the merged normalizer is e^(m−m_new) ℓ + e^(m̃−m_new) ℓ̃. The output accumulator O is rescaled by diag(ℓ)^−1 · diag(ℓ_new) at each step so the final result equals exact softmax(QK^T)V."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#5",
+      "question": "How does FlashAttention's backward pass avoid storing the O(N²) attention matrix P?",
+      "answer": "The forward pass stores only the softmax normalization constants L_i (the log-sum-exp per row) along with Q, K, V, and the output O — all O(N) or O(Nd) in size. During the backward pass, each attention block S_ij and P_ij is recomputed on-chip from the corresponding Q_i, K_j blocks in SRAM, so dQ, dK, dV can be computed without ever reading an N×N matrix from HBM."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#6",
+      "question": "What are the IO complexity results for standard attention and FlashAttention (Theorem 2), and what do they imply for typical GPU parameters?",
+      "answer": "Standard attention requires Θ(Nd + N²) HBM accesses; FlashAttention requires Θ(N²d²M⁻¹), where M is SRAM size. For typical values (d = 64–128, M ≈ 100 KB on an A100), d² is much smaller than M, so FlashAttention makes many times fewer HBM accesses — up to 9× fewer in the paper's benchmarks."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#7",
+      "question": "What does Proposition 3 (the lower-bound result) establish about FlashAttention's IO complexity?",
+      "answer": "No exact attention algorithm can asymptotically improve on Θ(N²d²M⁻¹) HBM accesses over all SRAM sizes M in [d, Nd]. This means FlashAttention is IO-optimal: future variants can rearrange but cannot fundamentally reduce the number of HBM accesses required for exact attention."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#8",
+      "question": "How are block sizes B_c and B_r chosen in FlashAttention, and what constrains them?",
+      "answer": "Block sizes are set to B_c = ⌈M / (4d)⌉ and B_r = min(⌈M / (4d)⌉, d). The constraint is that a block of Q, K, or V of size B_r × d or B_c × d, plus the score and output tiles, must fit in on-chip SRAM of size M. Larger blocks mean fewer passes over Q and fewer HBM accesses, but beyond a threshold (around block size 256 on an A100) arithmetic becomes the bottleneck."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#9",
+      "question": "Why does recomputation in the backward pass make FlashAttention faster overall, even though it increases FLOP count?",
+      "answer": "Attention is memory-bound on GPUs: HBM bandwidth, not arithmetic throughput, is the limiting resource. Recomputing the N×N attention blocks on-chip avoids reading a large matrix from slow HBM, which more than offsets the cost of the extra FLOPs. The paper confirms this empirically — FlashAttention's backward pass uses more FLOPs than standard attention (75.2 vs. 66.6 GFLOPs) yet runs ~5.7× faster on a GPT-2 workload."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#10",
+      "question": "What memory complexity does FlashAttention achieve, and why does that enable longer context?",
+      "answer": "FlashAttention uses O(N) additional memory beyond inputs and output — the per-row softmax statistics (m, ℓ) — compared to O(N²) for standard attention which must store the full score and attention matrices. This linear scaling allows training with context lengths of 16K–64K on the same hardware that standard attention would exhaust at much shorter sequences."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#11",
+      "question": "How does block-sparse FlashAttention reduce IO complexity, and what sparsity pattern does the paper use?",
+      "answer": "Block-sparse FlashAttention skips zero blocks in a predefined mask, replacing the dense Θ(N²d²M⁻¹) access count with Θ(Nd + N²d²M⁻¹s), where s is the fraction of nonzero blocks. The paper uses a butterfly sparsity pattern; for large N, s is often set to N⁻¹/² or N⁻¹ log N, giving subquadratic IO. This achieves 2–4× speedup over dense FlashAttention and scales to sequence length 64K."
+    },
+    {
+      "id": "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness#12",
+      "question": "What training-speed and model-quality results validate FlashAttention's claims?",
+      "answer": "Speed: 15% faster than the MLPerf 1.1 BERT-large record, 3× faster than HuggingFace and 1.7× faster than Megatron on GPT-2, 2.4× faster on Long-Range Arena. Quality: 0.7 lower perplexity on GPT-2 via longer context (4K vs 1K); first Transformer to exceed random chance on Path-X (16K, 61.4%) and Path-256 (64K, 63.1% with block-sparse FlashAttention)."
+    }
+  ]
+}

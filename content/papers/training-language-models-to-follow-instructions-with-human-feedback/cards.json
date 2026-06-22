@@ -1,0 +1,55 @@
+{
+  "paperId": "training-language-models-to-follow-instructions-with-human-feedback",
+  "cards": [
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#1",
+      "question": "Why doesn't scaling a language model automatically make it better at following user instructions?",
+      "answer": "The pretraining objective — predicting the next token on internet text — is misaligned with being helpful, honest, and harmless. A larger model becomes better at the pretraining distribution, not at acting in accordance with user intent. Alignment requires a separate fine-tuning step targeted at that goal."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#2",
+      "question": "What are the three sequential stages of the InstructGPT RLHF pipeline, and what artifact does each stage produce?",
+      "answer": "Stage 1 (SFT): labelers write demonstration responses to prompts; GPT-3 is fine-tuned on these to produce an SFT policy. Stage 2 (RM): labelers rank K model outputs per prompt; a reward model is trained on all C(K,2) pairwise comparisons to output a scalar reward. Stage 3 (PPO): the SFT policy is further fine-tuned with PPO to maximise the RM's scalar reward, producing the final InstructGPT policy."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#3",
+      "question": "What is the reward model loss function (Equation 1), and why are comparisons batched per prompt rather than shuffled into a single dataset?",
+      "answer": "The loss is: loss(θ) = −1/C(K,2) · E[(log σ(r_θ(x, y_w) − r_θ(x, y_l)))], where y_w is the preferred completion and y_l the rejected one. Batching all C(K,2) pairs from one prompt as a single batch element prevents overfitting: when comparisons are shuffled, each completion appears in K−1 gradient updates within an epoch, causing the RM to overfit after just one pass. Batching per prompt means only one forward pass per completion."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#4",
+      "question": "What is the PPO-ptx objective (Equation 2), and what roles do the coefficients β and γ play?",
+      "answer": "objective(φ) = E[r_θ(x,y) − β·log(π_φ^RL(y|x) / π^SFT(y|x))] + γ·E[log π_φ^RL(x)], where π_φ^RL is the learned policy and π^SFT is the supervised baseline. β (KL penalty coefficient) prevents the RL policy from drifting too far from the SFT model and reward-hacking the RM. γ (pretraining coefficient) mixes in the log-likelihood of the pretraining distribution, recovering performance regressions on NLP benchmarks. For plain PPO models γ is set to 0."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#5",
+      "question": "How is the SFT model trained, and why is the final SFT checkpoint chosen by reward model score rather than validation loss?",
+      "answer": "GPT-3 is fine-tuned for 16 epochs with cosine learning rate decay and residual dropout of 0.2 on ~13k labeler demonstrations. The SFT model overfits on validation loss after 1 epoch, but RM score and human preference ratings continue to improve with more epochs. Selecting by RM score therefore picks the checkpoint that is actually better by the alignment objective, not the one with the lowest NLL."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#6",
+      "question": "Why is a 6B parameter model used as the reward model instead of the full 175B GPT-3?",
+      "answer": "The authors found 175B RM training to be unstable and less suitable as the value function initialiser during PPO. The 6B RM saves substantial compute and still provides a reliable reward signal; the SFT model's final unembedding layer is replaced by a scalar head to produce the reward output."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#7",
+      "question": "What is the 'alignment tax', and how does PPO-ptx largely eliminate it?",
+      "answer": "PPO-only fine-tuning degrades performance on several public NLP benchmarks (SQuAD, DROP, HellaSwag, WMT15) relative to GPT-3 — this regression is called the alignment tax. PPO-ptx adds a pretraining log-likelihood term (scaled by γ) to the PPO objective, mixing pretraining gradients into RL updates. This mostly recovers the regressions without compromising labeler preference scores."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#8",
+      "question": "How does InstructGPT's human-preference performance compare to raw GPT-3, and what does this reveal about the value of RLHF relative to scale?",
+      "answer": "The 1.3B InstructGPT (PPO-ptx) is preferred over 175B GPT-3 outputs 85±3% of the time — a 100x parameter disadvantage overcome purely by alignment fine-tuning. The RLHF alignment cost was ~60 petaflop/s-days versus ~3,640 for pretraining, showing that a small fraction of pretraining compute spent on alignment can outweigh a 100x increase in model size."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#9",
+      "question": "What do the labeler inter-annotator agreement rates tell us about the noise floor in human preference data?",
+      "answer": "Training labelers agree with each other 72.6±1.5% of the time; held-out labelers agree 77.3±1.3% of the time. This sets a concrete ceiling: any reward model trained on these comparisons inherits this noise level, meaning a reward model accuracy near ~72% may already be near the human agreement ceiling rather than indicating room for easy improvement."
+    },
+    {
+      "id": "training-language-models-to-follow-instructions-with-human-feedback#10",
+      "question": "Whose values does InstructGPT actually align to, and why does this matter for evaluating an RLHF-trained model?",
+      "answer": "InstructGPT aligns to the preferences of a specific labeler cohort (~40 contractors, mostly English-speaking, from the US and Southeast Asia) and OpenAI researchers — not to universal 'human values'. The reward model encodes the biases, blind spots, and priorities of this narrow group. When evaluating any RLHF model, you must ask explicitly who the reward signal represents and whether that cohort reflects the intended user population."
+    }
+  ]
+}

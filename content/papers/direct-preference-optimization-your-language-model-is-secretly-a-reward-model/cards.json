@@ -1,0 +1,60 @@
+{
+  "paperId": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model",
+  "cards": [
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#1",
+      "question": "What problem with standard RLHF does DPO solve, and how does it solve it at a high level?",
+      "answer": "Standard RLHF requires three expensive, unstable stages: SFT, reward model training, and PPO-based RL fine-tuning that samples from the live policy. DPO eliminates the separate reward model and the RL loop entirely by reparameterizing the reward function in terms of the policy itself, reducing preference optimization to a single binary cross-entropy pass over offline preference pairs."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#2",
+      "question": "What is the KL-constrained RL objective that DPO implicitly optimizes?",
+      "answer": "max over pi_theta of E[r(x,y)] - beta * KL(pi_theta(y|x) || pi_ref(y|x)), where r is a reward function, pi_ref is the SFT reference policy, and beta controls how far the learned policy may deviate from the reference. DPO solves this exact objective without ever computing gradients through a reward network or running RL."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#3",
+      "question": "What is the closed-form optimal policy for the KL-constrained RL problem, and why is it intractable to use directly?",
+      "answer": "The optimal policy is pi_r(y|x) = (1/Z(x)) * pi_ref(y|x) * exp((1/beta) * r(x,y)), where Z(x) = sum_y pi_ref(y|x) * exp((1/beta) * r(x,y)) is the partition function. Z(x) requires summing over all possible completions, which is intractable for language models."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#4",
+      "question": "What is the implicit reward formula at the heart of DPO, and how is it derived?",
+      "answer": "By rearranging the closed-form optimal policy (Eq. 4), the reward can be expressed as r(x,y) = beta * log(pi(y|x) / pi_ref(y|x)) + beta * log Z(x). When this reparameterization is substituted into the Bradley-Terry preference probability, the partition function Z(x) cancels (it appears in both the numerator and denominator as a difference), leaving the reward implicitly defined as r_hat(x,y) = beta * log(pi_theta(y|x) / pi_ref(y|x))."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#5",
+      "question": "Write out the DPO loss (Eq. 7) and explain each term.",
+      "answer": "L_DPO(pi_theta; pi_ref) = -E_{(x,y_w,y_l)~D}[ log sigma( beta*log(pi_theta(y_w|x)/pi_ref(y_w|x)) - beta*log(pi_theta(y_l|x)/pi_ref(y_l|x)) ) ]. The sigma is the logistic function; y_w and y_l are the preferred and dispreferred completions; the argument to sigma is the implicit reward gap between winner and loser. Minimizing this loss pushes the policy to assign higher implicit reward to y_w than y_l."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#6",
+      "question": "What does the gradient weighting term in DPO's gradient do, and why is it necessary?",
+      "answer": "The gradient of L_DPO is scaled by sigma(r_hat(y_l) - r_hat(y_w)) — the probability that the implicit reward model currently ranks the dispreferred completion higher than the preferred one. Examples where the current model is already correct (large reward gap) contribute little; examples where the model is wrong contribute heavily. Without this dynamic weighting, naive log-probability increases can cause degenerate solutions (confirmed in Appendix Table 3)."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#7",
+      "question": "Why does no separate reward network need to be trained or stored when using DPO?",
+      "answer": "Theorem 1 shows that every reward equivalence class consistent with the Bradley-Terry (and Plackett-Luce) preference framework can be represented by the reparameterization r(x,y) = beta * log(pi(y|x)/pi_ref(y|x)) for some model pi. Because the DPO loss trains pi_theta to satisfy exactly this form, the policy weights themselves encode the reward: reward scores at inference time are read off as beta times the log policy-to-reference ratio, with no separate reward head."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#8",
+      "question": "What is the two-step DPO training pipeline in practice?",
+      "answer": "Step 1: collect an offline dataset of preference pairs D = {(x, y_w, y_l)} sampled from pi_ref (or a pre-existing preference dataset). Step 2: minimize L_DPO over this fixed dataset using pi_ref frozen. No sampling from pi_theta is required during training, unlike PPO which must sample from the live policy at every step."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#9",
+      "question": "What is the role of beta in DPO, and what happens at the extremes?",
+      "answer": "Beta controls the strength of the KL-divergence penalty against the reference policy. A small beta allows the policy to deviate far from pi_ref in pursuit of higher reward, risking mode collapse or reward hacking. A large beta keeps the policy close to pi_ref, reducing alignment with preferences. In practice beta is tuned to balance reward improvement with generation diversity."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#10",
+      "question": "How does DPO compare to PPO on the reward/KL tradeoff frontier in the controlled sentiment experiment?",
+      "answer": "DPO produces a strictly dominant frontier: for every level of KL divergence from the reference policy, DPO achieves higher expected reward than PPO — including PPO-GT, the oracle variant that trains directly on ground-truth rewards from the sentiment classifier. This holds even though DPO uses no explicit reward signal during training."
+    },
+    {
+      "id": "direct-preference-optimization-your-language-model-is-secretly-a-reward-model#11",
+      "question": "Why does DPO avoid the PPO instability caused by the missing log-partition-function term?",
+      "answer": "In standard actor-critic PPO for RLHF, the optimization objective (Eq. 10) includes a normalization term f(r_phi, pi_ref, beta) — the log partition function of the reward — that is dropped in practice. This missing term introduces high-variance policy gradients. DPO's reparameterization makes this term vanish analytically (it cancels when the Bradley-Terry difference is taken), so DPO's gradients are lower variance and training is more stable without any baseline or value function."
+    }
+  ]
+}
