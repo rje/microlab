@@ -919,3 +919,16 @@ svg {
 .recall-done button { margin-top: 1rem; padding: 0.5rem 1rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fff; cursor: pointer; }
 .recall-error { color: #b3261e; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* PDF highlights (authed workspace only) */
+.pdf-hl-layer { position: absolute; inset: 0; pointer-events: none; }
+.pdf-hl { position: absolute; background: rgba(255, 221, 0, 0.45); mix-blend-mode: multiply; border-radius: 1px; }
+.hl-fab { position: fixed; z-index: 80; transform: translate(6px, 6px); background: #116466; color: #fff; border: 0; border-radius: 7px; padding: 0.35rem 0.7rem; font-weight: 600; font-size: 0.82rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+.ws-highlights { margin: 0 0 0.7rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fffdf8; padding: 0.4rem 0.7rem; }
+.ws-highlights > summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: #116466; }
+.ws-hl-item { display: flex; gap: 0.4rem; align-items: flex-start; padding: 0.45rem 0; border-top: 1px solid #efe9da; }
+.ws-hl-item .jump { flex: 1; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; font-size: 0.85rem; line-height: 1.4; color: #2d2b27; }
+.ws-hl-item .jump:hover { color: #116466; }
+.ws-hl-item .hl-page { color: #8a8175; font-size: 0.72rem; white-space: nowrap; padding-top: 0.15rem; }
+.ws-hl-del { background: none; border: 0; color: #b3261e; cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 0.2rem; }
+.ws-hl-empty { color: #8a8175; font-size: 0.82rem; padding: 0.3rem 0; }

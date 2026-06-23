@@ -198,3 +198,49 @@ export function submitReview(
 ): Promise<void> {
   return mutate("/api/recall/review", csrfToken, { cardId, paperId, grade });
 }
+
+export type Highlight = {
+  id: number;
+  page: number;
+  rects: { x: number; y: number; w: number; h: number }[];
+  text: string;
+};
+
+export async function fetchHighlights(paperId: string): Promise<Highlight[]> {
+  const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/highlights`);
+  if (!response.ok) {
+    throw new Error(`Failed to load highlights: ${response.status}`);
+  }
+  return (await response.json()).highlights ?? [];
+}
+
+export async function addHighlight(
+  paperId: string,
+  csrfToken: string,
+  highlight: { page: number; rects: { x: number; y: number; w: number; h: number }[]; text: string }
+): Promise<Highlight> {
+  const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/highlights`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(highlight)
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail.trim() || `Save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteHighlight(
+  paperId: string,
+  csrfToken: string,
+  id: number
+): Promise<void> {
+  const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/highlights/${id}`, {
+    method: "DELETE",
+    headers: { "X-CSRF-Token": csrfToken }
+  });
+  if (!response.ok) {
+    throw new Error(`Delete failed: ${response.status}`);
+  }
+}

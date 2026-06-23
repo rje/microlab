@@ -1,19 +1,78 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+
+export type PdfRect = { x: number; y: number; w: number; h: number };
+export type PdfHighlight = { id: number | string; page: number; rects: PdfRect[]; text: string };
+export type PdfSelection = {
+  page: number;
+  rects: PdfRect[];
+  text: string;
+  anchor: { x: number; y: number };
+};
+export type PdfViewHandle = { scrollToHighlight: (page: number, normY: number) => void };
+
+type PdfViewProps = {
+  url: string;
+  highlights?: PdfHighlight[];
+  onSelect?: (selection: PdfSelection | null) => void;
+};
 
 /**
- * Renders a PDF inline by drawing each page to a canvas with pdf.js, plus an
- * invisible pdf.js text layer over each page so text is selectable (copy/paste)
- * and can later be highlighted. Unlike an <iframe>, this works on mobile browsers
- * (which usually refuse to render PDFs inline). pdf.js is loaded lazily.
- *
- * The `.textLayer` CSS this relies on lives in BOTH styles.css (authed app) and
- * public.css (the isolated public bundle) — the public bundle doesn't import
- * styles.css, so it needs its own copy.
+ * Renders a PDF inline with pdf.js: a canvas per page plus an invisible text layer
+ * (selectable text → copy/paste) and a highlight overlay. `highlights` are drawn as
+ * normalized rectangles; `onSelect` (passed only in the authed workspace) fires with
+ * the selection geometry so the caller can offer to persist a highlight. The public
+ * reader passes neither, so it gets copy/paste but no highlight wiring.
  */
-export function PdfView({ url }: { url: string }) {
+export const PdfView = forwardRef<PdfViewHandle, PdfViewProps>(function PdfView(
+  { url, highlights, onSelect },
+  ref
+) {
+  const viewRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapsRef = useRef<Map<number, HTMLDivElement>>(new Map());
+  const highlightsRef = useRef<PdfHighlight[]>(highlights ?? []);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
+
+  const drawHighlights = () => {
+    wrapsRef.current.forEach((wrap, page) => {
+      const layer = wrap.querySelector<HTMLDivElement>(".pdf-hl-layer");
+      if (!layer) {
+        return;
+      }
+      layer.innerHTML = "";
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      for (const hl of highlightsRef.current) {
+        if (hl.page !== page) {
+          continue;
+        }
+        for (const r of hl.rects) {
+          const d = document.createElement("div");
+          d.className = "pdf-hl";
+          d.style.left = `${r.x * w}px`;
+          d.style.top = `${r.y * h}px`;
+          d.style.width = `${r.w * w}px`;
+          d.style.height = `${r.h * h}px`;
+          d.dataset.hid = String(hl.id);
+          layer.appendChild(d);
+        }
+      }
+    });
+  };
+
+  useImperativeHandle(ref, () => ({
+    scrollToHighlight(page, normY) {
+      const wrap = wrapsRef.current.get(page);
+      const scroller = viewRef.current;
+      if (!wrap || !scroller) {
+        return;
+      }
+      const wrapRect = wrap.getBoundingClientRect();
+      const scRect = scroller.getBoundingClientRect();
+      scroller.scrollTop += wrapRect.top - scRect.top + normY * wrapRect.height - 60;
+    },
+  }));
 
   useEffect(() => {
     let cancelled = false;
@@ -21,6 +80,7 @@ export function PdfView({ url }: { url: string }) {
     if (root) {
       root.innerHTML = "";
     }
+    wrapsRef.current = new Map();
     setStatus("loading");
     setError("");
 
@@ -46,8 +106,8 @@ export function PdfView({ url }: { url: string }) {
             return;
           }
           const page = await pdf.getPage(n);
-          const base = page.getViewport({ scale: 1 });
-          const scale = cssWidth / base.width;
+          const baseVp = page.getViewport({ scale: 1 });
+          const scale = cssWidth / baseVp.width;
           const cssViewport = page.getViewport({ scale });
           const canvasViewport = page.getViewport({ scale: scale * dpr });
           const pageW = Math.floor(cssViewport.width);
@@ -59,6 +119,7 @@ export function PdfView({ url }: { url: string }) {
           wrap.style.height = `${pageH}px`;
           wrap.dataset.page = String(n);
           target.appendChild(wrap);
+          wrapsRef.current.set(n, wrap);
 
           const canvas = document.createElement("canvas");
           canvas.className = "pdf-page";
@@ -71,6 +132,10 @@ export function PdfView({ url }: { url: string }) {
           if (ctx) {
             await page.render({ canvasContext: ctx, viewport: canvasViewport, canvas }).promise;
           }
+
+          const hlLayer = document.createElement("div");
+          hlLayer.className = "pdf-hl-layer";
+          wrap.appendChild(hlLayer);
 
           const textLayerDiv = document.createElement("div");
           textLayerDiv.className = "textLayer";
@@ -86,12 +151,14 @@ export function PdfView({ url }: { url: string }) {
           });
           await textLayer.render();
 
+          drawHighlights();
           if (n === 1 && !cancelled) {
             setStatus("ready");
           }
         }
         if (!cancelled) {
           setStatus("ready");
+          drawHighlights();
         }
       } catch (err) {
         if (!cancelled) {
@@ -106,8 +173,55 @@ export function PdfView({ url }: { url: string }) {
     };
   }, [url]);
 
+  useEffect(() => {
+    highlightsRef.current = highlights ?? [];
+    drawHighlights();
+  }, [highlights]);
+
+  const handleMouseUp = () => {
+    if (!onSelect) {
+      return;
+    }
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+      onSelect(null);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const startNode = range.startContainer;
+    const startEl =
+      startNode.nodeType === Node.TEXT_NODE
+        ? startNode.parentElement
+        : (startNode as Element);
+    const wrap = startEl?.closest<HTMLElement>(".pdf-page-wrap");
+    if (!wrap) {
+      onSelect(null);
+      return;
+    }
+    const page = Number(wrap.dataset.page);
+    const wr = wrap.getBoundingClientRect();
+    const clientRects = Array.from(range.getClientRects()).filter(
+      (r) => r.width > 1 && r.height > 1
+    );
+    const rects = clientRects
+      .map((r) => ({
+        x: (r.left - wr.left) / wr.width,
+        y: (r.top - wr.top) / wr.height,
+        w: r.width / wr.width,
+        h: r.height / wr.height,
+      }))
+      .filter((r) => r.x >= -0.02 && r.x <= 1.02 && r.y >= -0.02 && r.y <= 1.02);
+    const text = sel.toString().trim();
+    if (rects.length === 0 || !text) {
+      onSelect(null);
+      return;
+    }
+    const last = clientRects[clientRects.length - 1];
+    onSelect({ page, rects, text, anchor: { x: last.right, y: last.bottom } });
+  };
+
   return (
-    <div className="pdf-view">
+    <div className="pdf-view" ref={viewRef} onMouseUp={handleMouseUp}>
       {status === "loading" && <p className="pdf-status">Loading PDF…</p>}
       {status === "error" && (
         <p className="pdf-status">
@@ -117,4 +231,4 @@ export function PdfView({ url }: { url: string }) {
       <div className="pdf-canvases" ref={containerRef} />
     </div>
   );
-}
+});

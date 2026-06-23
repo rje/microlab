@@ -14,11 +14,12 @@ import {
   TerminalSquare,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   DueCard,
   EvalRunSummary,
+  Highlight,
   MarkdownDocument,
   MicrolabState,
   Paper,
@@ -26,7 +27,10 @@ import {
   PaperSynopsis,
   Phase,
   PhaseTask,
+  addHighlight,
+  deleteHighlight,
   fetchDueCards,
+  fetchHighlights,
   fetchMarkdownDocument,
   fetchMicrolabState,
   fetchNotes,
@@ -37,7 +41,7 @@ import {
   submitReview
 } from "./state";
 import { MarkdownDocumentView } from "./MarkdownDocumentView";
-import { PdfView } from "./PdfView";
+import { PdfView, type PdfSelection, type PdfViewHandle } from "./PdfView";
 
 const READ_STATES = ["unread", "skimming", "mapped", "built", "mastered"];
 const DEPTHS = ["implement", "understand", "aware"];
@@ -585,8 +589,55 @@ function PaperWorkspace({
     onProgressChange(paper.id, progress);
   };
 
+  const pdfRef = useRef<PdfViewHandle>(null);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [selection, setSelection] = useState<PdfSelection | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchHighlights(paper.id)
+      .then((hls) => active && setHighlights(hls))
+      .catch(() => active && setHighlights([]));
+    return () => {
+      active = false;
+    };
+  }, [paper.id]);
+
+  const commitHighlight = () => {
+    if (!selection) {
+      return;
+    }
+    const sel = selection;
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
+    addHighlight(paper.id, csrfToken, { page: sel.page, rects: sel.rects, text: sel.text })
+      .then((hl) => setHighlights((prev) => [...prev, hl]))
+      .catch((error: Error) => setSaved(error.message));
+  };
+
+  const removeHighlight = (id: number) => {
+    setHighlights((prev) => prev.filter((h) => h.id !== id));
+    deleteHighlight(paper.id, csrfToken, id).catch(() => {});
+  };
+
+  const jumpToHighlight = (hl: Highlight) => {
+    setTab("paper");
+    requestAnimationFrame(() => pdfRef.current?.scrollToHighlight(hl.page, hl.rects[0]?.y ?? 0));
+  };
+
   return (
     <div className="ws-overlay" role="dialog" aria-modal="true" aria-label={`Reading ${paper.title}`}>
+      {selection && (
+        <button
+          type="button"
+          className="hl-fab"
+          style={{ left: selection.anchor.x, top: selection.anchor.y }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={commitHighlight}
+        >
+          Highlight
+        </button>
+      )}
       <header className="ws-header">
         <div className="ws-title">
           <h2>{paper.title}</h2>
@@ -669,11 +720,39 @@ function PaperWorkspace({
               Open PDF
             </a>
           </div>
-          <PdfView url={paper.pdfUrl} />
+          <PdfView
+            ref={pdfRef}
+            url={paper.pdfUrl}
+            highlights={highlights}
+            onSelect={setSelection}
+          />
         </section>
         <section
           className={`ws-pane ws-side ${tab === "summary" || tab === "notes" ? "active" : ""}`}
         >
+          <details className="ws-highlights">
+            <summary>Highlights ({highlights.length})</summary>
+            {highlights.length === 0 ? (
+              <p className="ws-hl-empty">Select text in the PDF, then click “Highlight”.</p>
+            ) : (
+              highlights.map((hl) => (
+                <div className="ws-hl-item" key={hl.id}>
+                  <button type="button" className="jump" onClick={() => jumpToHighlight(hl)}>
+                    {hl.text.length > 140 ? `${hl.text.slice(0, 140)}…` : hl.text}
+                  </button>
+                  <span className="hl-page">p.{hl.page}</span>
+                  <button
+                    type="button"
+                    className="ws-hl-del"
+                    aria-label="Delete highlight"
+                    onClick={() => removeHighlight(hl.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
+          </details>
           <div className={`ws-summary ${tab === "summary" ? "active" : ""}`}>
             {overview ? (
               <>
