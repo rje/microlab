@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Renders a PDF inline by drawing each page to a canvas with pdf.js.
- * Unlike an <iframe>, this works on mobile browsers (which usually refuse to
- * render PDFs inline). pdf.js is loaded lazily so it isn't in the main bundle.
+ * Renders a PDF inline by drawing each page to a canvas with pdf.js, plus an
+ * invisible pdf.js text layer over each page so text is selectable (copy/paste)
+ * and can later be highlighted. Unlike an <iframe>, this works on mobile browsers
+ * (which usually refuse to render PDFs inline). pdf.js is loaded lazily.
+ *
+ * The `.textLayer` CSS this relies on lives in BOTH styles.css (authed app) and
+ * public.css (the isolated public bundle) — the public bundle doesn't import
+ * styles.css, so it needs its own copy.
  */
 export function PdfView({ url }: { url: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -12,9 +17,9 @@ export function PdfView({ url }: { url: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const canvases = containerRef.current;
-    if (canvases) {
-      canvases.innerHTML = "";
+    const root = containerRef.current;
+    if (root) {
+      root.innerHTML = "";
     }
     setStatus("loading");
     setError("");
@@ -43,18 +48,44 @@ export function PdfView({ url }: { url: string }) {
           const page = await pdf.getPage(n);
           const base = page.getViewport({ scale: 1 });
           const scale = cssWidth / base.width;
-          const viewport = page.getViewport({ scale: scale * dpr });
+          const cssViewport = page.getViewport({ scale });
+          const canvasViewport = page.getViewport({ scale: scale * dpr });
+          const pageW = Math.floor(cssViewport.width);
+          const pageH = Math.floor(cssViewport.height);
+
+          const wrap = document.createElement("div");
+          wrap.className = "pdf-page-wrap";
+          wrap.style.width = `${pageW}px`;
+          wrap.style.height = `${pageH}px`;
+          wrap.dataset.page = String(n);
+          target.appendChild(wrap);
+
           const canvas = document.createElement("canvas");
           canvas.className = "pdf-page";
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-          canvas.style.width = `${cssWidth}px`;
-          canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
-          target.appendChild(canvas);
+          canvas.width = Math.floor(canvasViewport.width);
+          canvas.height = Math.floor(canvasViewport.height);
+          canvas.style.width = `${pageW}px`;
+          canvas.style.height = `${pageH}px`;
+          wrap.appendChild(canvas);
           const ctx = canvas.getContext("2d");
           if (ctx) {
-            await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+            await page.render({ canvasContext: ctx, viewport: canvasViewport, canvas }).promise;
           }
+
+          const textLayerDiv = document.createElement("div");
+          textLayerDiv.className = "textLayer";
+          textLayerDiv.style.setProperty("--scale-factor", String(scale));
+          textLayerDiv.style.setProperty("--total-scale-factor", String(scale));
+          textLayerDiv.style.width = `${pageW}px`;
+          textLayerDiv.style.height = `${pageH}px`;
+          wrap.appendChild(textLayerDiv);
+          const textLayer = new pdfjs.TextLayer({
+            textContentSource: await page.getTextContent(),
+            container: textLayerDiv,
+            viewport: cssViewport,
+          });
+          await textLayer.render();
+
           if (n === 1 && !cancelled) {
             setStatus("ready");
           }

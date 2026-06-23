@@ -41,7 +41,13 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "
    PdfView's own classes must be defined here too or the pages overflow unscrollably. */
 .pdf-view { flex: 1; min-height: 0; overflow-y: auto; background: #e9e6df; }
 .pdf-canvases { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 6px; }
-.pdf-page { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15); background: #fff; max-width: 100%; }
+.pdf-page-wrap { position: relative; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15); background: #fff; max-width: 100%; }
+.pdf-page { display: block; }
+.textLayer { position: absolute; inset: 0; overflow: clip; opacity: 1; line-height: 1; text-align: initial; forced-color-adjust: none; transform-origin: 0 0; z-index: 1; text-size-adjust: none; --scale-round-x: 1px; --scale-round-y: 1px; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; user-select: text; }
+.textLayer > :not(.markedContent), .textLayer .markedContent span:not(.markedContent) { z-index: 1; --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height)); --scale-x: 1; --rotate: 0deg; transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.textLayer .markedContent { display: contents; }
+.textLayer ::selection { background: rgba(45, 111, 115, 0.30); }
 .pdf-status { padding: 1rem; opacity: 0.7; font-size: 0.9rem; }
 .pub-summary { padding: 1.25rem 1.4rem; max-width: 64ch; }
 .pub-lede { font-size: 1.05rem; font-weight: 600; line-height: 1.5; margin: 0 0 1rem; color: #1f1e1a; }
