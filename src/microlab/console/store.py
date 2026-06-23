@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -60,6 +61,18 @@ def init_db(db_path: str | Path) -> None:
                 card_id     TEXT NOT NULL,
                 reviewed_at TEXT NOT NULL,
                 grade       INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS highlights (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                paper_id   TEXT NOT NULL,
+                page       INTEGER NOT NULL,
+                rects      TEXT NOT NULL,
+                text       TEXT NOT NULL,
+                created_at TEXT NOT NULL
             )
             """
         )
@@ -218,3 +231,58 @@ def record_review(
     finally:
         conn.close()
     return {"ease": ease, "intervalDays": interval, "reps": reps, "dueAt": due}
+
+
+def list_highlights(db_path: str | Path, paper_id: str) -> list[dict[str, object]]:
+    init_db(db_path)
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, paper_id, page, rects, text, created_at FROM highlights "
+            "WHERE paper_id = ? ORDER BY page, id",
+            (paper_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [
+        {
+            "id": r["id"],
+            "paperId": r["paper_id"],
+            "page": r["page"],
+            "rects": json.loads(r["rects"]),
+            "text": r["text"],
+            "createdAt": r["created_at"],
+        }
+        for r in rows
+    ]
+
+
+def add_highlight(
+    db_path: str | Path, paper_id: str, page: int, rects: list, text: str
+) -> dict[str, object]:
+    init_db(db_path)
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            "INSERT INTO highlights (paper_id, page, rects, text, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (paper_id, int(page), json.dumps(rects), str(text), datetime.now(UTC).isoformat()),
+        )
+        conn.commit()
+        hid = cur.lastrowid
+    finally:
+        conn.close()
+    return {"id": hid, "paperId": paper_id, "page": int(page), "rects": rects, "text": str(text)}
+
+
+def delete_highlight(db_path: str | Path, paper_id: str, highlight_id: int) -> bool:
+    init_db(db_path)
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            "DELETE FROM highlights WHERE paper_id = ? AND id = ?", (paper_id, int(highlight_id))
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()

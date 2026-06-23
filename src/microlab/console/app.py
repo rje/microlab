@@ -273,6 +273,40 @@ def register_content_routes(app: Flask) -> None:
         due.sort(key=lambda c: 0 if c["status"] == "new" else 1)
         return jsonify({"cards": due[:40], "total": len(due)})
 
+    @app.route("/api/papers/<paper_id>/highlights")
+    @auth.login_required
+    def get_highlights(paper_id: str):
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        return jsonify({"highlights": store.list_highlights(db_path, paper_id)})
+
+    @app.route("/api/papers/<paper_id>/highlights", methods=["POST"])
+    @auth.login_required
+    def post_highlight(paper_id: str):
+        if not auth.csrf_ok(request.headers.get("X-CSRF-Token")):
+            return jsonify({"error": "bad csrf token"}), 403
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        data = request.get_json(silent=True) or {}
+        rects = data.get("rects")
+        if not isinstance(rects, list):
+            return jsonify({"error": "rects must be a list"}), 400
+        hl = store.add_highlight(
+            db_path, paper_id, int(data.get("page", 0)), rects, str(data.get("text", ""))
+        )
+        return jsonify(hl)
+
+    @app.route("/api/papers/<paper_id>/highlights/<int:highlight_id>", methods=["DELETE"])
+    @auth.login_required
+    def delete_highlight_route(paper_id: str, highlight_id: int):
+        if not auth.csrf_ok(request.headers.get("X-CSRF-Token")):
+            return jsonify({"error": "bad csrf token"}), 403
+        if paper_id not in content.valid_paper_ids(root):
+            return jsonify({"error": "unknown paper"}), 404
+        if not store.delete_highlight(db_path, paper_id, highlight_id):
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"ok": True})
+
     @app.route("/api/recall/review", methods=["POST"])
     @auth.login_required
     def recall_review():

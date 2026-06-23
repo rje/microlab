@@ -381,3 +381,42 @@ def test_public_cards_no_auth(client, project_root):
 def test_public_cards_empty_when_none(client, project_root):
     _seed_mmlu(project_root)
     assert client.get("/public/api/papers/mmlu/cards").get_json() == {"cards": []}
+
+
+def test_highlights_require_auth(client):
+    assert client.get("/api/papers/mmlu/highlights").status_code == 401
+
+
+def test_highlights_round_trip(client, project_root):
+    _seed_mmlu(project_root)
+    csrf = _login(client)
+    assert client.get("/api/papers/mmlu/highlights").get_json()["highlights"] == []
+    resp = client.post(
+        "/api/papers/mmlu/highlights",
+        json={"page": 1, "rects": [{"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.02}], "text": "quote"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    hid = resp.get_json()["id"]
+    got = client.get("/api/papers/mmlu/highlights").get_json()["highlights"]
+    assert len(got) == 1 and got[0]["text"] == "quote"
+    del_resp = client.delete(f"/api/papers/mmlu/highlights/{hid}", headers={"X-CSRF-Token": csrf})
+    assert del_resp.status_code == 200
+    assert client.get("/api/papers/mmlu/highlights").get_json()["highlights"] == []
+
+
+def test_highlight_post_requires_csrf(auth_client, project_root):
+    _seed_mmlu(project_root)
+    assert auth_client.post(
+        "/api/papers/mmlu/highlights", json={"page": 1, "rects": [], "text": "x"}
+    ).status_code == 403
+
+
+def test_highlight_unknown_paper_404(client):
+    csrf = _login(client)
+    assert client.get("/api/papers/not-a-paper/highlights").status_code == 404
+    assert client.post(
+        "/api/papers/not-a-paper/highlights",
+        json={"page": 1, "rects": [], "text": "x"},
+        headers={"X-CSRF-Token": csrf},
+    ).status_code == 404
