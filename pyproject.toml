@@ -7,6 +7,9 @@ requires-python = ">=3.11"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "gpu: tests that require a CUDA GPU (deselected by the pre-commit hook; run by scripts/check.sh)",
+]
 
 [tool.ruff]
 line-length = 100
