@@ -93,6 +93,32 @@ Phase by phase, each merged green before the next: **Phase 0 finish → Phase 1 
 Phase 2.** Each phase = reference (on main) + a `learn/<phase>` branch (stubs + tests +
 doc). Reported at each phase boundary.
 
+## Scaling to the agent phases (forward-looking)
+
+The **structure** (reference/ subpackage, learn-branch stubs, differential tests,
+gpu marker) is domain-agnostic and carries forward. The **validation mode** adapts,
+because an agent system splits in two:
+
+- **Mechanical/infra code — oracle works unchanged:** the agent loop (tool-call
+  parsing, observation formatting, context management, stop conditions), tool
+  implementations, RL math (GAE, PPO/GRPO clipped loss, KL penalty — closed-form, so
+  differential-vs-reference fits), and programmatic reward functions. This is most of
+  what gets hand-written; same reference + differential/property pattern.
+- **Agent behavior — outcome-based eval, not exact-match:** no single golden
+  trajectory to match. Validate via task **success rate / reward** over a suite (the
+  Phase-0 eval harness is the substrate — Phase 0 is deliberately the seed of agent
+  eval), plus **property/invariant** tests on the loop (tool budget, malformed-output
+  handling, termination), **golden-trajectory regression fixtures** replayed against a
+  *mock* environment + deterministic model (guards the harness, not the policy), and
+  LLM-as-judge for open-ended quality.
+
+**Honest limit:** an oracle proves the *code* is correct, not that the *agent is
+smart* — that's measurement (real eval runs with statistical significance), a research
+activity the harness supports but no unit test can stand in for. **No foundation
+change needed now**: `backends.py`'s `FixtureBackend` already seeds the deterministic
+mock-model approach, and the eval harness is the plug-in point. Agent phases add a
+mock-environment convention + outcome scoring; everything mechanical reuses this track.
+
 ## Risks
 
 - **GPU nondeterminism** makes exact differential checks flaky on GPU — so differential
