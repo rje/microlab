@@ -38,3 +38,6 @@ content/papers/*/notes.md
 
 # downloaded training corpora (fetch via microlab.data.reference.loaders)
 data/corpora/
+
+# transient agent worktrees
+.claude/worktrees/

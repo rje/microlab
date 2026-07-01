@@ -412,5 +412,41 @@
     "source_url": "https://arxiv.org/abs/2403.04132",
     "pdf_url": "https://arxiv.org/pdf/2403.04132",
     "filename": "2024-chiang-chatbot-arena.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale",
+    "authors": "Penedo et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2406.17557",
+    "pdf_url": "https://arxiv.org/pdf/2406.17557",
+    "filename": "2024-penedo-the-fineweb-datasets.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "Cramming: Training a Language Model on a Single GPU in One Day",
+    "authors": "Geiping & Goldstein",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2212.14034",
+    "pdf_url": "https://arxiv.org/pdf/2212.14034",
+    "filename": "2022-geiping-cramming.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Mixed Precision Training",
+    "authors": "Micikevicius et al.",
+    "year": 2017,
+    "source_url": "https://arxiv.org/abs/1710.03740",
+    "pdf_url": "https://arxiv.org/pdf/1710.03740",
+    "filename": "2017-micikevicius-mixed-precision-training.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling",
+    "authors": "Biderman et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2304.01373",
+    "pdf_url": "https://arxiv.org/pdf/2304.01373",
+    "filename": "2023-biderman-pythia.pdf"
   }
 ]

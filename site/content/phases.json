@@ -83,7 +83,8 @@
       "sentencepiece-a-simple-and-language-independent-subword-tokenizer-and-detokenizer-for-neural-text-processing",
       "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling",
       "deduplicating-training-data-makes-language-models-better",
-      "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models"
+      "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models",
+      "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale"
     ]
   },
   {
@@ -97,7 +98,9 @@
       "attention-is-all-you-need",
       "language-models-are-few-shot-learners",
       "scaling-laws-for-neural-language-models",
-      "training-compute-optimal-large-language-models"
+      "training-compute-optimal-large-language-models",
+      "cramming-training-a-language-model-on-a-single-gpu-in-one-day",
+      "mixed-precision-training"
     ]
   },
   {
@@ -126,7 +129,8 @@
       "scaling-laws-for-neural-language-models",
       "training-compute-optimal-large-language-models",
       "llama-open-and-efficient-foundation-language-models",
-      "the-llama-3-herd-of-models"
+      "the-llama-3-herd-of-models",
+      "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling"
     ]
   },
   {
