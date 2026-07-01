@@ -42,3 +42,10 @@ def load_hf_text(
 
     ds = load_dataset(dataset, split=split, **kwargs)
     return [row[text_field] for row in ds if row[text_field].strip()]
+
+
+def load_text_file(path: str) -> str:
+    """Read any local UTF-8 text corpus (e.g. a domain corpus for continued pretraining)."""
+    from pathlib import Path
+
+    return Path(path).read_text(encoding="utf-8")
