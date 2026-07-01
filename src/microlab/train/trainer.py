@@ -163,7 +163,8 @@ class Trainer:
         torch.set_rng_state(ckpt["torch_rng_state"].cpu())
         self.data_gen.set_state(ckpt["data_gen_state"].cpu())
         if ckpt.get("cuda_rng_state") is not None and torch.cuda.is_available():
-            torch.cuda.set_rng_state_all(ckpt["cuda_rng_state"])
+            # map_location moved these ByteTensors onto CUDA; RNG state must be CPU bytes.
+            torch.cuda.set_rng_state_all([s.cpu() for s in ckpt["cuda_rng_state"]])
 
     def train(self) -> dict:
         cfg = self.cfg

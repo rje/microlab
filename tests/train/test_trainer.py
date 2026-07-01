@@ -55,3 +55,19 @@ def test_trainer_on_cuda_bf16():
     tr = Trainer(_cfg(device="cuda", dtype="bfloat16", n_embd=64, max_steps=40), data, data)
     stats = tr.train()
     assert stats["history"][-1] < stats["history"][0]
+
+
+@pytest.mark.gpu
+def test_checkpoint_resume_on_cuda(tmp_path):
+    # Regression: torch.load(map_location="cuda") moves the RNG ByteTensors onto CUDA,
+    # but set_rng_state_all needs CPU bytes — resume must handle that.
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    data = TensorData(torch.randint(0, 64, (5000,)))
+    tr = Trainer(_cfg(device="cuda", dtype="bfloat16", n_embd=64, max_steps=20), data, data)
+    tr.train()
+    ck = str(tmp_path / "ck.pt")
+    tr.save_checkpoint(ck)
+    tr2 = Trainer(_cfg(device="cuda", dtype="bfloat16", n_embd=64, max_steps=20), data, data)
+    tr2.load_checkpoint(ck)  # must not raise
+    assert tr2.step == 20
