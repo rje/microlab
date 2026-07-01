@@ -26,9 +26,11 @@ config = RunConfig(
     warmup_steps=200,
     max_steps=6000,
     lr_decay_steps=6000,
-    # data / io  (24 * 1024 * 20 ≈ 0.5M tokens/step * 6000 ≈ 3B tokens)
-    batch_size=24,
-    grad_accum=20,
+    # data / io  (40 * 1024 * 12 ≈ 0.5M tokens/step * 6000 ≈ 3B tokens)
+    # batch 40 uses ~38GB of the 48GB card (vs ~24GB at batch 24) — fewer micro-steps,
+    # same effective batch, faster wall-clock. Drop to 24/accum 20 if VRAM is tight.
+    batch_size=40,
+    grad_accum=12,
     eval_interval=250,
     eval_iters=100,
     ckpt_interval=500,
