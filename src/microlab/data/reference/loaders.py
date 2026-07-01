@@ -49,3 +49,22 @@ def load_text_file(path: str) -> str:
     from pathlib import Path
 
     return Path(path).read_text(encoding="utf-8")
+
+
+def load_dolly(path: str, limit: int | None = None) -> list[dict[str, str]]:
+    """Load Databricks Dolly-15k JSONL (CC-BY-SA) as {instruction, context, response} dicts."""
+    import json
+    from pathlib import Path
+
+    rows = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        rows.append(
+            {"instruction": r.get("instruction", ""), "context": r.get("context", ""),
+             "response": r.get("response", "")}
+        )
+        if limit is not None and len(rows) >= limit:
+            break
+    return rows
