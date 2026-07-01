@@ -1,0 +1,65 @@
+{
+  "paperId": "cramming-training-a-language-model-on-a-single-gpu-in-one-day",
+  "cards": [
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#1",
+      "question": "What are the formal rules of the \"cramming\" challenge the paper defines?",
+      "answer": "A transformer of arbitrary size is trained with masked-language-modeling completely from scratch (no pretrained components anywhere in the pipeline); any raw text except the downstream task data may be used, and downloading/tokenization/filtering are exempt from the compute budget as long as they don't involve representation learning; training itself must run on a single GPU for 24 hours; and downstream GLUE finetuning is capped at 5 epochs with hyperparameters fixed globally across all GLUE tasks."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#2",
+      "question": "What is the paper's central finding about scaling laws in the low-compute regime, and why does it make scaling down hard?",
+      "answer": "Scaling laws observed at large compute continue to hold when scaling down: per-token training efficiency depends strongly on model size but barely on model type. After an initial ~1B unpredictable tokens, different architectures' loss curves differ only by a multiplicative (horizontal, log-scale) shift set by parameter count, all converging near an MLM loss of 1.9. This means smaller models don't learn better per token, so their extra throughput from being cheaper rarely translates into a net accuracy win."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#3",
+      "question": "Given that model type barely affects per-token efficiency, how did the authors still find architecture improvements?",
+      "answer": "Since scaling laws close the door on winning through major architectural changes, the authors instead searched for modifications that speed up each gradient step's wall-clock cost while keeping the parameter count (and thus per-token learning rate) roughly constant — e.g., removing bias terms that add compute but not capacity."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#4",
+      "question": "Which attention-block and feedforward-block changes were kept, and which plausible ones were rejected?",
+      "answer": "Kept: disabling all QKV biases and all feedforward linear-layer biases (free speed, same model size), and keeping the original 12-head multi-head attention and GELU activation. Rejected despite being reasonable candidates: FLASH attention and Fourier attention (no benefit, since sequence length 128 makes attention cost a non-issue), rotary embeddings (small quality gain outweighed by a drop in speed), and reducing head count (parallelizes better but hurts finetuning)."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#5",
+      "question": "Name three architecture ideas from the broader efficient-transformer literature that the authors tested and found gave no benefit under the cramming budget.",
+      "answer": "Funnel-transformer layouts, dropping FFN layers, and recurrent layers trained with BPTT all gave no improvement, along with deep-narrow rescaling and RMSNorm in place of LayerNorm — consistent with the finding that per-token efficiency is tied to model size, not architectural shape."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#6",
+      "question": "How is the learning-rate schedule adapted to the fixed 24-hour compute budget, and what schedule shape worked best?",
+      "answer": "The schedule is rescaled so the learning rate decays to zero exactly as the 24-hour budget runs out, rather than being tied to a fixed step count. Among triangular one-cycle, constant, inverse-sqrt, and cosine-decay schedules, a simple one-cycle schedule peaking at a learning rate of 10^-3 gave the lowest final pretraining loss, likely due to its quick annealing near the end of the budget."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#7",
+      "question": "How is the batch size handled given that the GPU can only fit a small micro-batch, and what did the authors find about optimal batch size?",
+      "answer": "Micro-batches (about 96 samples on the rtx2080ti, or 128-256 on larger cards) are accumulated via gradient accumulation into a much larger effective batch size before each optimizer update. The best batch size for minimizing pretraining loss was around 1536, but a larger batch of about 4032 (accumulating every 16-42 forward/backward passes) gave the best downstream GLUE performance; linearly ramping the micro-batch count up over training added a small additional gain."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#8",
+      "question": "Why is dropout disabled during pretraining in the cramming recipe, and when is it re-enabled?",
+      "answer": "Because the token budget is large relative to compute, training runs for a single epoch with no data point ever revisited, so overfitting isn't a risk — dropout would only reduce the number of effective parameter updates per second for no regularization benefit. Dropout is re-enabled (at a rate of 0.1) only during downstream GLUE finetuning, where the task data is comparatively small."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#9",
+      "question": "What optimizer configuration mattered, and what happened when decoupled weight decay was replaced with classic Adam weight decay?",
+      "answer": "The recipe keeps Adam with decoupled weight decay 0.01, beta1=0.9, beta2=0.98, eps=10^-12, plus gradient clipping at 0.5 to stabilize training at no extra cost. This choice is not cosmetic: switching to the classic (non-decoupled) Adam weight-decay formulation collapsed the model to essentially random performance (MLM loss ~7.4, matching the untrained baseline), while SGD and RAdam similarly failed in this setting."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#10",
+      "question": "How did the authors improve the training dataset beyond simply choosing a good raw text source, and what effect did it have?",
+      "answer": "After finding The Pile gave the best raw downstream MNLI score among BookCorpus-Wikipedia, The Pile, and C4, they further improved C4 by filtering out sequences that compress poorly relative to their raw character count (a threshold t=0.3, which removes hard-to-compress HTML/markdown junk) and by sorting sequences by average token prevalence so more \"typical\" sequences are seen first. Combined with a larger final batch size, this pushed C4's downstream MNLI score from about 79 up to roughly 82."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#11",
+      "question": "How much of the final GLUE gain does the ablation study attribute to architecture, training, and data changes respectively, and what important interaction did it reveal?",
+      "answer": "Resetting each group (architecture, training, data) back to the original BERT recipe one at a time while keeping the others crammed attributes roughly 2 GLUE points to architecture changes, 1 point to data changes, and 0.5 points to training changes. Crucially, these aren't independent: the aggressive one-cycle learning-rate schedule only works because the pre-normalization architecture change stabilizes training first — reverting to the original (post-norm) architecture while keeping the aggressive schedule collapses GLUE score dramatically."
+    },
+    {
+      "id": "cramming-training-a-language-model-on-a-single-gpu-in-one-day#12",
+      "question": "How close did the crammed model get to fully-trained BERT-base on GLUE, and what happened when the same recipe was given 16x more compute (48 hours on 8 GPUs)?",
+      "answer": "The crammed model trained for 24 hours on one GPU reached roughly 78-79 average GLUE score versus 80.9 for fully-trained BERT-base and 45.5 with no pretraining, clearly beating both a naive same-budget baseline (~52) and an 8-GPU recipe (Izsak et al.) squeezed onto one GPU. Scaling the identical recipe to 48 hours on 8 A6000 GPUs (about 16x the compute) reached RoBERTa-base-level scores on most tasks without any recipe changes, but CoLA and RTE barely improved even with that much extra compute — showing scale alone doesn't close every gap."
+    }
+  ]
+}

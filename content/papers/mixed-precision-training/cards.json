@@ -1,0 +1,65 @@
+{
+  "paperId": "mixed-precision-training",
+  "cards": [
+    {
+      "id": "mixed-precision-training#1",
+      "question": "Why does training a large neural network entirely in FP32 waste resources that mixed precision can reclaim?",
+      "answer": "FP32 storage doubles the memory and bandwidth needed for every weight, activation, and gradient compared to FP16, and half-precision math throughput on recent GPUs is 2x to 8x higher than for single precision. Mixed precision training exploits both effects by running most of the network in FP16, cutting memory/bandwidth pressure and increasing arithmetic speed without changing model accuracy."
+    },
+    {
+      "id": "mixed-precision-training#2",
+      "question": "Why does training a network purely in FP16 (weights, activations, gradients, and updates all in half precision) tend to silently produce a worse model rather than erroring out?",
+      "answer": "About 5% of weight-gradient values (measured on the Mandarin speech model) have magnitudes below 2^-24 and round to exact zero in FP16. Separately, whenever a weight update's magnitude is roughly 2048x or more smaller than the weight it's added to, aligning the binary point during the FP16 addition right-shifts the update by 11+ bits, which can zero it out unrecoverably even though the update itself was representable in FP16."
+    },
+    {
+      "id": "mixed-precision-training#3",
+      "question": "How does the FP32 master-copy-of-weights technique work mechanically, on each training iteration?",
+      "answer": "An FP32 copy of every weight tensor is kept; at the start of each iteration it is cast to an FP16 copy used for the forward and backward pass, but the resulting weight gradient is applied to the FP32 master copy during the optimizer's weight-update step, and only that updated FP32 master is cast back to FP16 for the next iteration. On the Mandarin speech model, updating the FP32 master matches FP32-baseline accuracy, while updating an FP16 weight copy directly causes an 80% relative accuracy loss."
+    },
+    {
+      "id": "mixed-precision-training#4",
+      "question": "If the FP32 master weight copy adds a full-precision copy of every weight, why does overall training memory still end up roughly halved versus FP32 training?",
+      "answer": "Training memory is dominated by activations, not weights, because activations scale with batch size and each layer's activations must be saved for reuse in the backward pass. Keeping an FP32 master copy increases weight storage by 50% versus single precision, but since activations (and gradients) are still stored in FP16, overall memory consumption for training is still roughly halved."
+    },
+    {
+      "id": "mixed-precision-training#5",
+      "question": "Why is loss-scaling needed for some networks even though the FP32 master-weights technique already exists?",
+      "answer": "FP16's exponent bias centers its normalized representable range at exponents [-14, 15], but real gradient distributions skew heavily toward small magnitudes. The paper's histogram of activation gradients from Multibox SSD training shows 67% of values would become zero in FP16, with much of the representable range left unused; loss-scaling shifts the whole gradient distribution up into the range FP16 can actually represent."
+    },
+    {
+      "id": "mixed-precision-training#6",
+      "question": "Mechanically, where in the training step is the loss scaled, and where are gradients unscaled?",
+      "answer": "The loss value from the forward pass is multiplied by the scaling factor once, before backpropagation starts; by the chain rule this scales every gradient throughout the backward pass by the same constant at no extra compute cost. Weight gradients are then divided back down by that same factor immediately after the backward pass — but before gradient clipping, weight decay, or any other gradient-dependent computation — so no other hyperparameters need to change."
+    },
+    {
+      "id": "mixed-precision-training#7",
+      "question": "How is the loss-scaling factor chosen, and what happens if it's set too high?",
+      "answer": "It can be a constant chosen empirically (the paper tried values from 8 to 32K, and many networks needed none at all), or computed by picking the largest factor such that factor times the maximum absolute gradient value stays below 65,504 (FP16's max representable value). There is little downside to setting it too high except overflow, which produces inf/NaN weight gradients that would corrupt the FP32 master weights if applied; overflow is detected cheaply by inspecting the unscaled weight gradients, and the fix is simply to skip that iteration's weight update."
+    },
+    {
+      "id": "mixed-precision-training#8",
+      "question": "The paper groups neural-net arithmetic into three categories with different precision policies — what are they, and how is each treated?",
+      "answer": "Vector dot-products (convolutions, fully-connected layers, matrix multiplies) accumulate their partial products into an FP32 value before rounding the result to FP16 for storage, which NVIDIA Volta's Tensor Cores support natively. Large reductions like batch-norm statistics and softmax sums are also computed in FP32 even though they read/write FP16 tensors, since these layers are memory-bandwidth-limited so full-precision math costs no extra time. Point-wise operations (nonlinearities, elementwise products) can use either FP16 or FP32 since precision doesn't affect their bandwidth-bound speed."
+    },
+    {
+      "id": "mixed-precision-training#9",
+      "question": "Across which model architectures and task types does the paper validate mixed precision training?",
+      "answer": "CNN image classification (AlexNet, VGG-D, GoogLeNet/Inception-v1, Inception v2/v3, ResNet-50 on ILSVRC), object detection (Faster R-CNN and Multibox SSD), speech recognition (DeepSpeech2 on English and Mandarin), machine translation (an LSTM encoder-decoder for English-to-French), language modeling (a 2-layer, 8192-cell \"bigLSTM\" on the 1-billion-word benchmark), and generative image modeling (DCGAN on CelebFaces) — spanning classification, regression, and generative objectives on networks up to 215 million parameters."
+    },
+    {
+      "id": "mixed-precision-training#10",
+      "question": "Which of the paper's experiments actually required loss-scaling to match FP32 accuracy, and which didn't?",
+      "answer": "ILSVRC classification networks (AlexNet, VGG-D, GoogLeNet, Inception, ResNet-50) and DCGAN matched their FP32 baselines using only the FP32 master-weights technique, with no loss-scaling needed. Multibox SSD detection diverged without loss-scaling and needed a factor of 8, while the bigLSTM language model diverged after roughly 300K iterations without it and needed a factor of 128 — the need for loss-scaling is real but not universal."
+    },
+    {
+      "id": "mixed-precision-training#11",
+      "question": "What did the DeepSpeech2 speech-recognition experiments find about mixed-precision accuracy relative to FP32, and what did the authors speculate as a result?",
+      "answer": "Mixed-precision training matched or slightly beat the FP32 baseline: character error rate on English (WSJ '92) improved from 2.20 to 1.99, and on the internal Mandarin test set from 15.82 to 15.01. The authors suggest FP16 storage may act as a mild regularizer during training, since results were consistently 5-10% better than the FP32 baseline rather than merely matching it."
+    },
+    {
+      "id": "mixed-precision-training#12",
+      "question": "What speedup does the paper report for mixed-precision arithmetic on Volta GPUs, and what limits it?",
+      "answer": "DeepBench benchmarks on Volta GPUs show 2-6x speedups for mixed-precision operations compared to FP32 when those operations are limited by memory or arithmetic bandwidth. The speedup is lower for operations limited by latency instead, and full end-to-end network speedups additionally depend on library and framework optimizations that the paper notes were still immature at the time."
+    }
+  ]
+}

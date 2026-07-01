@@ -1,0 +1,43 @@
+{
+  "paperId": "mixed-precision-training",
+  "generatedAt": "2026-07-01",
+  "depthSuggestion": "implement",
+  "tldr": "Introduces mixed precision training: store and compute weights, activations, and gradients in FP16, but keep an FP32 master copy of the weights for the optimizer update, scale the loss to protect small gradients from underflow, and accumulate FP16 products into FP32 for dot-products and large reductions — matching FP32 accuracy with no hyperparameter changes across CNNs, detection, speech, translation, language modeling, and GANs.",
+  "overview": "Mixed Precision Training shows a full deep network can be trained in half precision (FP16) for storage and most arithmetic without losing accuracy relative to FP32 training, and without touching any hyperparameters. Three techniques make this work: an FP32 master copy of the weights that absorbs the optimizer update and gets re-cast to FP16 for the next forward/backward pass, loss-scaling to shift small gradient values back into FP16's representable range before they round to zero, and FP32 accumulation for vector dot-products and large reductions (batch-norm statistics, softmax) even though their inputs and outputs stay FP16. The approach is validated on models exceeding 100 million parameters across CNN image classification, object detection, speech recognition, machine translation, language modeling, and GAN image generation, and DeepBench benchmarks on Volta GPUs show 2-6x speedups for operations limited by memory or arithmetic bandwidth.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates reduced-precision training from memory-bandwidth and arithmetic-throughput limits (FP16 math throughput is 2x-8x FP32 on recent GPUs), and previews the three techniques needed to match FP32 accuracy despite FP16's narrower dynamic range."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Prior reduced-precision work binarized or quantized weights/activations but left gradients (and often the backward pass) in full precision, usually with some accuracy loss or required search over bit widths; this paper instead runs the entire forward and backward pass in FP16 for large, state-of-the-art models with unchanged hyperparameters and no accuracy loss."
+    },
+    {
+      "title": "3.1 FP32 Master Copy of Weights",
+      "summary": "An FP32 copy of the weights is updated each step and cast to FP16 for the forward/backward pass; needed because small-magnitude gradients and large weight-to-update magnitude ratios both cause updates to vanish in pure FP16, demonstrated by an 80% relative accuracy loss on the Mandarin speech model when this copy is omitted."
+    },
+    {
+      "title": "3.2 Loss Scaling",
+      "summary": "FP16's representable exponent range doesn't match the small-magnitude skew of real gradient distributions, so scaling the loss before backprop (and unscaling gradients before the update) recovers values that would otherwise flush to zero; covers how the scale factor is chosen/adjusted and how overflow is detected and handled."
+    },
+    {
+      "title": "3.3 Arithmetic Precision",
+      "summary": "Splits neural-net arithmetic into three categories with different precision needs: vector dot-products (accumulated in FP32), large reductions like batch-norm statistics and softmax (also FP32, at no speed cost since they're bandwidth-bound), and point-wise operations (fine in either precision)."
+    },
+    {
+      "title": "4. Results",
+      "summary": "Validates the recipe across ILSVRC classification (AlexNet through ResNet-50), object detection (Faster R-CNN, Multibox SSD), speech recognition (DeepSpeech2, English and Mandarin), machine translation (LSTM seq2seq), language modeling (bigLSTM), and DCGAN image generation, matching FP32 accuracy in every case while clarifying which tasks actually needed loss-scaling."
+    },
+    {
+      "title": "5. Conclusions and Future Work",
+      "summary": "Mixed precision training needs no hyperparameter changes and produces no accuracy loss; DeepBench shows 2-6x speedups on Volta GPUs for bandwidth-limited operations; future work includes automating loss-scale selection via overflow detection and extending to generative and reinforcement-learning applications."
+    }
+  ],
+  "readingFocus": [
+    "Why naive full-FP16 training silently degrades or diverges (gradient underflow below 2^-24, and the weight-to-update magnitude-ratio right-shift problem) rather than throwing an error.",
+    "The exact mechanics of loss-scaling: multiply the loss once before backprop, unscale gradients right after backward but before clipping or weight decay, and how the scale factor is chosen (empirically, or via max-gradient-under-65,504) and adjusted on overflow.",
+    "Which specific operations the paper pins to FP32 accumulation (dot-products via Tensor Cores, batch-norm/softmax reductions) versus which stay purely FP16 (point-wise ops), and why the memory-bandwidth-bound ones cost nothing extra.",
+    "The per-task validation results (Tables 1-3, Figures 4-6) — where loss-scaling was required to match FP32 (Multibox SSD, bigLSTM) versus where the FP32 master-weight copy alone sufficed (ILSVRC classification, DCGAN)."
+  ]
+}

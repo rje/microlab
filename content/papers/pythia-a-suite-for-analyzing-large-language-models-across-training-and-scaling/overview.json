@@ -1,0 +1,56 @@
+{
+  "paperId": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling",
+  "generatedAt": "2026-07-01",
+  "depthSuggestion": "understand",
+  "tldr": "Pythia is a suite of 16 decoder-only LLMs (8 sizes from 70M to 12B parameters, each trained on the Pile and on a deduplicated copy of it) trained on exactly the same data in exactly the same order, with 154 public intermediate checkpoints per model, built specifically so researchers can study how capabilities, biases, and memorization emerge over training and scale.",
+  "overview": "Pythia addresses a gap in LLM scaling research: plenty of public models exist, but none combine public training data, a known and consistent data order across every model size, and public intermediate checkpoints linked to the exact data each one has seen. The suite trains 8 model sizes (70M-12B non-embedding parameters) on both the standard Pile and a deduplicated Pile, matching architecture and hyperparameters as closely as possible across scales so that scale is the only variable that changes. Because training order and checkpoints are fully reconstructable, the authors run three case studies -- on gender-bias interventions, the training-order dependence of memorization, and when pretraining term frequency starts predicting few-shot task performance -- that would not have been possible with any pre-existing model suite. The paper's contribution is as much the released artifact (models, checkpoints, training data, and dataloader-reconstruction tools) as the specific findings.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Motivates Pythia as a suite of 16 LLMs (70M-12B params) trained on public data in the exact same order, with 154 public checkpoints each, aimed at closing the gap between well-documented scaling laws and poorly-understood training dynamics."
+    },
+    {
+      "title": "2. The Pythia Suite",
+      "summary": "Lays out the suite's three defining requirements -- public access, training provenance (known/consistent data order tied to checkpoints), and consistency of design across scales -- and argues no prior public suite (GPT-2/3, GPT-Neo, OPT, T5, BLOOM) satisfies all three."
+    },
+    {
+      "title": "2.2 Training Data",
+      "summary": "All models train on the Pile (300B tokens, GPT-NeoX tokenizer) or on a MinHashLSH-deduplicated copy (~207B tokens, so those models run ~1.5 epochs); the Pile was chosen over a multilingual corpus for quality-assurance and comparability reasons."
+    },
+    {
+      "title": "2.3 Architecture & 2.4 Training",
+      "summary": "Models share a GPT-J/GPT-NeoX-style architecture (parallel attention+MLP, rotary embeddings, untied embedding/unembedding matrices, Flash Attention) and are all trained with the same batch size (1024 sequences x 2048 tokens) via GPT-NeoX on Adam with ZeRO, data- and tensor-parallelism."
+    },
+    {
+      "title": "2.5-2.6 Evaluation & Novel Observations",
+      "summary": "Pythia and Pythia-Deduplicated match OPT/BLOOM on standard NLP benchmarks; deduplication shows no clear benefit to language modeling quality, and the parallel attention+MLP choice does not hurt performance even below 6B parameters, contrary to prior guidance."
+    },
+    {
+      "title": "2.7 Public Release and Reproducibility",
+      "summary": "All models, all 154 checkpoints per model, the training data, evaluation code, and tools to reconstruct the exact per-step training dataloader are released publicly (Apache 2.0, HuggingFace Hub and GitHub)."
+    },
+    {
+      "title": "3.1 Case Study: How Does Data Bias Influence Learned Behaviors?",
+      "summary": "Counterfactually resuming training on gender-swapped pronoun data for the final 7% or 21% of pretraining measurably reduces stereotypical gender bias (WinoBias, CrowS-Pairs) at every model scale, most prominently in larger models, with minimal cost to LAMBADA perplexity."
+    },
+    {
+      "title": "3.2 Case Study: Does Training Order Influence Memorization?",
+      "summary": "Testing (32,32)-memorization across training, the rate at which sequences become memorized fits a Poisson process extremely well, showing that where a sequence sits in the training order has essentially no effect on whether it gets memorized."
+    },
+    {
+      "title": "3.3 Case Study: Do Pretraining Term Frequencies Influence Task Performance Throughout Training?",
+      "summary": "On arithmetic and TriviaQA tasks, the correlation between how often a term/entity appears in the pretraining data seen so far and task accuracy only emerges partway through training and only in larger models (2.8B+), appearing around 65,000 steps (~45% through training)."
+    },
+    {
+      "title": "4. Conclusion",
+      "summary": "Summarizes Pythia as a controlled, fully documented, publicly released model suite meant to serve as infrastructure for future studies of how LLM capabilities and behaviors emerge across scale and training time."
+    }
+  ],
+  "readingFocus": [
+    "Why fixing data and data order across every model size (not just architecture/hyperparameters) is the key design choice that isolates scale as the sole variable under study.",
+    "What 'training provenance' buys you concretely: because every checkpoint is tied to an exact, reconstructable slice of training data, you can recompute term frequencies, replay batches, or resume training counterfactually from any point.",
+    "The memorization-as-Poisson-process result: training order turns out not to control which sequences get memorized, which has direct implications for anyone trying to protect specific sequences from memorization.",
+    "The 'phase change' finding in Section 3.3 -- term-frequency correlations with task accuracy only emerge in larger models after a substantial fraction of training -- as an example of how checkpoints let you localize when a capability appears, not just whether it appears at final scale.",
+    "How this suite's design (public data/checkpoints, controlled scale sweep) differs from ad hoc released model families, and why that difference is what enables rigorous training-dynamics research rather than just benchmark comparison."
+  ]
+}

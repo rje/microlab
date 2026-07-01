@@ -1,0 +1,60 @@
+{
+  "paperId": "cramming-training-a-language-model-on-a-single-gpu-in-one-day",
+  "generatedAt": "2026-07-01",
+  "depthSuggestion": "implement",
+  "tldr": "Geiping & Goldstein show that with careful architecture, schedule, and data choices, a masked language model trained completely from scratch for 24 hours on a single consumer GPU can reach GLUE performance close to (and on some tasks above) the original fully-trained BERT-base, while most textbook \"improvements\" to the transformer turn out not to matter at this scale.",
+  "overview": "This paper poses \"cramming\": how good a transformer-based masked language model can get if you train it from scratch on one GPU for one day, with strict rules against using any pretrained model or unlimited compute. The authors systematically re-test dozens of architecture, optimizer, schedule, and dataset tricks from the efficient-transformer literature under this fixed 24-hour wall-clock budget rather than a fixed step count, and find that per-token training efficiency is governed almost entirely by scaling laws tied to model size — most architectural variations (funnel transformers, recurrence, deep-narrow reshaping, different attention mechanisms) converge to nearly the same loss and give no real edge. The gains that do materialize come from changes that speed up each gradient step without changing model size or hurting optimization (e.g. removing biases, disabling dropout, an aggressive one-cycle learning-rate schedule, and better data filtering), which stack up to close most, but not all, of the gap to full-scale BERT — with a stubborn shortfall on tasks like CoLA that more compute alone does not fix.",
+  "sections": [
+    {
+      "title": "1. Scaling Up and Scaling Down",
+      "summary": "Motivates the opposite question to the scaling race: instead of asking how far extreme compute can go, the paper asks how much downstream performance is achievable with a single GPU for a single day, re-analyzing the whole BERT pretraining pipeline through the lens of scaling laws."
+    },
+    {
+      "title": "2. Tying Our Hands Behind Our Back: A Setup with Limited Compute",
+      "summary": "Defines the formal \"cramming\" rules: an arbitrary-size transformer trained with MLM from scratch (no pretrained components), any raw text allowed but with pre-processing exempt from the budget, a single GPU for 24 hours, and GLUE finetuning capped at 5 epochs with globally fixed hyperparameters. Experiments run on three GPU tiers: rtx2080ti, rtxa4000, and rtxa6000."
+    },
+    {
+      "title": "3. Related Work on Efficient Transformers",
+      "summary": "Surveys prior BERT-training-time-reduction work (notably Izsak et al.'s academic-budget BERT on 8 V100s) and meta-studies of architecture modifications, most of which find efficiency tricks don't reliably transfer across scales — setting up the paper's own scaling-law framing."
+    },
+    {
+      "title": "4.1 Implementation Details & Initial Data Setup",
+      "summary": "Everything is built in plain PyTorch (only automated operator fusion, no hand-written kernels) to avoid biasing results toward well-optimized components; data is a from-scratch WordPiece tokenizer (vocab 2^15) over lowercased Wikipedia + BookCorpus-style text, packed into randomized length-128 sequences for single-epoch training."
+    },
+    {
+      "title": "4.2 Modifying the Architecture",
+      "summary": "Shows that scaling laws hold even when scaling down: per-token loss depends on model size, barely on model type, so many proposed architecture changes (funnel-transformer, dropped FFN layers, recurrence, deep-narrow rescaling) give no benefit. The changes that are kept are ones that speed up each gradient step at constant parameter count — no QKV/linear biases, scaled sinusoidal embeddings, pre-normalization, and a lean prediction head."
+    },
+    {
+      "title": "4.3 Modifying the Training Setup",
+      "summary": "Keeps the standard 15% MLM masking and Adam-family optimizer, but retunes it for the fixed-time regime: decoupled weight decay, gradient clipping, a one-cycle learning-rate schedule tied to the wall-clock budget, gradient accumulation into large final batch sizes with a linear ramp-up, and disables dropout entirely since single-epoch training removes overfitting risk."
+    },
+    {
+      "title": "4.4 Optimizing the Dataset",
+      "summary": "Compares BookCorpus-Wikipedia, The Pile, and C4 as raw text sources, then improves C4 further via compressibility filtering (dropping incompressible, junk-like sequences) and sorting sequences by token prevalence, combined with a larger final batch size — together giving the best downstream MNLI score of the data experiments."
+    },
+    {
+      "title": "5. Finetuning Performance on GLUE",
+      "summary": "The crammed model reaches roughly 78-79 average GLUE score across all three GPU tiers, versus 80.9 for fully-trained BERT-base and 45.5 with no pretraining at all, and clearly beats both a naive same-budget baseline (~52 GLUE) and the Izsak et al. 8-GPU recipe squeezed onto one GPU. The main laggard is CoLA, where crammed models trail BERT-base by roughly 9-13 points."
+    },
+    {
+      "title": "5.1-5.2 Ablation & Training Longer",
+      "summary": "An ablation resets each of architecture/training/data back to the original BERT recipe one at a time, attributing roughly 2 GLUE points to architecture changes, 1 to data, and 0.5 to training changes — but the pieces interact (the aggressive LR schedule only works because pre-normalization stabilizes training). Scaling the same recipe to 48 hours on 8 GPUs (16x compute) reaches RoBERTa-base-level scores on most tasks without recipe changes, but CoLA and RTE barely improve even with far more compute."
+    },
+    {
+      "title": "6. Limitations",
+      "summary": "The study is restricted to transformer architectures and the MLM objective; alternative objectives (e.g. ELECTRA-style) or non-transformer architectures were not explored and might change the conclusions."
+    },
+    {
+      "title": "7. Conclusions",
+      "summary": "Even under a tight 24-hour single-GPU budget, careful pipeline redesign gets close to full BERT performance on GLUE, but cramming remains fundamentally hard: scaling laws still hold, so larger models' better per-token learning is evened out by their slower throughput within a fixed time budget."
+    }
+  ],
+  "readingFocus": [
+    "The formal cramming rules in Section 2 — a fixed wall-clock (not step-count) budget with pretrained models banned but raw data unlimited — since this is the comparison axis for every result in the paper.",
+    "Which architecture changes are 'free' (no accuracy cost, faster step: no biases, pre-norm, lean head) versus which plausible tricks (funnel-transformer, recurrence, FLASH/Fourier attention, rotary embeddings, RMSNorm) were tested and rejected, and why the scaling laws explain both outcomes.",
+    "The mechanics of the one-cycle learning-rate schedule tied to the 24-hour budget, the batch-size ramp/gradient-accumulation setup, and why dropout is disabled during single-epoch pretraining but re-enabled for finetuning.",
+    "The data-filtering trick (compressibility threshold + sequence sorting) that measurably improves downstream MNLI on C4 without any extra compute — directly relevant to a from-scratch training curriculum's data pipeline choices.",
+    "The CoLA/RTE shortfall that persists even at 16x compute — a concrete example of where 'just scale it' does not fully substitute for data diversity or task-specific tuning."
+  ]
+}

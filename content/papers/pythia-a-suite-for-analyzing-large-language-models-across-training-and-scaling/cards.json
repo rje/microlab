@@ -1,0 +1,65 @@
+{
+  "paperId": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling",
+  "cards": [
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#1",
+      "question": "How many models make up the Pythia suite, what parameter sizes do they span, and how many training checkpoints does each model have?",
+      "answer": "Pythia trains 8 model sizes (70M, 160M, 410M, 1.0B, 1.4B, 2.8B, 6.9B, and 12B non-embedding parameters), each trained once on the standard Pile and once on a deduplicated copy of the Pile, for 16 models total. Every one of the 16 models has 154 publicly released intermediate checkpoints."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#2",
+      "question": "At what cadence are the 154 checkpoints per Pythia model actually saved?",
+      "answer": "144 checkpoints are saved evenly throughout training, one every 1,000 iterations (2,097,152,000 tokens). To also let researchers study early training dynamics and emergent behavior close to initialization, 10 additional log-spaced checkpoints are saved at iterations 1, 2, 4, 8, 16, 32, 64, 128, 256, and 512 -- giving 154 checkpoints total."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#3",
+      "question": "What three properties does the paper argue a model suite needs to satisfy to be useful for rigorous scientific study, and why did no prior public suite (GPT-2/3, GPT-Neo, OPT, T5, BLOOM) satisfy all three?",
+      "answer": "The suite needs Public Access (models and training data both public), Training Provenance (a known, consistent data order across all models, with checkpoints tied to the exact data seen up to that point), and Consistency Across Scale (self-consistent design choices spanning multiple orders of magnitude). Each prior suite fails at least one: GPT-2/3 have non-public data or restricted access, GPT-Neo's models differ in architecture/data/order from each other, OPT has very few public checkpoints and non-public data, T5 didn't release its original data, and BLOOM's training order has small undocumented divergences from rewinding around training instabilities."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#4",
+      "question": "What training data and tokenizer does every Pythia model use, and why is this fixed identically across all 8 sizes?",
+      "answer": "All models train on the Pile (or its near-deduplicated counterpart) for exactly 299,892,736,000 (~300B) tokens, token-matched to the original GPT-3 and OPT training budgets, using the same BPE tokenizer trained specifically on the Pile (from Black et al., 2022's GPT-NeoX-20B). Fixing data and tokenizer identically across every model size means scale is the only variable that changes between models, which is what makes cross-scale comparisons in the suite meaningful rather than confounded."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#5",
+      "question": "How is the deduplicated variant of the Pile constructed, and what did the authors find about its effect on language modeling quality?",
+      "answer": "Near-duplicates are removed using MinHashLSH with a similarity threshold of 0.87, shrinking the corpus from the standard Pile (~334B tokens as tokenized) to about 207B tokens. Because all models still train for the same ~300B-token budget, deduplicated models run about 1.5 epochs over their data -- yet the authors find no clear benefit of deduplication on language modeling performance, and no evidence that the second partial epoch hurts evaluation scores."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#6",
+      "question": "What architecture choices do all Pythia models share, and which of these choices went against then-common training wisdom?",
+      "answer": "All models use parallel attention+feedforward sublayers, rotary position embeddings, Flash Attention, and untied embedding/unembedding matrices. Most notably, every model size -- down to 70M parameters -- is trained with the same batch size (1024 sequences of 2048 tokens, ~2.1M tokens/batch), even though prevailing advice held that small models need smaller batches to avoid convergence problems; the authors found no such convergence issues at any scale."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#7",
+      "question": "Why does Pythia control training data *order*, not just the training data itself, across every model?",
+      "answer": "Prior work (D'Amour et al., 2020) has shown that seemingly minor choices like data ordering can affect a model's downstream properties. If two models saw the same data in different orders, any behavioral difference between them couldn't be cleanly attributed to a deliberate intervention -- it might just be an artifact of ordering. Fixing the order lets researchers resume training from an exact checkpoint and attribute any measured effect solely to the change they made."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#8",
+      "question": "In the memorization case study, how is memorization measured, and what did the authors find about whether training order affects which sequences get memorized?",
+      "answer": "A string is called (k,l)-memorized if prompting the model with a k-token string from training induces it to generate the next l correct tokens; Pythia's case study uses k=l=32 on the first 64 tokens of each training sequence. The rate at which memorized sequences occur across training fits a Poisson process extremely well, implying training order has essentially no effect on which sequences get memorized -- so simply placing a sensitive sequence at the very start or end of training does not reduce its chance of memorization."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#9",
+      "question": "How did the gender-bias case study use Pythia's controlled setup, and what was the result?",
+      "answer": "For the 70M, 410M, 1.4B, and 6.9B deduplicated models, the authors resumed training from a checkpoint 7% of training before the end (also 21% before the end, for the 1.4B model), replaying the exact same subsequent training data but with masculine pronouns swapped for feminine counterparts. Measured on WinoBias and CrowS-Pairs, this reduced stereotypical bias at every scale tested, with the effect growing with model size (the 6.9B model's bias flipped from pro- to anti-stereotypical), while LAMBADA perplexity was barely affected."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#10",
+      "question": "What did the pretraining term-frequency case study find about when the correlation between term frequency and task accuracy emerges?",
+      "answer": "Using arithmetic tasks and TriviaQA, the authors computed exactly how often relevant terms/entities appeared in the pretraining data each checkpoint had actually seen (using Pythia's reconstructable dataloader) and correlated this with accuracy. This correlation is largely absent in small models, and only becomes a strong, reliable pattern in models of 2.8B parameters or larger, and even then only after about 65,000 training steps (~45% through training) -- a phase change rather than a property present from the start."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#11",
+      "question": "What specific tooling does Pythia release that lets a researcher determine exactly what data a given checkpoint has and hasn't seen, and why does this matter?",
+      "answer": "Alongside the pre-tokenized data files, Pythia releases a script that reconstructs the library's exact training dataloader, so a researcher can read out (or recompute) the literal contents of the batch seen at any specific training step. This is what makes case studies like the term-frequency analysis possible: it lets you count exactly how many times a fact or term occurred in the data any given checkpoint had trained on, something impossible with suites that don't guarantee a known, fixed data order."
+    },
+    {
+      "id": "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling#12",
+      "question": "Why did Pythia train only one run per model size/data variant instead of multiple random seeds, and what trade-off does this represent?",
+      "answer": "The authors estimated that rigorously studying seed-to-seed variance (e.g., 25 random seeds per size) would cost roughly $10 million in additional compute. Given a fixed compute budget, they chose to spend it covering 8 orders of magnitude of model scale with one run per configuration rather than multiple seeds at fewer scales, leaving the question of run-to-run variability (addressed by suites like Mistral and multiBERT) to other work."
+    }
+  ]
+}

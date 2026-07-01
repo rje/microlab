@@ -1,0 +1,65 @@
+{
+  "paperId": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale",
+  "cards": [
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#1",
+      "question": "What is a 'data ablation' in FineWeb, and what is held fixed versus varied?",
+      "answer": "A data ablation trains a model on one candidate version of the data to isolate the effect of a single pipeline decision. Everything except the data is held fixed: the same 1.71B-parameter Llama architecture, the same GPT-2 tokenizer, and the same number of randomly sampled training tokens. Only the dataset (e.g. WARC vs WET extraction, or with vs without a filter) is varied, and downstream benchmark accuracy is compared."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#2",
+      "question": "Why do the FineWeb ablations train two models per dataset version, and roughly how much compute did the full study cost?",
+      "answer": "To minimize the impact of random data-subset selection on evaluation scores, each dataset version is trained twice — on a different equal-sized random subset and a different initialization seed — and the two scores are averaged. In total they trained over 70 models, for an estimated 80,000 H100 GPU-hours."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#3",
+      "question": "Why is ~28 billion tokens chosen as the training budget for most FineWeb ablations?",
+      "answer": "About 28B tokens is roughly the Chinchilla-optimal training size for the 1.71B-parameter ablation model. Filtering ablations were run at this budget, while deduplication ablations (whose effects only show at scale) were run at 350B tokens. The benchmarks were also chosen for low score variance and above-random signal at this small scale."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#4",
+      "question": "Common Crawl offers WARC and WET files — which does FineWeb extract text from, and why?",
+      "answer": "FineWeb extracts text from WARC files (raw HTML) using the trafilatura library, rather than using the ready-made WET (plain-text) files. WET files retain too much boilerplate and menu text; trafilatura-on-WARC gives cleaner text and a clearly more performant model, despite the extra extraction compute cost."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#5",
+      "question": "What does FineWeb's base filtering pipeline consist of, and how many tokens does it produce?",
+      "answer": "The RefinedWeb-inspired base filter applies (1) a URL blocklist to remove adult content, (2) a fastText language classifier keeping only English text with score >= 0.65, and (3) MassiveText quality and repetition filters at their original thresholds. Applied across all 96 snapshots it yields roughly 36 trillion GPT-2 tokens and gives a clear performance uplift over unfiltered WARC data."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#6",
+      "question": "Why did applying MinHash deduplication globally across all snapshots fail to improve FineWeb?",
+      "answer": "Global dedup removed up to 90% of the oldest snapshots and left only ~4T tokens, yet barely beat non-deduplicated data. The reason: it effectively upsampled the lower-quality documents that survived. The authors confirmed by training on a 2013-48 slice that the 'originally kept' data (more ads, keyword lists, bad formatting) was actually worse than the 'originally removed' data."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#7",
+      "question": "What deduplication strategy did FineWeb ultimately adopt, and what is the hypothesis for why dedup helps at all?",
+      "answer": "FineWeb deduplicates each Common Crawl snapshot independently (per-snapshot MinHash), yielding ~20T tokens and matching RefinedWeb's performance. The hypothesis is that the benefit of dedup comes mainly from removing large clusters of hundreds of thousands of duplicates present across all crawls, while further deduplicating small clusters can actually harm performance."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#8",
+      "question": "How does FineWeb use C4's filters, and why is the terminal-punctuation filter treated specially?",
+      "answer": "The C4 terminal-punctuation filter (drop lines not ending in a terminal mark) gives the single biggest individual benchmark boost but removes about 30% of tokens — too much. So FineWeb applies all of C4's filters except the terminal-punctuation one; 'all but terminal punct' performs better while removing only ~7% of tokens."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#9",
+      "question": "How did FineWeb design its custom heuristic filters instead of relying on manual inspection?",
+      "answer": "They collected 50+ document-level statistics and compared a high-quality slice (individually deduplicated) against a low-quality slice (globally deduplicated) of the 2013-48 snapshot, choosing thresholds where the low-quality set is over-represented. This produced 16 candidates; ablations selected three (lines-ending-in-punctuation <= 0.12, chars-in-duplicated-lines >= 0.1, lines-shorter-than-30-chars >= 0.67), removing ~22% of tokens for about a 1% aggregate gain."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#10",
+      "question": "What are the final sizes of FineWeb and FineWeb-Edu, and what processing steps make up the final FineWeb pipeline?",
+      "answer": "FineWeb is 15 trillion tokens from 96 snapshots; FineWeb-Edu is a 1.3 trillion-token educational subset. The final FineWeb pipeline is: WARC/trafilatura text extraction, base filtering, per-snapshot MinHash deduplication, a selection of C4 filters, custom heuristic filters, and PII removal (email/IP anonymization) for the public release."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#11",
+      "question": "How is FineWeb-Edu's educational classifier built, and what benchmark gains does it produce?",
+      "answer": "Llama-3-70B-Instruct scores 460,000 web pages 0-5 for educational value; a linear regressor is trained on top of Snowflake-arctic-embed embeddings to reproduce those scores, reaching F1 82% at a minimum threshold of 3. Applied to all 15T tokens (~6,000 H100-hours), it produces FineWeb-Edu, which raises MMLU from ~33% to ~37% and ARC from ~46% to ~57%, and matches Matrix on MMLU with almost 10x fewer tokens."
+    },
+    {
+      "id": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale#12",
+      "question": "What are the main limitations FineWeb's authors acknowledge?",
+      "answer": "Both datasets are sourced entirely from Common Crawl, so augmenting with other data types (books, speech transcripts) might help further; most ablation experiments were run at a relatively small scale for compute reasons; and evaluation was limited to academic benchmarks without any instruction tuning or alignment, which may not reflect real usage patterns. The datasets also reproduce web biases (e.g. over-representation of 'man' and 'christian')."
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "paperId": "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale",
+  "generatedAt": "2026-07-01",
+  "depthSuggestion": "understand",
+  "tldr": "FineWeb is a 15-trillion-token English pretraining dataset built from 96 Common Crawl snapshots, whose every design choice (text extraction, filtering, deduplication) was validated by training 1.71B ablation models and measuring downstream benchmark deltas; a classifier-filtered 1.3T-token subset, FineWeb-Edu, sharply improves knowledge/reasoning scores like MMLU and ARC.",
+  "overview": "The authors argue that the recipe behind a pretraining corpus matters as much as its scale, and that these recipes are usually closed. They open both the FineWeb dataset and datatrove, the processing library, and — crucially — chronicle every decision as a controlled 'data ablation': train two identical 1.71B Llama-style models (different seeds) on equal token budgets of each candidate dataset, then compare average accuracy on a curated benchmark suite. This methodology yields concrete, sometimes counter-intuitive findings: trafilatura extraction from raw WARC beats the ready-made WET text, aggressive global deduplication actually hurts (it upsamples low-quality survivors), C4's terminal-punctuation filter helps but discards too much, and three custom heuristic filters found by systematic statistics add another point. The final pipeline produces 15T tokens that outperform every other open web dataset; layering an educational-quality classifier (trained on Llama-3-70B annotations) on top gives FineWeb-Edu, which lifts MMLU from 33% to 37% and ARC from 46% to 57%.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "LLM performance depends heavily on pretraining-data quality and size, yet the datasets behind frontier open models are undocumented trade secrets. The authors release FineWeb (15T tokens from 96 Common Crawl snapshots), FineWeb-Edu (a 1.3T educational subset), and the datatrove processing library, documenting and ablating every curation choice to close the gap between proprietary and public knowledge."
+    },
+    {
+      "title": "2. Background",
+      "summary": "Frames the task as curating data for autoregressive Transformer pretraining, where over-filtering starves training and under-filtering admits boilerplate and duplicates that harm models. Surveys how prior Common Crawl datasets (OSCAR, C4, CC-100, The Pile, RedPajama, SlimPajama, RefinedWeb, Dolma) and closed corpora (WebText, GPT-3's data, MassiveText) each made different language-ID, filtering, and deduplication choices."
+    },
+    {
+      "title": "3.1 Building FineWeb — Experimental setup",
+      "summary": "Design is 'primarily empirical': every choice is tested with data-ablation models. All ablations use identical 1.71B-parameter Llama models with the GPT-2 tokenizer, trained on ~28B tokens (Chinchilla-optimal) or 350B for dedup runs. Two models per dataset version (different subsets and seeds) are averaged; over 70 models were trained (~80,000 H100 GPU-hours). Evaluation uses lighteval on CommonsenseQA, HellaSwag, OpenBookQA, PIQA, SIQA, WinoGrande, ARC, and MMLU, chosen for low variance and above-random signal at this scale."
+    },
+    {
+      "title": "3.2 Text extraction",
+      "summary": "Common Crawl ships WARC (raw HTML) and WET (pre-extracted text). WET retains too much boilerplate and menu text; extracting from WARC with the trafilatura library gives cleaner text and a clearly more performant model, so all later work uses WARC-based extraction despite its higher compute cost."
+    },
+    {
+      "title": "3.3 Base filtering",
+      "summary": "A RefinedWeb-inspired base pipeline: URL blocklist for adult content, a fastText language classifier keeping English at score >= 0.65, and MassiveText quality/repetition filters at original thresholds. Applied to all 96 snapshots this yields ~36T GPT-2 tokens and a clear performance uplift over unfiltered WARC."
+    },
+    {
+      "title": "3.4 Deduplication",
+      "summary": "MinHash fuzzy dedup (5-grams, 112 hashes, 14 buckets of 8, targeting ~75%+ similar docs). Applying it globally across all snapshots removed up to 90% of the oldest crawls and left 4T tokens, but barely beat no-dedup — because it upsampled lower-quality survivors (confirmed: 'kept' data was worse than 'removed' data). Switching to independent per-snapshot deduplication (20T tokens) matched RefinedWeb; the win comes from removing giant duplicate clusters, not the long tail."
+    },
+    {
+      "title": "3.5 Adding C4's filters",
+      "summary": "C4 still beat FineWeb on HellaSwag, so the authors ported C4's heuristics. The terminal-punctuation filter gives the single biggest boost but removes ~30% of tokens; 'all filters except terminal punctuation' performs best while cutting only ~7%, so that is what they adopt."
+    },
+    {
+      "title": "3.6 Developing additional heuristic filters",
+      "summary": "Rather than filtering by inspection, they collect 50+ document statistics, compare globally-deduplicated (low-quality) vs individually-deduplicated (high-quality) 2013-48 data, and pick thresholds where the low-quality set is over-represented. This yields 16 candidates; ablations select three (fraction of lines ending in punctuation <= 0.12, fraction of chars in duplicated lines >= 0.1, fraction of lines under 30 chars >= 0.67), removing ~22% of tokens for a ~1% aggregate gain."
+    },
+    {
+      "title": "3.7 The final FineWeb dataset",
+      "summary": "Stacking WARC extraction, base filtering, per-snapshot MinHash, selected C4 filters, and the custom heuristics over 96 snapshots yields 15T tokens, plus PII removal (email/IP anonymization) for release. FineWeb outperforms every compared open web dataset (RefinedWeb, C4, Dolma, The Pile, SlimPajama, RedPajama2, Matrix, CC-100, OSCAR) on the aggregate benchmark suite."
+    },
+    {
+      "title": "4. FineWeb-Edu",
+      "summary": "Llama-3-70B scores 460k pages for educational quality (0-5); a linear regressor on Snowflake-arctic embeddings is trained to reproduce those scores (F1 82% at threshold 3) and applied to all 15T tokens (6,000 H100-hours). The resulting 1.3T-token FineWeb-Edu lifts MMLU 33%->37% and ARC 46%->57%, matching Matrix on MMLU with ~10x fewer tokens."
+    },
+    {
+      "title": "4.1 Topic distribution & 4.2 Domain fit",
+      "summary": "Embedding-plus-clustering shows the edu classifier upsamples 'Education/Learning', 'History/Culture/Politics', and 'Health/Medicine' while downsampling 'Business/Finance/Law' and 'Entertainment'. On Paloma perplexity, plain FineWeb fits broad web sources better, whereas FineWeb-Edu fits Wikipedia, academic (arXiv, S2ORC), and programming content better."
+    },
+    {
+      "title": "5. Bias analyses",
+      "summary": "Both datasets reflect web biases: 'man' and 'christian' are over-represented relative to other gender/religion terms, and religion terms skew toward online-intimacy/dating vocabulary. FineWeb-Edu's associations are less tied to intimacy and more to educational history/health content (e.g. 'woman'-'pregnancy')."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "FineWeb and FineWeb-Edu reach state-of-the-art among public pretraining datasets, released with code and all ablation models. Limitations: both are Common-Crawl-only (augmenting with books/transcripts might help), most ablations ran at small scale, and evaluation was limited to academic benchmarks without instruction tuning."
+    }
+  ],
+  "readingFocus": [
+    "The data-ablation methodology is the transferable lesson: hold model, tokenizer, and token budget fixed, vary only the data, and average over seeds/subsets — this is exactly how a Microlab eval harness should isolate a data change from noise.",
+    "Why ~28B tokens is chosen as the ablation budget (Chinchilla-optimal for a 1.71B model) and why they average two seeds — small-scale signal must be reliable before you trust a dataset comparison.",
+    "The counter-intuitive deduplication result: global dedup can hurt because it upsamples low-quality survivors; per-snapshot dedup and removing large duplicate clusters is what actually helps.",
+    "How filters were discovered systematically (compare high- vs low-quality slices, threshold where low-quality is over-represented) rather than by eyeballing — a repeatable recipe for adding quality filters.",
+    "FineWeb-Edu shows a small LLM-annotation-trained classifier can filter a corpus for a large benchmark gain (MMLU, ARC) — a concrete link to the eval-harness and data-quality tracks in the curriculum."
+  ]
+}
