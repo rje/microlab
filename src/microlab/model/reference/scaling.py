@@ -75,15 +75,19 @@ def model_family(
     return configs
 
 
-def run_scaling_sweep(data: torch.Tensor, sizes: list[int], train_cfg: TrainConfig) -> dict:
-    """Train each family member on the same data, collect (params, final_loss), fit the
-    power law. GPU-friendly: pass a CUDA TrainConfig."""
+def run_scaling_sweep(data: torch.Tensor, sizes: list[int], train_cfg: TrainConfig,
+                      val_data: torch.Tensor | None = None, vocab_size: int = 512) -> dict:
+    """Train each family member on the same data, collect (params, loss), fit the power
+    law. Fits on held-out `val_data` loss when provided (the meaningful signal), else on
+    train loss. GPU-friendly: pass a CUDA TrainConfig."""
     points = []
-    for cfg in model_family(sizes, block_size=train_cfg.block_size):
+    for cfg in model_family(sizes, vocab_size=vocab_size, block_size=train_cfg.block_size):
         torch.manual_seed(train_cfg.seed)
         model = GPT(cfg)
-        stats = train(model, data, train_cfg)
+        stats = train(model, data, train_cfg, val_data=val_data)
         points.append({"n_embd": cfg.n_embd, "params": model.num_params(),
-                       "loss": stats["final_loss"]})
-    a, alpha = fit_scaling_law([p["params"] for p in points], [p["loss"] for p in points])
-    return {"points": points, "A": a, "alpha": alpha}
+                       "loss": stats["final_loss"], "val_loss": stats["val_loss"]})
+    fit_on = "val" if points and points[0]["val_loss"] is not None else "train"
+    fit_losses = [(p["val_loss"] if fit_on == "val" else p["loss"]) for p in points]
+    a, alpha = fit_scaling_law([p["params"] for p in points], fit_losses)
+    return {"points": points, "A": a, "alpha": alpha, "fit_on": fit_on}

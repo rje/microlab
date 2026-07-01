@@ -38,8 +38,41 @@ def _resolve_device(device: str) -> str:
     return device
 
 
-def train(model: torch.nn.Module, data: torch.Tensor, config: TrainConfig) -> dict:
-    """Train `model` on a 1-D token tensor. Returns loss history + VRAM/throughput."""
+@torch.no_grad()
+def estimate_loss(
+    model: torch.nn.Module,
+    data: torch.Tensor,
+    block_size: int,
+    batch_size: int,
+    iters: int = 20,
+    device: str = "cpu",
+    seed: int = 1234,
+) -> float:
+    """Mean loss over `iters` random batches, in eval mode with no grad. Pass the val
+    split as `data` to get held-out validation loss."""
+    device = _resolve_device(device)
+    model.to(device)
+    was_training = model.training
+    model.eval()
+    gen = torch.Generator().manual_seed(seed)
+    total = 0.0
+    for _ in range(iters):
+        x, y = get_batch(data, block_size, batch_size, device, gen)
+        _, loss = model(x, y)
+        total += loss.item()
+    if was_training:
+        model.train()
+    return total / iters
+
+
+def train(
+    model: torch.nn.Module,
+    data: torch.Tensor,
+    config: TrainConfig,
+    val_data: torch.Tensor | None = None,
+) -> dict:
+    """Train `model` on a 1-D token tensor. Returns loss history + VRAM/throughput, and
+    `val_loss` (held-out) when `val_data` is provided."""
     torch.manual_seed(config.seed)
     device = _resolve_device(config.device)
     model.to(device)
@@ -72,9 +105,15 @@ def train(model: torch.nn.Module, data: torch.Tensor, config: TrainConfig) -> di
         torch.cuda.synchronize()
     elapsed = max(time.time() - t0, 1e-9)
     tokens = config.steps * config.grad_accum * config.batch_size * config.block_size
+    val_loss = None
+    if val_data is not None:
+        val_loss = estimate_loss(
+            model, val_data, config.block_size, config.batch_size, device=device, seed=config.seed
+        )
     return {
         "final_loss": history[-1],
         "history": history,
+        "val_loss": val_loss,
         "tokens_per_sec": tokens / elapsed,
         "peak_vram_mb": (torch.cuda.max_memory_allocated() / 1e6)
         if device.startswith("cuda")

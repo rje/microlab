@@ -35,3 +35,6 @@ instance/
 
 # Reader's personal notes are local data, not committed. AI overviews ARE tracked.
 content/papers/*/notes.md
+
+# downloaded training corpora (fetch via microlab.data.reference.loaders)
+data/corpora/

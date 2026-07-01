@@ -17,16 +17,18 @@ ABLATIONS: dict[str, dict] = {
 
 
 def run_ablations(data: torch.Tensor, base: VariantConfig, train_cfg: TrainConfig,
-                  ablations: dict[str, dict] | None = None) -> dict[str, dict]:
+                  ablations: dict[str, dict] | None = None,
+                  val_data: torch.Tensor | None = None) -> dict[str, dict]:
     ablations = ablations if ablations is not None else ABLATIONS
     results: dict[str, dict] = {}
     for name, overrides in ablations.items():
         cfg = VariantConfig(**{**base.__dict__, **overrides})
         torch.manual_seed(train_cfg.seed)
         model = VariantGPT(cfg)
-        stats = train(model, data, train_cfg)
+        stats = train(model, data, train_cfg, val_data=val_data)
         results[name] = {
             "final_loss": stats["final_loss"],
+            "val_loss": stats["val_loss"],
             "params": model.num_params(),
             "tokens_per_sec": stats["tokens_per_sec"],
             "peak_vram_mb": stats["peak_vram_mb"],

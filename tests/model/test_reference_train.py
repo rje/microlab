@@ -2,7 +2,34 @@ import pytest
 import torch
 
 from microlab.model.reference.gpt import GPT, GPTConfig
-from microlab.model.reference.train import TrainConfig, overfit_batch, train
+from microlab.model.reference.train import TrainConfig, estimate_loss, overfit_batch, train
+
+
+def test_estimate_loss_returns_positive_float():
+    torch.manual_seed(0)
+    m = GPT(GPTConfig(vocab_size=32, block_size=16, n_layer=2, n_head=2, n_embd=32))
+    data = torch.randint(0, 32, (2000,))
+    loss = estimate_loss(m, data, block_size=16, batch_size=8, iters=5, device="cpu")
+    assert isinstance(loss, float) and loss > 0
+
+
+def test_estimate_loss_leaves_model_in_train_mode():
+    m = GPT(GPTConfig(vocab_size=32, block_size=16, n_layer=2, n_head=2, n_embd=32))
+    m.train()
+    estimate_loss(m, torch.randint(0, 32, (500,)), 16, 4, iters=2)
+    assert m.training  # eval mode is restored
+
+
+def test_train_reports_val_loss_when_val_data_given():
+    torch.manual_seed(0)
+    m = GPT(GPTConfig(vocab_size=32, block_size=16, n_layer=2, n_head=2, n_embd=32))
+    data = torch.randint(0, 32, (3000,))
+    val = torch.randint(0, 32, (1000,))
+    stats = train(m, data, TrainConfig(steps=10, batch_size=8, block_size=16, device="cpu"), val_data=val)
+    assert isinstance(stats["val_loss"], float) and stats["val_loss"] > 0
+    # no val_data -> None
+    stats2 = train(m, data, TrainConfig(steps=5, batch_size=8, block_size=16, device="cpu"))
+    assert stats2["val_loss"] is None
 
 
 def test_overfit_single_batch_collapses_loss_cpu():
