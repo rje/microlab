@@ -11,10 +11,12 @@ understand line by line. Every phase has the same four layers; you climb through
 2. **Understand (the oracle)** — a correct, tested **reference implementation** on `main`
    under `src/microlab/<area>/reference/`. It's the known-good version and the base later
    phases build on. You can read it, run it, and see the concept work on the GPU.
-3. **Hand-write (the exercise)** — a `learn/<phase>` branch with a **stub you implement**
-   and tests that grade your work **differentially against the oracle** (often by copying
-   the reference's weights into your module and asserting identical outputs). Green =
-   provably correct, not just plausible. Start with `docs/hand-write/<phase>-*.md`.
+3. **Hand-write (the exercise)** — a **stub you implement** in `src/microlab/exercises/`
+   (one file per phase, all on `main` — no branch switching) with tests that grade your work
+   **differentially against the oracle** (often by copying the reference's weights into your
+   module and asserting identical outputs). Green = provably correct, not just plausible.
+   The exercise tests are marked `exercise` and deselected from the guardrail, so `main`
+   stays green while your stubs are unsolved. Start with `docs/hand-write/<phase>-*.md`.
 4. **Run for real (scale)** — for the pretraining phases (1, 2, 4), the production
    infrastructure to actually train a model: a fast tokenizer, a streaming data pipeline,
    and a checkpoint/resume Trainer. This is *build-and-verify* (no closed-form oracle for a
@@ -39,17 +41,19 @@ understand line by line. Every phase has the same four layers; you climb through
 | 12 | Tool use & agents | tool-call parse/validate, schema validity | — |
 | 13 | Final report | — | — |
 
-## Doing a hand-write exercise
+## Doing a hand-write exercise (all on `main` — no branch switching)
 
 ```bash
-git checkout learn/phase2-gpt          # pick a phase
-cat docs/hand-write/phase2-gpt.md      # the START-HERE guide
-pytest tests/model/test_student_*.py -v   # red until you implement
-# implement the stub in src/microlab/model/student_*.py; the reference sits in
-# src/microlab/model/reference/ to diff against once you've tried
+cat docs/hand-write/phase2-gpt.md              # the START-HERE guide for the phase
+$EDITOR src/microlab/exercises/phase02_gpt.py  # implement the stub in place
+pytest -m exercise -k phase02                  # grade against the reference oracle
+git commit -am "solve phase 2"                 # your solution is tracked
 ```
-The reference is right next to your stub on purpose — attempt first, then compare. Green
-tests mean byte-for-byte agreement with the oracle.
+Every exercise is a file in `src/microlab/exercises/` (numbered `phase00`…`phase12`). Its
+test is marked `exercise` and deselected from the default guardrail, so `main` stays green
+while stubs are unsolved. Attempt first — the reference oracle in
+`src/microlab/<area>/reference/` is one folder over to diff against once you've tried. Green
+means byte-for-byte agreement with the oracle.
 
 ## The scale path (the layered climb to ~1B)
 

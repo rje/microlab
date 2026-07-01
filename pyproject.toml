@@ -9,6 +9,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
     "gpu: tests that require a CUDA GPU (deselected by the pre-commit hook; run by scripts/check.sh)",
+    "exercise: hand-write exercises graded vs the reference oracle (red until you solve them; deselected from the guardrail — run with `pytest -m exercise`)",
 ]
 
 [tool.ruff]

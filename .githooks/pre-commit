@@ -19,7 +19,7 @@ run() {
 }
 
 run "ruff"   $CONDA run -n microlab ruff check .
-run "pytest" $CONDA run -n microlab pytest -q -m "not gpu"
+run "pytest" $CONDA run -n microlab pytest -q -m "not gpu and not exercise"
 run "vitest" bash -c 'cd site && npx vitest run'
 
 if [ "$fail" -ne 0 ]; then
