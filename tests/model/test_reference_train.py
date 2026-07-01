@@ -25,7 +25,8 @@ def test_train_reports_val_loss_when_val_data_given():
     m = GPT(GPTConfig(vocab_size=32, block_size=16, n_layer=2, n_head=2, n_embd=32))
     data = torch.randint(0, 32, (3000,))
     val = torch.randint(0, 32, (1000,))
-    stats = train(m, data, TrainConfig(steps=10, batch_size=8, block_size=16, device="cpu"), val_data=val)
+    cfg = TrainConfig(steps=10, batch_size=8, block_size=16, device="cpu")
+    stats = train(m, data, cfg, val_data=val)
     assert isinstance(stats["val_loss"], float) and stats["val_loss"] > 0
     # no val_data -> None
     stats2 = train(m, data, TrainConfig(steps=5, batch_size=8, block_size=16, device="cpu"))

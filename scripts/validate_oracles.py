@@ -86,7 +86,10 @@ abl = timed(
 )
 print("ABLATION (held-out val loss):")
 for name, r in abl.items():
-    print(f"  {name:<9} params={r['params'] / 1e6:.2f}M train={r['final_loss']:.3f} val={r['val_loss']:.3f}")
+    print(
+        f"  {name:<9} params={r['params'] / 1e6:.2f}M "
+        f"train={r['final_loss']:.3f} val={r['val_loss']:.3f}"
+    )
 
 # --- 4. scaling sweep on VAL loss ---
 sweep = timed(
@@ -102,4 +105,7 @@ print(
     f"(A={sweep['A']:.2f}; a negative exponent means loss falls as models grow — the healthy sign)"
 )
 for p in sweep["points"]:
-    print(f"  n_embd={p['n_embd']:>4} params={p['params'] / 1e6:>6.2f}M train={p['loss']:.3f} val={p['val_loss']:.3f}")
+    print(
+        f"  n_embd={p['n_embd']:>4} params={p['params'] / 1e6:>6.2f}M "
+        f"train={p['loss']:.3f} val={p['val_loss']:.3f}"
+    )
