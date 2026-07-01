@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import requests
+import torch
 
 from microlab.evals.schema import EvalTask, ModelOutput
 
@@ -127,6 +128,32 @@ class HuggingFaceCausalLMBackend(ModelBackend):
             prompt_tokens=int(inputs["input_ids"].shape[-1]),
             completion_tokens=int(completion_ids.shape[-1]),
         )
+
+
+class MicrolabBackend(ModelBackend):
+    """Runs a trained microlab model (VariantGPT/GPT) + a tokenizer with encode/decode.
+    Returns only the generated CONTINUATION (the prompt is stripped)."""
+
+    def __init__(self, model, tokenizer, max_new_tokens: int = 128, temperature: float = 0.0,
+                 top_k: int | None = None, device: str = "cpu") -> None:
+        self.model = model.to(device)
+        self.tokenizer = tokenizer
+        self.max_new_tokens = max_new_tokens
+        self.temperature = temperature
+        self.top_k = top_k
+        self.device = device
+
+    def generate(self, task: EvalTask) -> ModelOutput:
+        import time
+
+        from microlab.model.reference.sample import generate as _gen
+
+        prompt_ids = self.tokenizer.encode(task.prompt)
+        idx = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
+        t0 = time.time()
+        out = _gen(self.model, idx, self.max_new_tokens, self.temperature, self.top_k)
+        completion = self.tokenizer.decode(out[0].tolist()[len(prompt_ids):])
+        return ModelOutput(task_id=task.id, text=completion, latency_seconds=time.time() - t0)
 
 
 def create_backend(config: dict[str, Any]) -> ModelBackend:
