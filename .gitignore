@@ -41,3 +41,6 @@ data/corpora/
 
 # transient agent worktrees
 .claude/worktrees/
+
+# tokenized pretraining shards (large; reproducible via scripts/prepare_data.py)
+data/shards/
