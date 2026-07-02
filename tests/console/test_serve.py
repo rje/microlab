@@ -52,6 +52,22 @@ def test_stream_deterministic_with_seed():
     assert a == b
 
 
+@pytest.mark.gpu
+def test_stream_on_cuda_with_seed_no_device_mismatch():
+    # Regression: a seeded generation on a CUDA model needs a CUDA RNG generator — a CPU
+    # generator against CUDA logits makes torch.multinomial raise. Only bites GPU+seed.
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    torch.manual_seed(0)
+    cfg = VariantConfig(vocab_size=64, block_size=64, n_layer=2, n_head=4, n_embd=32,
+                        norm="rms", pos="rope", mlp="swiglu")
+    state = serve.ServeState(model=VariantGPT(cfg).eval().cuda(), tokenizer=StubTok(),
+                             step=10, device="cuda")
+    a = "".join(serve.stream_generate(state, "hi", 8, temperature=1.0, seed=7))
+    b = "".join(serve.stream_generate(state, "hi", 8, temperature=1.0, seed=7))
+    assert a and a == b  # runs without raising, and is deterministic
+
+
 def test_limits_raise():
     state = _tiny_state()
     with pytest.raises(ValueError):

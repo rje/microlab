@@ -84,7 +84,9 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
         raise ValueError(f"top_k must be None or >= 1 (got {top_k})")
     if top_p is not None and not 0 < top_p <= 1:
         raise ValueError(f"top_p must be None or in (0, 1] (got {top_p})")
-    gen = None if seed is None else torch.Generator().manual_seed(seed)
+    # The RNG generator must live on the same device as the logits multinomial() samples
+    # from — a CPU generator against CUDA logits raises. Only bites GPU serving with a seed.
+    gen = None if seed is None else torch.Generator(device=state.device).manual_seed(seed)
 
     @torch.no_grad()
     def _run() -> Iterator[str]:
