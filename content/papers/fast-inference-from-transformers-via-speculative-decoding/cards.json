@@ -1,0 +1,45 @@
+{
+  "paperId": "fast-inference-from-transformers-via-speculative-decoding",
+  "cards": [
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#1",
+      "question": "What is the core setup and idea of speculative decoding, and what are M_p and M_q?",
+      "answer": "M_p is the large target model (distribution p) whose inference we want to accelerate; M_q is a small, cheap approximation/draft model (distribution q). The idea: (1) run M_q to autoregressively guess gamma candidate tokens, (2) run M_p ONCE in parallel over all gamma+1 prefixes to get the true next-token distributions, (3) accept the longest consistent prefix of guesses via a special sampling rule and emit one corrected token. Because generating K tokens normally needs K serial M_p runs, and a single M_p step is memory-bandwidth bound (spare compute exists), verifying several cheap guesses in one parallel M_p pass reduces the number of serial target calls."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#2",
+      "question": "Write the speculative sampling accept/reject rule for drawing x ~ p(x) using proposals from q(x).",
+      "answer": "Sample a candidate x ~ q(x). Accept it with probability min(1, p(x)/q(x)) — equivalently, keep it outright if q(x) <= p(x), and if q(x) > p(x) reject it with probability 1 - p(x)/q(x). On rejection, resample x from the adjusted distribution p'(x) = norm(max(0, p(x) - q(x))), i.e. the positive residual of p over q, renormalized. p is the target's probability for that token, q the draft's."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#3",
+      "question": "Prove that the speculative sampling rule produces samples distributed exactly as p(x) (the target distribution is unchanged).",
+      "answer": "The probability of outputting a specific token x is P(accept x) + P(reject, then resample x). Acceptance: q(x) * min(1, p(x)/q(x)) = min(p(x), q(x)). The total rejection mass is 1 - sum_x min(p,q), and the resample distribution norm(max(0, p-q)) has normalizer sum_x max(0, p(x)-q(x)) = 1 - sum_x min(p,q), so the reject-then-x term equals max(0, p(x)-q(x)). Thus P(x) = min(p(x),q(x)) + max(0, p(x)-q(x)). If p(x) >= q(x): q + (p-q) = p. If p(x) < q(x): p + 0 = p. So P(x) = p(x) for every x — the output distribution is identical to sampling from M_p directly. This is exact, not an approximation, for any q."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#4",
+      "question": "Walk through Algorithm 1 (SpeculativeDecodingStep): how is the number of accepted guesses n determined and what does the step return?",
+      "answer": "Sample gamma guesses x_1..x_gamma from M_q autoregressively (x_i ~ q_i(x)). Run M_p in parallel over prefix, prefix+[x_1], ..., prefix+[x_1..x_gamma] to get p_1..p_{gamma+1}. Draw r_1..r_gamma ~ Uniform(0,1) and set n = min({ i-1 : r_i > p_i(x_i)/q_i(x_i) } ∪ {gamma}) — i.e. accept guesses until the first one where the uniform draw exceeds the acceptance ratio. Form p'(x) = p_{n+1}(x); if n < gamma, adjust it to norm(max(0, p_{n+1}(x) - q_{n+1}(x))). Sample t ~ p'(x). Return prefix + [x_1..x_n, t]: n draft tokens plus one guaranteed target token, so every step advances by at least 1 and at most gamma+1 tokens."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#5",
+      "question": "Define the acceptance rate alpha and express it in closed form. How does E(#tokens per step) depend on it?",
+      "answer": "beta_x is the probability of accepting a token drawn from q at a given prefix; Theorem 3.5 gives beta = 1 - D_LK(p,q) where D_LK(p,q) = 1 - sum_x min(p(x),q(x)). So beta = sum_x min(p(x), q(x)) = E_{x~q} min(1, p(x)/q(x)). alpha = E(beta) = E(min(p,q)) is the natural, task-and-model-pair-intrinsic acceptance rate (Corollary 3.6). Assuming i.i.d. acceptances, the tokens produced per step are capped-geometric, giving E(#tokens) = (1 - alpha^(gamma+1)) / (1 - alpha) (Eq. 1). Higher alpha (better draft, sharper distribution) means more accepted tokens per target call."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#6",
+      "question": "State the wall-time improvement factor and explain the arithmetic-operations trade-off. When does speculative decoding actually help?",
+      "answer": "Let c be the cost coefficient = ratio of one M_q run's time to one M_p run's time. The expected wall-time improvement (Theorem 3.8) is (1 - alpha^(gamma+1)) / ((1 - alpha)(gamma*c + 1)); with c near 0 it approaches the token-count reduction. The trade-off: total ARITHMETIC operations INCREASE by (1 - alpha)(gamma*c_hat + gamma + 1)/(1 - alpha^(gamma+1)) because M_p is run over gamma+1 positions, but total MEMORY accesses shrink by (1 - alpha^(gamma+1))/(1 - alpha) since the target's weights and KV cache are read once per step, not once per token. It therefore only helps when there is spare compute and the decode is memory-bandwidth bound — not when arithmetic is already the bottleneck."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#7",
+      "question": "What kinds of models can serve as the draft M_q, and what constraint does the method place on the draft?",
+      "answer": "Any model works, because speculative sampling guarantees identical outputs for ANY choice of M_q — the draft only affects speed (via alpha), never correctness. Options: an off-the-shelf smaller Transformer of the same architecture (best when roughly two orders of magnitude smaller than M_p), a negligible-cost n-gram model (a table lookup, c ≈ 0, still giving non-trivial alpha), a non-autoregressive model, or even random tokens. The only requirement is that M_q's sampling be standardized the same way as M_p's; there is no retraining or architecture change to the target."
+    },
+    {
+      "id": "fast-inference-from-transformers-via-speculative-decoding#8",
+      "question": "What speedups did the paper measure, and how do sampling temperature and draft size affect the acceptance rate alpha?",
+      "answer": "On T5-XXL (11B) as M_p with T5-small (77M) as draft, they measured 3.4X speedup on EnDe translation at temp=0 (argmax) and 2.6X at temp=1, with 2X-3X gains across GPT-like (97M target, 6M draft, alpha=0.88) and LaMDA (137B) models — all with byte-for-byte identical output distributions and no model changes. alpha increases with the size/quality of the draft model, and is higher for argmax (temp=0) than for stochastic sampling because the target distribution is sharper. Even a trivial bigram draft gave alpha=0.2 on EnDe, worth a 1.25X speedup."
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "paperId": "fast-transformer-decoding-one-write-head-is-all-you-need",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "Shazeer shows that Transformer decoding is bottlenecked by memory bandwidth — every autoregressive step reloads the full per-head keys and values — and proposes multi-query attention (MQA), which keeps h query heads but shares a single key/value head across them. On WMT14 EN-DE this cuts incremental decoder cost from 46 to 3.8 microseconds per token (a >12x speedup) at only a small quality cost (BLEU 26.7 to 26.5 on dev).",
+  "overview": "This short, dense paper is the origin of the key-value sharing idea that grouped-query attention (GQA) later generalized. Shazeer starts from the observation that multi-head attention is cheap to train — the sequence-length dimension is fully parallel — but expensive to decode one token at a time, because autoregressive generation is inherently sequential and each step must reload the large accumulated key and value tensors from memory. He formalizes this with a memory-access-to-arithmetic ratio: for incremental multi-head self-attention that ratio is Theta(n/d + 1/b), and when n approaches d or the batch is small the ratio approaches 1, meaning the hardware sits idle waiting on memory rather than computing. The 1/b term is easy to fix with a bigger batch; the offensive n/d term comes from reloading the K and V tensors (size proportional to b*h*m*k) at every step. Multi-query attention attacks exactly that term: keep h separate query projections but derive keys and values from a single shared projection, collapsing the head dimension of K and V. This shrinks the per-step memory traffic by a factor of h, dropping the ratio to Theta(1/d + n/(d*h) + 1/b). Experiments on WMT14 English-German translation (a 6-layer, d_model=1024, h=8, 211M-parameter encoder-decoder) and on the Billion-Word LM benchmark confirm the theory: MQA is only slightly worse in quality than the multi-head baseline, yet far cheaper to decode, and it clearly beats the naive alternative of just reducing the number of heads or their dimension. To keep parameter count fair, the MQA model widens its feed-forward hidden size from 4096 to 5440.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Multi-head attention is fast and simple to train because it parallelizes across sequence length, but incremental inference (generating one token at a time) cannot be parallelized and is dominated by the memory-bandwidth cost of repeatedly reloading the large keys and values tensors. The paper proposes multi-query attention, which shares keys and values across all heads, shrinking those tensors and the bandwidth needed to decode, and verifies the models decode much faster with only minor quality loss."
+    },
+    {
+      "title": "2.1-2.2 Neural Attention & Multi-head Attention",
+      "summary": "Reviews dot-product attention (output is a softmax-weighted sum of value vectors, weights from query-key dot products) and multi-head attention as h parallel layers. Queries come from h learned projections P_q; keys and values come from h learned projections P_k, P_v of a memory M; the h outputs are projected by P_o and summed. Everything is written in einsum notation, and a constant logit scaling factor is omitted because it can be folded into P_q or P_k."
+    },
+    {
+      "title": "2.3 Multi-head Attention (Batched) + Performance Analysis",
+      "summary": "For batched training over b sequences of length n (with m=n, k=v=d/h, n<=d), arithmetic work is Theta(b*n*d^2) and total memory access is O(b*n*d + b*h*n^2 + d^2). The ratio of memory to compute is O(1/k + 1/(b*n)) — low, which is exactly why training runs efficiently on GPU/TPU hardware whose compute capacity far exceeds its memory bandwidth."
+    },
+    {
+      "title": "2.4 Multihead Attention (Incremental) + Performance Analysis",
+      "summary": "Autoregressive generation cannot parallelize across positions: each step's output feeds the next step's input. Across n steps arithmetic is again Theta(b*n*d^2), but memory access is Theta(b*n^2*d + n*d^2), giving a memory-to-compute ratio of Theta(n/d + 1/b). When n approximates d or b approximates 1 the ratio nears 1 and memory bandwidth becomes the bottleneck. The n/d term is driven by reloading the K and V tensors (size b*h*m*k = b*n^2) every step; prior fixes limit n or use local attention. This paper takes an orthogonal route: remove the heads dimension from K and V while keeping it in the queries."
+    },
+    {
+      "title": "3. Multi-Query Attention + 3.1 Performance Analysis",
+      "summary": "Multi-query attention is identical to multi-head attention except the h heads share a single set of keys and values — in einsum terms, the 'h' index is dropped from K, V, P_k, and P_v. The incremental memory-to-compute ratio becomes Theta(1/d + n/(d*h) + 1/b), reducing the offensive n/d term by a factor of h. With a large batch, this should dramatically speed up incremental generation, which the experiments confirm."
+    },
+    {
+      "title": "4.1 Experimental Setup",
+      "summary": "Baseline is a 6-layer encoder-decoder Transformer for WMT14 EN-DE with d_model=1024, d_ff=4096, h=8, d_k=d_v=128, learned positional embeddings, and tied embeddings — 211M parameters, trained 100K steps (~20 epochs) in ~2 hours on a 32-core TPUv3. The multi-query model replaces every attention layer (encoder-self, decoder-self, encoder-decoder) with MQA and widens d_ff from 4096 to 5440 to match parameter count. Local variants restrict decoder self-attention to the current plus previous 31 positions. A parallel set of experiments uses a 6-layer transformer-decoder LM (d_model=1024, d_ff=8192, 192M params) on the Billion-Word benchmark."
+    },
+    {
+      "title": "4.2 Model Quality",
+      "summary": "On WMT14 EN-DE dev (Table 1) the multi-head baseline scores ln(PPL)=1.424 and BLEU=26.7; multi-query scores ln(PPL)=1.439 and BLEU=26.5 — slightly worse than baseline but far better than the naive alternatives of shrinking h, d_k, or d_v (e.g. h=1 drops BLEU to 25.8). On the test set with beam-4 decoding the multi-query model actually reaches the highest BLEU (28.5). On the Billion-Word LM benchmark (Table 3) multi-query gives 30.2 dev perplexity versus the baseline's 29.9, again beating all head-reduction alternatives."
+    },
+    {
+      "title": "4.3 Speed",
+      "summary": "Measured on one TPUv2 (8 cores) in microseconds per output token (Table 2). Training is essentially unchanged (13.2 vs 13.0 us/token). The payoff is decoding: greedy incremental inference on a batch of 1024 sequences costs 1.7us (encoder) + 46us (decoder) per token for multi-head, but only 1.5us + 3.8us for multi-query — an over-12x decoder speedup. With beam-4 search the decoder drops from 203us to 32us per token. Local multi-query is faster still (decoder 3.3us greedy, 16us beam-4)."
+    },
+    {
+      "title": "5. Conclusion",
+      "summary": "Multi-query attention is an alternative to multi-head attention with much lower memory-bandwidth requirements in the incremental (autoregressive decoding) setting, at only minor quality cost. The author frames it as an enabler for inference-performance-critical applications of attention-based sequence models."
+    }
+  ],
+  "readingFocus": [
+    "The central mechanism: MQA keeps h independent query heads but a single shared key/value head. Make sure you can state exactly which tensors lose their head dimension (K, V, P_k, P_v) and which keep it (Q, P_q, P_o) before moving on.",
+    "The memory-bandwidth argument in Sections 2.4 and 3.1 is the whole point. Trace why the incremental ratio is Theta(n/d + 1/b) for multi-head and how sharing K/V divides the n/d term by h — this is the reasoning you will reproduce for GQA in Phase 3.",
+    "Why training speed barely changes but decoding speed changes enormously: training is memory-cheap already (ratio O(1/k + 1/bn)), so MQA's win only shows up in the sequential, KV-cache-reload-bound decode loop.",
+    "The parameter-fairness trick: the MQA model widens d_ff (4096->5440) so quality comparisons are not confounded by parameter count. Note this when you design your own ablation harness.",
+    "MQA versus the naive alternative of just using fewer heads. Table 1 shows head-reduction (h=1,2,4) degrades quality much more than MQA for the same savings — the point is that queries still need many heads even when keys/values do not.",
+    "Curriculum link: MQA is the n_kv_head=1 extreme of the grouped-query attention you hand-write in Phase 3. Read this paper for the KV-cache motivation, then remember the speed numbers when you actually measure KV-cache size and decode throughput in Phase 6 (inference engineering)."
+  ]
+}

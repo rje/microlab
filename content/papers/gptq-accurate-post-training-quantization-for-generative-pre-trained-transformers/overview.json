@@ -1,0 +1,65 @@
+{
+  "paperId": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "GPTQ is a one-shot, post-training weight quantizer that uses approximate second-order (Hessian) information to compensate for rounding error one column at a time, compressing 175-billion-parameter GPT models to 3-4 bits per weight in about four GPU hours with negligible perplexity loss — the regime where naive round-to-nearest collapses.",
+  "overview": "Frantar et al. attack the storage-and-bandwidth cost of large generative Transformers: GPT3-175B occupies 326 GB in FP16 and cannot be served on a single GPU. They want post-training quantization (PTQ) — compress a frozen, pre-trained model in one shot from a few calibration samples, with no retraining. The accurate PTQ methods known at the time (AdaRound, BRECQ, OBQ) only scaled to ~100M parameters, while the methods that did scale to billions (LLM.int8(), ZeroQuant, nuQmm) all fell back to round-to-nearest (RTN), which preserves accuracy at 8 bits but falls apart at 3-4 bits. GPTQ closes that gap. It solves the layer-wise reconstruction problem argmin ||WX - WhatX||^2 — pick quantized weights that minimize the change to each layer's *output*, not the change to the weights themselves — by building on Optimal Brain Quantization (OBQ), which quantizes one weight at a time and, using the inverse of the layer Hessian H = 2 X X^T, nudges all not-yet-quantized weights to absorb the error just introduced. OBQ's cost is cubic in the layer width, so the paper contributes three engineering moves that scale it 100x: (1) an arbitrary-fixed-order insight so every row is quantized in the same column order and the inverse Hessian is computed once and shared; (2) lazy batch updates over blocks of 128 columns to convert a memory-bandwidth-bound loop into a compute-bound one; and (3) a Cholesky reformulation plus mild dampening to survive the numerical instability that appears at billion-parameter scale. The result: entire OPT and BLOOM families quantized to 3-4 bits on one A100, with 4-bit costing OPT-175B only 0.03 perplexity while 4-bit RTN loses 2.2 points, and 3-bit RTN diverging entirely while GPTQ stays usable. A bespoke quantized-weight/FP16-activation kernel dequantizes on the fly to give 3.24x (A100) to 4.53x (A6000) end-to-end token-latency speedups, driven purely by moving fewer bytes.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Frames the cost problem: GPT/OPT models reach 175B parameters and 326 GB in FP16, forcing multi-GPU inference. Post-training (one-shot) quantization — compress a frozen model from a little calibration data, no retraining — is the attractive lever, but accurate PTQ had not been shown to scale, and only basic RTN variants had been applied at 175B, working at 8 bits but failing at higher compression. GPTQ is announced: 3-4 bits at 175B in ~4 GPU hours with negligible degradation, more than doubling prior one-shot compression, enough to run OPT-175B on a single GPU."
+    },
+    {
+      "title": "2. Related Work",
+      "summary": "Splits quantization into training-time (needs retraining/finetuning, expensive at this scale) and post-training. Accurate PTQ methods (AdaRound, BitSplit, AdaQuant, BRECQ, and Optimal Brain Quantization) were vision-focused and topped out near 100M parameters. Large-model methods (ZeroQuant, LLM.int8(), nuQmm) scaled by simplifying to RTN; LLM.int8() noted that activation outliers in a few dimensions break naive quantization. GPTQ's claim: a much more complex, accurate quantizer can still be made efficient at 100B+ scale."
+    },
+    {
+      "title": "3. Background — Layer-Wise Quantization & OBQ",
+      "summary": "States the per-layer objective argmin_What ||WX - WhatX||^2 on a fixed quantization grid, where X is a small set of calibration inputs. Summarizes OBQ: the squared error decomposes over rows, so each row is handled independently; OBQ greedily quantizes the weight that incurs least added error and updates all remaining full-precision weights to compensate, using the layer Hessian H_F = 2 X_F X_F^T and its inverse (Equations 2-3, with the inverse maintained cheaply by Gaussian elimination). OBQ's O(d_row * d_col^3) cost makes billion-parameter layers infeasible."
+    },
+    {
+      "title": "4. GPTQ — Step 1: Arbitrary Order Insight",
+      "summary": "Empirically, quantizing weights in a fixed arbitrary order (all rows in the *same* column order) gives final error very close to OBQ's greedy order, especially for large over-parameterized layers. Because the inverse Hessian H_F^{-1} then depends only on the shared layer inputs and not on any weights, it is identical across all rows and can be computed once. This drops runtime from O(d_row * d_col^3) to O(max{d_row * d_col^2, d_col^3}) — a factor of min{d_row, d_col} speedup, several orders of magnitude for large layers."
+    },
+    {
+      "title": "4. GPTQ — Step 2: Lazy Batch-Updates",
+      "summary": "A direct implementation is memory-bandwidth bound: each quantized column triggers a tiny-FLOP update to a huge matrix. Key observation: a column's final rounding decision depends only on updates within its own block. So GPTQ processes B=128 columns at a time, keeping updates local to that block, then applies one bulk update to the rest of W and H^{-1} per block (multi-weight Equations 4-5). Same total compute, but a far higher compute-to-memory ratio — an order-of-magnitude wall-clock speedup at scale."
+    },
+    {
+      "title": "4. GPTQ — Step 3: Cholesky Reformulation & Algorithm 1",
+      "summary": "At billion-parameter scale, repeated inverse-Hessian updates accumulate numerical error and H^{-1} can become indefinite, causing catastrophic weight updates. GPTQ notes it only ever needs a fixed set of rows from H^{-1}, which are exactly what a single up-front Cholesky decomposition of H^{-1} provides — numerically stable and fast via optimized kernels — combined with mild dampening (add 1% of the average diagonal to H). Algorithm 1 gives the full loop: Cholesky the inverse Hessian, then walk columns in blocks, quantizing, accumulating per-block error, and updating weights."
+    },
+    {
+      "title": "5. Experimental Validation — Setup & Baselines",
+      "summary": "Implemented in PyTorch over HuggingFace OPT and BLOOM; all models, including 175B, quantized on a single 80 GB A100. Calibration is 128 random 2048-token segments from C4 — generic web text, no task-specific data, so results are genuinely zero-shot. Quantization is per-row asymmetric on the min-max grid. The primary baseline is RTN (round-to-nearest on the same grid), which is exactly the scheme used by LLM.int8() and the standard choice for very large models; slower accurate methods (AdaRound, BRECQ) serve as small-model references."
+    },
+    {
+      "title": "5. Small Models & Runtime",
+      "summary": "On ResNet18/50, BERT-base, and OPT-125M, GPTQ is on par with the best PTQ methods at 4-bit and only slightly behind at 3-bit, while taking under a minute versus about an hour — the efficiency headroom that lets it scale. Full-model quantization time (Table 2): 1-3B models in minutes, OPT-175B in 4.2h and BLOOM-176B in 3.8h on one A100, versus the hundreds of hours a straight-through method like ZeroQuant-LKD would extrapolate to."
+    },
+    {
+      "title": "5. Language Generation (Perplexity)",
+      "summary": "Perplexity on WikiText2/PTB/C4 is the stringent metric. On OPT, 4-bit GPTQ loses only 0.03 perplexity on the 175B model while 4-bit RTN drops 2.2; at 3-bit RTN collapses entirely (OPT-175B: 7.3e3) while GPTQ stays reasonable (8.68 vs 8.34 full precision). BLOOM shows the same pattern with smaller gaps. A notable trend: larger models are generally easier to quantize — convenient, since they are the ones that most need compression."
+    },
+    {
+      "title": "5. Practical Speedups",
+      "summary": "3-bit OPT-175B is ~63 GB (embeddings/output kept in FP16) and fits a single 80 GB A100, versus 5 GPUs for FP16 and 3 for LLM.int8(). Because autoregressive generation is dominated by memory-bound matrix-vector products, a custom quantized-weight/FP16-vector kernel that dequantizes on the fly (no activation quantization) cuts per-token latency by moving fewer bytes: 3.24x on A100 (230ms->71ms, 5->1 GPU) and 4.53x on A6000 (589ms->130ms, 8->2 GPUs)."
+    },
+    {
+      "title": "5. Zero-Shot Tasks, Grouping & Extreme Quantization",
+      "summary": "LAMBADA/ARC/PIQA show the same shape as perplexity: 4-bit is easy for everyone, but at 3-bit RTN breaks down while GPTQ holds. GPTQ is compatible with any grid, and combines especially well with grouping (independent scales per g consecutive weights, e.g. g=128), which recovers most of the remaining gap and enables the extreme regime — ~2 bits with group sizes, and even ternary (-1,0,+1) at group size 8 giving 9.20 WikiText2 on OPT-175B, under a 1-point drop."
+    },
+    {
+      "title": "6. Summary & Limitations",
+      "summary": "GPTQ is an approximate second-order one-shot quantizer that compresses the largest open models to 3-4 bits at low accuracy loss and real inference speedup. Limitations the authors flag: the gains are from reduced memory movement, not fewer FLOPs (no mixed-precision INT compute on mainstream hardware); the study targets weight-only quantization for generative inference and does not quantize activations, which they consider orthogonal future work."
+    }
+  ],
+  "readingFocus": [
+    "The layer-wise objective argmin ||WX - WhatX||^2 is the whole idea: GPTQ minimizes the error in each layer's *output* on calibration activations, not the error in the weights. Understand why this is fundamentally more powerful than element-wise rounding before anything else.",
+    "Pin down exactly why RTN collapses at 3-bit and GPTQ does not: RTN rounds every weight independently, so errors accumulate; GPTQ quantizes one column, then uses the inverse Hessian to push the *remaining* not-yet-quantized weights so the layer output barely moves. That error-compensation loop is the paper.",
+    "The Hessian here is H = 2 X X^T built from calibration inputs — the Hessian of the reconstruction objective, not the training-loss Hessian. Trace how its inverse tells you how much to nudge each surviving weight (OBQ Equations 2-3).",
+    "The three scaling tricks are systems engineering, and each kills a different bottleneck: arbitrary-fixed-order removes the cubic compute (share one H^{-1} across rows), lazy batch-updates remove the memory-bandwidth stall (blocks of 128), Cholesky removes the numerical blow-up at scale. This is what turns a ~100M-parameter idea into 4 GPU hours at 175B.",
+    "Connect directly to your Phase 6 hand-written baseline: you already coded groupwise absmax RTN and measured its perplexity cost on your 150M model. GPTQ is the second-order upgrade to that exact baseline — read OPT Table 3 as the gap you would be closing (and note grouping, which your RTN already uses, stacks on top of GPTQ).",
+    "The speedup is memory-bound, not compute-bound: the dequantize-on-the-fly kernel wins by moving fewer bytes for a matrix-vector product, and GPTQ explicitly does NOT get faster arithmetic. Internalize this — for autoregressive decoding, bytes moved, not FLOPs, sets the latency floor, and it recurs throughout inference engineering."
+  ]
+}

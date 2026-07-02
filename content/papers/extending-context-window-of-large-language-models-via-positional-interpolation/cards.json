@@ -1,0 +1,45 @@
+{
+  "paperId": "extending-context-window-of-large-language-models-via-positional-interpolation",
+  "cards": [
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#1",
+      "question": "What is the core operation of Position Interpolation, and write the modified RoPE function?",
+      "answer": "Instead of extrapolating RoPE to unseen large positions, PI linearly down-scales every position index so the maximum index fits back inside the pre-trained range. It replaces RoPE f(x, m) with f'(x, m) = f(x, mL/L'), where L is the original context window and L' is the extended one. Equivalently, divide each position m by the scale factor s = L'/L before applying RoPE. This shrinks the maximum relative distance the attention score ever sees from L' back to L, with no added parameters and no architecture change."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#2",
+      "question": "Why does directly extrapolating RoPE to a longer context window fail so catastrophically?",
+      "answer": "RoPE's self-attention score a(s) is a sum of trigonometric basis functions, which are universal approximators. During pre-training the score is only constrained on the trained range [0, L] (e.g. [0, 2048]), where it stays small and well-behaved. Beyond that range the same coefficients can produce enormous values — Figure 2 shows the fitted score magnitude exploding past 8000 just outside the trained window. As a result, evaluating at unseen larger positions drives perplexity above 10^3, comparable to an untrained model."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#3",
+      "question": "How does the naive baseline — directly fine-tuning on longer sequences — compare to Position Interpolation on the passkey retrieval task?",
+      "answer": "It barely works. Measuring the effective context window k_max (largest distance with >= 20% retrieval success), direct fine-tuning moves it from only 2048 to 2560 even after more than 10000 steps, with no sign of acceleration (Table 4). Position Interpolation reaches the full target window k_max = L' after merely 200 fine-tuning steps, consistently across 7B and 33B up to 32768. PI unlocks the long window; naive fine-tuning essentially does not."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#4",
+      "question": "Trace the three-stage perplexity story for extending LLaMA 7B from 2048 to 8192 on PG-19 (Table 3).",
+      "answer": "Stage 1, raw direct extrapolation: perplexity blows up above 10^3. Stage 2, Position Interpolation with zero fine-tuning (step 0): already usable at 16.10 — under the paper's <20 threshold. Stage 3, after a short fine-tune: 7.12 at 200 steps, 6.95 at 1000 steps — lower than the original model's 7.20 at its native 2048 window. So interpolation makes the model functional immediately, and a brief finetune makes it better than the baseline."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#5",
+      "question": "What does Theorem 2.1 establish, and roughly how much more stable is interpolation than extrapolation?",
+      "answer": "Theorem 2.1 bounds the deviation of the attention score a(s) from the linear interpolation of two well-behaved trained grid points by d*max|h_j|*(s-s1)(s2-s)/(8*ln c). With c = 10000 this reduces to about d*max|h_j|/294.73, since (s-s1)(s2-s) <= 1/4 between adjacent integer positions. Compared to RoPE's extrapolation bound (Eqn 8), the interpolation bound is at least ~600x smaller — the formal reason interpolated position encodings are dramatically more stable and easy to fine-tune."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#6",
+      "question": "What is the fine-tuning recipe for PI, and why can it be so short?",
+      "answer": "PI-extended LLaMA models fine-tune with the next-token-prediction objective on a pre-training corpus (the Pile) for just ~1000 steps, using AdamW (beta1=0.9, beta2=0.95), a 20-step linear warmup from 10% of max, LR 2e-5 for 7B/13B and 1e-5 for 33B/65B, and zero weight decay. It can be short and is insensitive to the exact examples because the model is only adapting to the reshaped position range from a good initialization, not acquiring new knowledge."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#7",
+      "question": "What is the cost of PI extension for tasks that still fit inside the original context window?",
+      "answer": "Small but nonzero. On standard 2048-token benchmarks (BoolQ, PIQA, RACE, WinoGrande), models extended to 8192 degrade by up to about 2% versus the original — for 7B, PIQA drops 78.9 to 78.2 and WinoGrande 69.6 to 69.0. Perplexity on the original 2048 window worsens only 0.01-0.05. This is expected because PI forces the original position encodings into a narrower region, so extension trades a little short-context quality for a large usable long-context window."
+    },
+    {
+      "id": "extending-context-window-of-large-language-models-via-positional-interpolation#8",
+      "question": "How does PI relate to the earlier ViT position-embedding interpolation of Dosovitskiy et al., and why does the distinction matter for RoPE models?",
+      "answer": "ViT interpolated the learned position embeddings themselves to support higher image resolution. PI instead interpolates the position indices fed into RoPE, not the embeddings. This is better suited to RoPE-style relative encodings and adds no trainable parameters, whereas interpolating learned embeddings introduces new positions to train. PI also pushes extension to 32x the original window versus ViT's 4x, and the authors confirm it specifically for extending LLM context windows."
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "paperId": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens",
+  "cards": [
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#1",
+      "question": "What is the 'iterative inference' view of a transformer, and what is a prediction trajectory?",
+      "answer": "The paper views each transformer layer as applying an incremental update to a latent guess about the next token, refining the residual stream toward the final answer. Decoding the residual stream at every layer therefore produces a sequence of next-token distributions — the prediction trajectory — which tends to converge smoothly to the model's final output, with each successive layer usually reaching lower perplexity. The tuned lens exists to make that trajectory a reliable, interpretable readout."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#2",
+      "question": "Write the plain logit lens formula and explain mechanically what it does to the model.",
+      "answer": "LogitLens(h_l) = LayerNorm[h_l] W_U: take the residual-stream hidden state h_l at layer l, push it through the model's own final LayerNorm, then its unembedding W_U, to get vocabulary logits. Mechanically this is early exiting — you set every residual update after layer l to zero and pretend h_l is already the final hidden state. It reuses the model's frozen final norm and unembedding, so it needs no training."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#3",
+      "question": "In what sense is the logit lens a 'biased' estimator of the model's output, how is the bias measured, and why is bias conceptually alarming?",
+      "answer": "Its position-averaged (marginal) distribution systematically puts more probability mass on certain vocabulary items than the model's true final marginal does. Bias is quantified as the KL divergence D_KL(p || q_l) between the true marginal p and the logit-lens marginal q_l — about 4 to 5 bits for most layers of GPT-Neo-2.7B, versus only 0.0068 bits between Pythia 160M's and Pythia 12B's finals. Because the bias direction is predictable, the trajectory cannot be read as rational belief-updating: you could systematically 'bet against' the lens and profit (a Dutch book), so the intermediate distributions are not trustworthy beliefs."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#4",
+      "question": "Beyond bias, what is 'representational drift' and why does it make zeroing out the later residuals a bad idea?",
+      "answer": "Hidden states carry a few very-high-variance 'rogue dimensions', and the covariance of hidden states rotates as depth increases, so different layers effectively live in different bases (the final layer 'misinterprets' an early-layer vector). The network may also be relying on the summed residual updates as an implicit bias term. Setting those residuals to zero is therefore an arbitrary choice that pushes h_l off the distribution the final norm+unembedding expect, corrupting the decoded prediction."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#5",
+      "question": "Write the tuned lens formula, name the two corrections it makes over the logit lens, and say what the 'translator' is.",
+      "answer": "TunedLens_l(h_l) = LogitLens(A_l h_l + b_l) = LayerNorm[A_l h_l + b_l] W_U. Two corrections: (1) replace the zeroed-out residual sum with a learnable bias vector b_l (debiasing); (2) insert a learnable change-of-basis matrix A_l that maps layer l's output space into the final layer's input space (correcting representational drift). The affine map (A_l, b_l) is the 'translator' for layer l; there is one per layer, and composing it with the frozen unembedding gives a per-layer probe from hidden state to vocabulary distribution."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#6",
+      "question": "What loss trains the translators, and why distill against the model's own final logits instead of the ground-truth next token?",
+      "answer": "Minimize the KL divergence between the model's true final-layer distribution and the tuned-lens distribution: argmin over (A_l, b_l) of E_x[ D_KL( f_{>l}(h_l) || TunedLens_l(h_l) ) ], where f_{>l} is the rest of the transformer after layer l. This is a distillation loss using the model's own output as a soft target. Training against ground-truth tokens instead would let the probe learn information the model never actually computed (the Hewitt & Liang control-task concern), so the trajectory would stop being a faithful readout of the model and become a separate classifier."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#7",
+      "question": "Why does the tuned lens reuse the model's frozen unembedding instead of learning a new unembedding per layer, and what does that buy?",
+      "answer": "Classical linear probing (Alain & Bengio) would learn a fresh unembedding of shape |V| x d_model at each layer, where |V| is 50K (GPT-2, Pythia) to over 250K (BLOOM). By freezing and sharing the model's own W_U, the only trained parameters are the translator, a d_model x d_model matrix plus bias — far fewer parameters. Empirically the small translator trains with fewer steps and a smaller batch and converges to lower perplexity than learning a new unembedding; the whole set of probes trains in under an hour on a single 8xA40 node (initialized to the identity, and best trained with the Muon optimizer)."
+    },
+    {
+      "id": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens#8",
+      "question": "Once trained, what properties and applications validate the tuned lens?",
+      "answer": "It has substantially lower perplexity, lower bias, and lower cross-model variance than the logit lens across every family tested (Pythia, GPT-NeoX-20B, BLOOM, OPT, GPT-2). Translators zero-shot transfer to nearby layers (transfer penalty correlates with covariance similarity, Spearman -0.78) and to fine-tuned checkpoints (reuse the fine-tuned unembedding, keep the base translators). Causal basis extraction shows the directions the lens relies on are also causally important to the model (Spearman 0.89). Applications: detecting prompt-injection attacks from anomalous trajectories with near-perfect AUROC, and measuring example difficulty via 'prediction depth' (layers until top-1 stabilizes), which tracks iteration-learned better than the logit lens on 8 of 11 tasks."
+    }
+  ]
+}

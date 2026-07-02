@@ -1,0 +1,45 @@
+{
+  "paperId": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers",
+  "cards": [
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#1",
+      "question": "What problem does GPTQ solve, and what regime of quantization is it (one-shot vs. retraining, weights vs. activations)?",
+      "answer": "GPTQ makes accurate post-training quantization scale to very large generative Transformers. It is one-shot / post-training: it compresses a frozen, already-trained model from a small set of calibration samples with no retraining or finetuning. It quantizes weights only (not activations), taking 175B-parameter models down to 3-4 bits per weight in about four GPU hours with negligible accuracy loss — a regime where the previously accurate PTQ methods only reached ~100M parameters and the methods that scaled fell back to plain round-to-nearest."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#2",
+      "question": "Write the layer-wise reconstruction objective GPTQ minimizes, and explain why optimizing it beats rounding each weight independently.",
+      "answer": "argmin over What of ||W X - What X||_2^2, where W is a layer's weights, What is the quantized version on a fixed grid, and X is a small batch of calibration inputs to that layer. It minimizes the change to the layer's *output*, not the change to the weights. Independent (round-to-nearest) quantization ignores X and the interactions between weights, so per-weight errors accumulate in the output; GPTQ can trade a larger error on one weight for a smaller total output error by compensating with the other weights."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#3",
+      "question": "Contrast RTN with GPTQ's core mechanism. Why does 3-bit RTN collapse on large models while GPTQ stays usable?",
+      "answer": "RTN (round-to-nearest) rounds every weight independently to its closest grid point; the resulting per-weight errors are never corrected, so they compound in the layer output and, at 3-bit, blow up (OPT-175B WikiText2 goes to ~7.3e3). GPTQ quantizes one column at a time and, after each column, uses the inverse layer Hessian to update all not-yet-quantized weights so they absorb the error just introduced, keeping the layer output close to the original. That error-compensation loop is why GPTQ holds accuracy (OPT-175B 3-bit: 8.68 vs 8.34 full precision) where RTN diverges."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#4",
+      "question": "GPTQ builds on OBQ. What is the layer Hessian used, and what two things does each OBQ step do?",
+      "answer": "The layer Hessian of the reconstruction objective is H_F = 2 X_F X_F^T, built from the calibration inputs X (F is the set of remaining full-precision weights). Each OBQ step does two things: (1) pick which remaining weight to quantize next as the one minimizing added error, argmin_wq (quant(wq) - wq)^2 / [H_F^{-1}]_qq; (2) update every remaining weight to compensate, delta_F = -(wq - quant(wq)) / [H_F^{-1}]_qq * (H_F^{-1})_{:,q}. The inverse Hessian is maintained cheaply by removing the row/column of the just-quantized weight via Gaussian elimination."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#5",
+      "question": "GPTQ Step 1 (Arbitrary Order Insight): what is the observation and what complexity win does it buy?",
+      "answer": "OBQ quantizes each row in its own greedy order. GPTQ observes that on large, over-parameterized layers, quantizing all rows in the *same* fixed (arbitrary) column order gives nearly the same final error. Because the inverse Hessian H_F^{-1} then depends only on the shared layer inputs X and not on any weights, it is identical for every row and can be computed once. This cuts runtime from O(d_row * d_col^3) to O(max{d_row * d_col^2, d_col^3}) — a factor of min{d_row, d_col} speedup, orders of magnitude for wide layers."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#6",
+      "question": "GPTQ Step 2 (Lazy Batch-Updates): what bottleneck does it target and how does batching fix it?",
+      "answer": "The naive update is memory-bandwidth bound: quantizing each column triggers a few-FLOP update to a huge weight/inverse-Hessian matrix, so GPUs stall on memory rather than compute. The fix uses the fact that a column's final rounding decision depends only on updates within its own block. GPTQ processes B=128 columns at a time, confining updates to that block and its B x B slice of H^{-1}, then applies one bulk global update to the rest of W and H^{-1} per block. Same total FLOPs, far higher compute-to-memory ratio — an order-of-magnitude wall-clock speedup at scale."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#7",
+      "question": "GPTQ Step 3 (Cholesky Reformulation): what goes wrong at scale, and how is it fixed?",
+      "answer": "Repeatedly updating H^{-1} via row/column removal accumulates numerical error, and at billion-parameter scale H^{-1} can become indefinite, causing the algorithm to push remaining weights in wildly wrong directions and ruin the layer. GPTQ notes it only ever needs a fixed set of rows of H^{-1}, which are exactly what a single up-front Cholesky decomposition provides — numerically stable and fast via optimized kernels — combined with mild dampening (adding ~1% of the average diagonal to H). This makes the method robust enough to run on huge models."
+    },
+    {
+      "id": "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers#8",
+      "question": "State GPTQ's headline empirical results: calibration setup, cost, accuracy vs. RTN, and where the inference speedup comes from.",
+      "answer": "Calibration is 128 random 2048-token C4 segments (generic web text, zero-shot). OPT-175B and BLOOM-176B quantize on a single A100 in ~4 hours (4.2h / 3.8h). At 4-bit, GPTQ costs OPT-175B only 0.03 perplexity while RTN loses 2.2; at 3-bit RTN collapses (7.3e3) while GPTQ stays at 8.68 (full precision 8.34). Grouping extends this to ~2-bit and even ternary. The 3.24x (A100) to 4.53x (A6000) per-token speedups come purely from a dequantize-on-the-fly kernel moving fewer bytes for memory-bound matrix-vector products — GPTQ gets no faster arithmetic."
+    }
+  ]
+}

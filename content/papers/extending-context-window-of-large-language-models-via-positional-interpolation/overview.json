@@ -1,0 +1,65 @@
+{
+  "paperId": "extending-context-window-of-large-language-models-via-positional-interpolation",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "Position Interpolation (PI) extends the context window of RoPE-based LLMs (LLaMA 7B-65B) from 2048 up to 32768 tokens by linearly down-scaling position indices to fit the pre-trained range instead of extrapolating past it — recovering near-baseline perplexity after only ~1000 fine-tuning steps, where direct extrapolation blows perplexity past 10^3 and naive long-context fine-tuning barely moves the effective window (2048 to 2560 after 10000 steps).",
+  "overview": "Chen et al. (Meta) confront a practical problem: LLaMA is pre-trained with a fixed 2048-token context, and RoPE's rotary encodings extrapolate poorly, so simply feeding longer sequences at inference sends perplexity to >10^3 — comparable to an untrained model. Their fix is disarmingly simple. Rather than asking the model to evaluate RoPE at unseen large positions, Position Interpolation rescales every position index by the ratio L/L' (original window over extended window), so position m becomes m·L/L'. This forces the maximum position index — and therefore the maximum relative distance the attention score ever sees — back inside the [0, L) range the model was trained on. Formally they replace RoPE f(x, m) with f'(x, m) = f(x, mL/L'). The paper's key insight is that RoPE's attention-score function a(s) is smooth and well-behaved for interpolated (non-integer) positions between trained grid points, but wildly unstable when extrapolated beyond them: Theorem 2.1 shows the interpolation error is bounded by roughly d·max|h_j|/294.73, at least ~600x smaller than the extrapolation bound. PI adds no parameters and changes nothing about the architecture, so all existing infrastructure carries over. Empirically, a short fine-tune (1000 steps on the Pile, AdamW, LR 2e-5) is enough: extended LLaMA models achieve strictly lower perplexity at long context than the original at 2048, pass passkey retrieval out to the full extended window after just 200 steps, and lose only ~2% on standard 2048-token benchmarks. This paper is the direct blueprint for the Phase 8 exercise where you extend your own 150M model's block from 1024 to 2048.",
+  "sections": [
+    {
+      "title": "Abstract & Core Claim",
+      "summary": "Position Interpolation extends RoPE-based LLMs (LLaMA 7B-65B) to context windows up to 32768 with fine-tuning within 1000 steps, while preserving quality on tasks inside the original window. It works by linearly down-scaling input position indices to match the original window size rather than extrapolating beyond the trained length, which can produce catastrophically high attention scores. A theoretical bound shows interpolation is at least ~600x more stable than extrapolation."
+    },
+    {
+      "title": "1. Introduction",
+      "summary": "LLaMA inputs must be under 2048 tokens, but long conversations, document summarization, and planning routinely exceed this. Training from scratch with a long window is expensive. The naive alternative — fine-tuning an existing model on longer sequences — adapts extremely slowly: after 10000 batches the effective context window moved only from 2048 to 2560 (Table 4). Length-extrapolation methods like ALiBi and LeX exist but aren't used by RoPE-based models like LLaMA, so the authors instead down-scale position indices so the maximum index matches the pre-training limit, exploiting the fact that RoPE can be evaluated at non-integer positions."
+    },
+    {
+      "title": "2.1 Background: Rotary Position Embedding (RoPE)",
+      "summary": "RoPE encodes position by rotating query/key vectors: f(x, m) applies rotation e^(im*theta_j) to embedding pair j, with frequencies theta_j = 10000^(-2j/d) where d is the head dimension. The resulting self-attention score a(m, n) depends only on the relative position m - n through trigonometric functions. RoPE is applied to both query and key at every layer and adds no learnable parameters — which is exactly why rescaling its input positions is a clean, weight-free intervention."
+    },
+    {
+      "title": "2.2 Direct Extrapolation (why the naive path fails)",
+      "summary": "Although RoPE's attention score only depends on relative position, its extrapolation behavior is poor: pushing to unseen larger windows sends perplexity above 10^3. The reason (Figure 2) is that the fitted attention-score function stays bounded within [-1, 1]-ish magnitude on the trained range [0, 2048] but explodes past 8000 in magnitude just beyond it. The trigonometric basis functions are universal approximators, so coefficients that give small values inside the trained range can produce huge values outside it — the model has never been constrained there."
+    },
+    {
+      "title": "2.3 Proposed Approach: Position Interpolation (PI)",
+      "summary": "Instead of extrapolating a(s) to s > L, define the interpolated score a-tilde(s) = a(sL/L'), which reuses only the well-behaved region [0, L]. Concretely, replace RoPE f(x, m) with f'(x, m) = f(x, mL/L') (Eqn 4). This reduces position indices from [0, L') to [0, L), shrinking the maximum relative distance from L' back to L. Aligning the ranges before and after extension is what lets the model adapt easily. The transformation adds no weights and does not modify the architecture."
+    },
+    {
+      "title": "Theorem 2.1: Interpolation Bound",
+      "summary": "For attention score a(s) = Re[sum_j h_j e^(is*theta_j)], the deviation of a(s) from the linear interpolation of two well-behaved grid points is bounded by d*max|h_j|*(s-s1)(s2-s)/(8*ln(c)). With c = 10000 the bound becomes approximately d*max|h_j|/294.73. Compared to RoPE's extrapolation bound (Eqn 8), which grows with a term B(s) numerically much larger than d, the interpolation bound is at least 2*294.73 ~ 600x smaller — the formal justification that interpolated position encodings are far more stable and thus easier to fine-tune."
+    },
+    {
+      "title": "Fine-tuning",
+      "summary": "The interpolated model is further fine-tuned with the next-token-prediction objective on the extended window using a pre-training corpus (the Pile). Only tens to hundreds of thousands of examples are needed, and results are insensitive to the exact choice of examples — because the model is merely adapting to the new window from a good initialization, not acquiring new knowledge."
+    },
+    {
+      "title": "3.1 Experimental Setup",
+      "summary": "LLaMA 7B/13B/33B/65B extended to windows up to 32768. AdamW (beta1=0.9, beta2=0.95), linear LR warmup over 20 steps from 10% of max, LR 2e-5 for 7B/13B and 1e-5 for 33B/65B, weight decay zero. PI models fine-tune for 1000 steps; the direct fine-tuning baseline gets 10000 steps. Training uses the Pile with FSDP and FlashAttention."
+    },
+    {
+      "title": "3.2 Long Sequence Language Modeling",
+      "summary": "On PG-19 and Arxiv Math proof-pile, PI-extended models get monotonically better perplexity as the window grows: e.g. 7B improves by -0.28 and -0.5 extending 2048 to 16384 across the two datasets. In Table 3, extending 7B to 8192, perplexity at fine-tuning step 0 (interpolation only, no training) is 16.10, dropping to 7.12 by step 200 and 6.95 by step 1000 — below the original model's 7.20 at 2048. Extending to 16384 the step-0 perplexity is 112.13, reaching 6.83 by step 1000. Direct fine-tuning instead regresses (up to +0.48) at longer windows. Degradation on the original 2048 window is minor (0.01-0.05)."
+    },
+    {
+      "title": "3.3 Effective Context Window via Passkey Retrieval",
+      "summary": "A synthetic task hides a random 5-digit passkey in a long distractor document and asks the model to recover it; k_max is the largest distance at which success rate stays >= 20%. PI-extended 7B and 33B reach the full target window (k_max = L') after just 200 fine-tuning steps, out to 32768. Direct fine-tuning barely improves — k_max crawls from 2048 to only 2560 even after 10000 steps (Table 4), demonstrating that PI genuinely unlocks the long window while naive fine-tuning does not."
+    },
+    {
+      "title": "3.4 Benchmarks on Original Context Window",
+      "summary": "On standard 2048-token benchmarks (BoolQ, PIQA, RACE, WinoGrande), models extended to 8192 show degradation of up to ~2% versus the original — e.g. 7B WinoGrande 69.6 to 69.0, PIQA 78.9 to 78.2. Larger extensions regress more but stay reasonable. The choice of fine-tuning dataset (Pile vs RedPajama) makes little difference, consistent with the small number of fine-tuning steps."
+    },
+    {
+      "title": "3.5 Long Document Summarization & Related Work",
+      "summary": "On GovReport (documents truncated to 15000 tokens, 16384 window), PI-extended LLaMA-7B reaches ROUGE-1 60.0, competitive with CoLT5 baselines. The closest prior technique is Dosovitskiy et al.'s ViT position-embedding interpolation for higher image resolution; this work differs by interpolating position indices (not embeddings), which suits RoPE and adds no trainable parameters, and pushes extension to 32x versus ViT's 4x."
+    }
+  ],
+  "readingFocus": [
+    "Eqn 4 is the whole method: f'(x, m) = f(x, mL/L'). Internalize that extending a window by factor s means dividing every position index by s before RoPE — this is exactly the `interpolated_rope_cache` you hand-write in Phase 8 (positions divided by scale).",
+    "Understand WHY interpolation beats extrapolation (Section 2.2 and Figure 2): RoPE's attention-score function is smooth between trained integer positions but explodes beyond them because the trigonometric basis is unconstrained outside [0, L). This is the conceptual payload, not the algebra.",
+    "Trace the three-stage perplexity story in Table 3 — raw extrapolation (>10^3, catastrophic) to interpolation at step 0 (16.10, usable) to a short fine-tune (6.95, beats the original 2048 baseline). This is precisely the raw-then-interpolated-then-finetuned arc you reproduce on your 150M model going 1024 to 2048.",
+    "Note the fine-tuning recipe (Section 3.1): AdamW, LR 2e-5, only ~1000 steps, insensitive to data choice. The model is adapting to a new window, not learning new content — which is why your Phase 8 finetune can be short.",
+    "Contrast PI with direct fine-tuning via the passkey-retrieval result (Table 4): the effective window jumps to L' in 200 steps under PI but crawls 2048 to 2560 in 10000 steps without it. This is the empirical case that rescaling indices is doing real work.",
+    "Theorem 2.1's ~600x stability ratio is optional depth, but the intuition — interpolation error scales with (s-s1)(s2-s) <= 1/4 between grid points while extrapolation error is unbounded — is worth carrying forward to later methods (NTK-aware / YaRN scaling)."
+  ]
+}

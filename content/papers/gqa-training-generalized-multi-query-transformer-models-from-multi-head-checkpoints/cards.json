@@ -1,0 +1,45 @@
+{
+  "paperId": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints",
+  "cards": [
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#1",
+      "question": "What resource bottlenecks autoregressive decoder inference, and why does that make the KV cache — not attention FLOPs — the thing to shrink?",
+      "answer": "Inference is bottlenecked by memory bandwidth, not compute. At every decoding step the accelerator must reload the decoder weights and the entire cached set of attention keys and values, and with batch-1 autoregressive generation there is little compute to amortize that loading against. So the number of bytes loaded from the KV cache sets the speed. MQA and GQA target exactly this: they reduce the number of key/value heads, shrinking the KV cache and the data reloaded each step, while leaving the (compute-bound) query heads untouched."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#2",
+      "question": "Define grouped-query attention precisely. What are GQA-1 and GQA-H equivalent to, and by what factor does GQA-G reduce the KV cache versus MHA?",
+      "answer": "GQA divides the H query heads into G groups, and every query head in a group shares a single key head and a single value head (GQA-G denotes G groups). GQA-1 has one group and one KV head, so it equals multi-query attention (MQA); GQA-H has one KV head per query head, so it equals multi-head attention (MHA). Relative to MHA, GQA-G stores G KV heads instead of H, reducing the KV-cache size and the data loaded per step by a factor of H/G. In the Microlab module, G is n_kv_head, so the reduction factor is n_head / n_kv_head."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#3",
+      "question": "How is each grouped key/value head constructed when converting an existing multi-head checkpoint, and why is that method chosen over the alternatives?",
+      "answer": "Each group's key (and value) projection is built by mean-pooling the projection matrices of all the original heads that fall into that group. The paper compares this against selecting a single existing head and against randomly initializing a fresh head (Figure 4): mean pooling works best, then single-head selection, then random init. The ordering tracks how much information is preserved from the pre-trained model — mean pooling retains a blend of all original heads rather than discarding most of them."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#4",
+      "question": "What is 'uptraining', how much compute does it take, and how does the required amount differ between MQA and GQA?",
+      "answer": "Uptraining converts an existing MHA checkpoint into an MQA/GQA model without pre-training from scratch: mean-pool the KV heads into the new structure, then continue pre-training on the original recipe for a small proportion alpha of the original steps. The main experiments use alpha = 0.05 (about 5% of original compute, roughly 600 TPUv3 chip-days). Figure 5 shows GQA already performs reasonably right after conversion (alpha = 0), while MQA needs uptraining to be useful; both improve through alpha = 0.05 with diminishing returns by 0.10."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#5",
+      "question": "Why does GQA become a better trade-off than MQA as model size grows?",
+      "answer": "Two reasons. (1) The KV cache scales linearly with model dimension, but parameters and FLOPs scale with its square, so in large models attention bandwidth is relatively less of the total cost — meaning MQA's collapse to a single KV head removes proportionally more capacity for a smaller relative speed gain, an increasingly bad bargain. (2) Standard tensor sharding for large models replicates the single MQA key/value head once per model partition, wasting the memory saving; GQA can instead assign one KV head per partition, removing that waste. So GQA keeps the same proportional bandwidth-and-capacity reduction as models scale, which is why the authors expect it to shine on larger models."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#6",
+      "question": "Using the Table 1 headline numbers, quantify the quality/speed trade-off among MHA-XXL, MQA-XXL, and GQA-8-XXL.",
+      "answer": "Average dev performance and inference time per sample: MHA-XXL scores 47.2 at 1.51s; MQA-XXL scores 46.6 at 0.24s; GQA-8-XXL scores 47.1 at 0.28s. GQA-8 recovers essentially all of MHA-XXL's quality (47.1 vs 47.2, a 0.1 gap) while running about 5.4x faster (0.28s vs 1.51s) — nearly as fast as MQA but noticeably higher quality. For reference, MHA-Large scores 46.0 at 0.37s, so uptrained MQA already beats it on both axes."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#7",
+      "question": "How many GQA groups do the authors choose, and what does the number-of-groups sweep (Figure 6) show about the cost of adding groups?",
+      "answer": "They choose 8 groups. On long inputs (length 2048), moving from 1 group (MQA) up to 8 adds only modest inference overhead, but the cost of adding further groups rises steeply as you approach 64 groups (full MHA), where time per sample jumps sharply. The reason: for large models the KV-cache bandwidth is less constraining, so extra groups buy little speed back while the cache grows, making 8 a favorable middle ground between MQA speed and MHA quality."
+    },
+    {
+      "id": "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints#8",
+      "question": "Beyond raw quality, what training-stability and architecture-scope findings argue for GQA over MQA, and why should a decoder-only builder care?",
+      "answer": "Appendix A reports that MQA can be unstable: T5-Large MQA models trained from scratch showed frequent loss spikes and diverged when fine-tuned on long inputs; uptrained MQA is more stable but still high-variance (results averaged over three runs), whereas uptrained GQA appears stable. On scope, GQA/MQA are applied only to decoder self-attention and cross-attention, not encoder self-attention (which runs in parallel and is not bandwidth-bound). The Limitations note that experiments cover only encoder-decoder models, and the authors expect GQA's advantage over MQA to be even stronger for decoder-only models — the architecture the Microlab curriculum actually builds, and the one Llama 2/3 adopt."
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "paperId": "fast-transformer-decoding-one-write-head-is-all-you-need",
+  "cards": [
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#1",
+      "question": "Multi-head attention trains fast but decodes slowly. What specifically changes between the two regimes to make incremental decoding the bottleneck?",
+      "answer": "During training the sequence-length dimension is fully parallel, so attention is one big batched matmul with a low memory-to-compute ratio (O(1/k + 1/bn)). Autoregressive decoding cannot parallelize across positions — each step's output feeds the next step's input — so you take n sequential steps, and every step reloads the accumulated key and value tensors from memory. That makes decoding memory-bandwidth bound rather than compute bound."
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#2",
+      "question": "Precisely what does multi-query attention change relative to multi-head attention? Which tensors keep a head dimension and which lose it?",
+      "answer": "MQA keeps h separate query heads but shares a single set of keys and values across all of them. In einsum terms, the 'h' index is removed from K, V, and their projections P_k and P_v, while Q, its projection P_q, and the output projection P_o retain the head dimension h. So you have many query heads reading from one shared key/value head — 'one write-head.'"
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#3",
+      "question": "For incremental multi-head self-attention the memory-to-compute ratio is Theta(n/d + 1/b). Explain where each term comes from and which one MQA attacks.",
+      "answer": "The 1/b term reflects amortizing the projection-weight loads (P_q, P_k, P_v, P_o) over the batch, and is easily driven small by increasing batch size b. The n/d term comes from reloading the accumulated K and V tensors — size proportional to b*h*m*k = b*n^2 — at every one of the n decode steps. That n/d term is the offensive one; MQA reduces it by removing the head dimension from K and V."
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#4",
+      "question": "What is the incremental memory-to-compute ratio for multi-query attention, and by what factor does it improve the multi-head bottleneck?",
+      "answer": "MQA gives Theta(1/d + n/(d*h) + 1/b). Compared to multi-head's Theta(n/d + 1/b), the offensive n/d term is divided by h, the number of heads. Because keys and values no longer have a head dimension, the per-step K/V memory traffic shrinks by a factor of h, so with a large batch incremental generation gets dramatically faster."
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#5",
+      "question": "Why does the paper widen the feed-forward hidden dimension from 4096 to 5440 in the multi-query model?",
+      "answer": "Sharing keys and values removes parameters (the per-head P_k and P_v projections collapse to a single head). To keep the quality comparison fair and attribute any difference to the attention structure rather than to model size, the authors widen d_ff so the multi-query model has the same total parameter count as the multi-head baseline."
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#6",
+      "question": "The paper compares MQA against simply reducing the number of heads or the key/value dimension. What did that comparison show, and what does it imply about where head diversity matters?",
+      "answer": "On WMT14 EN-DE (Table 1), MQA scored BLEU 26.5 versus the multi-head baseline's 26.7 — a small drop — while reducing heads (h=1 -> BLEU 25.8) or shrinking d_k/d_v degraded quality much more for comparable savings. The implication: you still need many distinct query heads to attend to different subspaces, but the keys and values can be shared with little cost. Head diversity matters far more on the query side than on the key/value side."
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#7",
+      "question": "Quantify MQA's speed win versus its quality cost on WMT14 EN-DE, using the paper's numbers.",
+      "answer": "Quality cost is small: dev BLEU 26.7 -> 26.5 and ln(PPL) 1.424 -> 1.439 (and MQA actually got the best test BLEU, 28.5, with beam-4). Speed win is large: greedy incremental decoding cost dropped from 46 to 3.8 microseconds per output token (over 12x on the decoder), and beam-4 decoding from 203 to 32 us/token. Training speed was essentially unchanged (13.2 vs 13.0 us/token)."
+    },
+    {
+      "id": "fast-transformer-decoding-one-write-head-is-all-you-need#8",
+      "question": "How does multi-query attention relate to the grouped-query attention (GQA) you implement with an n_kv_head knob, and why does this paper matter for KV-cache-focused inference work?",
+      "answer": "GQA interpolates between multi-head (n_kv_head = n_head) and multi-query (n_kv_head = 1) by giving each group of query heads its own shared key/value head. MQA is the n_kv_head=1 extreme this paper introduces. It matters for inference because the KV cache you must store and reload each decode step scales with n_kv_head; shrinking it is exactly the memory-bandwidth win measured here, and the lever you exploit when engineering fast decoding and larger batch/context in later inference work."
+    }
+  ]
+}

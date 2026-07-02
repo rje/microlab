@@ -1,0 +1,65 @@
+{
+  "paperId": "efficient-memory-management-for-large-language-model-serving-with-pagedattention",
+  "cards": [
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#1",
+      "question": "Why is LLM serving memory-bound rather than compute-bound, and why does that make KV cache management the key throughput lever?",
+      "answer": "The autoregressive decode phase generates one token at a time via matrix-vector products that underutilize the GPU, so throughput comes from batching many requests together. But each request needs its KV cache resident in GPU memory, and with weights fixed (~65% of memory for a 13B model on an A100 40GB), the KV cache (>30%) is what limits how many requests fit in a batch. How efficiently the KV cache is managed therefore sets the maximum batch size and thus the throughput."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#2",
+      "question": "Compute the KV cache size of a single token for 13B OPT, and explain how a request's cache reaches ~1.6 GB.",
+      "answer": "Per token: 2 (key and value) x 5120 (hidden size) x 40 (layers) x 2 bytes (FP16) = 800 KB. At the model's max sequence length of 2048 tokens, one request's KV cache is 800 KB x 2048 ~= 1.6 GB. Since the cache grows with sequence length and every concurrent request needs its own, even tens of requests can exhaust an A100's memory."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#3",
+      "question": "Name the three sources of memory waste in contiguous pre-allocated KV caches and what each one is.",
+      "answer": "(1) Reserved slots: memory reserved for future tokens of a request that are not generated yet, held for the request's whole lifetime. (2) Internal fragmentation: the unused tail of the max-length chunk over-provisioned for a request whose real output is much shorter. (3) External fragmentation: gaps left by the buddy allocator because per-request chunks have different sizes. Profiling found only 20.4-38.2% of KV memory in existing systems actually holds token state."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#4",
+      "question": "What is the core idea of PagedAttention, and what OS mechanism is it modeled on?",
+      "answer": "PagedAttention partitions each sequence's KV cache into fixed-size KV blocks holding B tokens each, which need not be stored contiguously in GPU memory. This mirrors OS virtual memory with paging: KV blocks are pages, tokens are bytes, and requests are processes. A per-request block table maps logical blocks to physical blocks, so memory can be allocated on demand instead of reserving one contiguous max-length chunk."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#5",
+      "question": "How does the attention computation change when the KV cache is stored in non-contiguous paged blocks?",
+      "answer": "Attention is rewritten block-wise: for key block K_j and value block V_j of B tokens, the kernel computes A_ij = softmax over blocks of (q_i^T K_j / sqrt(d)), then o_i = sum over j of V_j A_ij^T. The custom kernel identifies and fetches each KV block separately (assigning a GPU warp per block for coalesced access) rather than reading one contiguous tensor, so scattered physical blocks can still be attended over."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#6",
+      "question": "How does the block table bound KV cache waste to at most one block per sequence?",
+      "answer": "Logical blocks are filled left-to-right; the block table records each logical block's physical block and how many of its B slots are filled. vLLM allocates a new physical block only when the current last block is full, and only the last block can have unfilled slots. So the only internal fragmentation is the partially filled final block, and no memory is reserved for positions beyond what has been generated -- eliminating the reserved-slot and external-fragmentation waste entirely."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#7",
+      "question": "How does vLLM share KV cache across sequences (parallel sampling, beam search, shared prefixes), and what mechanism handles divergence?",
+      "answer": "Because blocks are fixed-size and indirected through block tables, multiple sequences can map their logical blocks to the same physical block, tracked with a per-block reference count. When a sequence needs to write to a shared block (reference count > 1), vLLM applies copy-on-write at block granularity: it allocates a new physical block, copies the shared block, decrements the old block's count, and writes there. This yields 6.1-9.8% block savings on Alpaca parallel sampling up to 44.3-66.3% on ShareGPT beam search."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#8",
+      "question": "When vLLM runs out of GPU blocks it preempts sequences. What is its eviction policy, and what are the two ways it recovers evicted blocks?",
+      "answer": "vLLM schedules FCFS and uses an all-or-nothing eviction policy -- either all blocks of a sequence are evicted or none -- because attention needs all of a sequence's token states together; sequence groups (e.g., beam candidates) are gang-scheduled. Recovery is by swapping evicted blocks to CPU RAM and back, or by recomputation (re-running prefill on the original prompt plus already-generated tokens in one parallel pass). Recomputation has constant overhead (better for small blocks); swapping is better for large blocks."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#9",
+      "question": "What determines the choice of block size, and why does vLLM default to 16?",
+      "answer": "Too small a block underutilizes GPU parallelism when reading/processing the KV cache; too large a block increases internal fragmentation and lowers the chance of sharing (since sharing is block-granular). Block size 16 is large enough to keep the GPU busy yet small enough to avoid significant internal fragmentation across workloads, so it is vLLM's default. On short-sequence traces like Alpaca, blocks of 128-256 noticeably degrade performance."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#10",
+      "question": "PagedAttention adds overhead versus a contiguous kernel -- how much, and why is the net result still a large win?",
+      "answer": "The block-table indirection makes vLLM's attention kernel 20-26% slower than FasterTransformer's highly optimized contiguous kernel. But this only affects the attention operator, not the other layers (e.g., Linear), and it is dwarfed by the throughput gain from fitting far more requests in a batch: vLLM serves 2-4x higher throughput end-to-end, with the largest gains on long sequences, big models, and complex decoding."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#11",
+      "question": "How are vLLM's decoding algorithms built from primitives, and how do fork/append/free implement parallel sampling?",
+      "answer": "vLLM exposes three methods: fork (create a new sequence from an existing one, sharing its blocks), append (add a generated token to a sequence), and free (delete a sequence and release its blocks). Parallel sampling forks the prompt sequence into N output sequences that share the prompt's physical blocks, appends new tokens each iteration (triggering copy-on-write when they diverge), and frees sequences as they hit a stop condition. Beam search and prefix sharing combine the same primitives."
+    },
+    {
+      "id": "efficient-memory-management-for-large-language-model-serving-with-pagedattention#12",
+      "question": "Why does PagedAttention help LLM serving but not general DNN inference, and how does it relate to Orca's continuous batching?",
+      "answer": "Paging pays off precisely because LLM serving is memory-bound with dynamic, a-priori-unknown allocation sizes; for compute-bound DNNs with static tensor shapes, the memory-indirection overhead would only hurt. It is complementary to Orca-style iteration-level (continuous) batching: Orca schedules requests to raise GPU utilization, while vLLM raises memory utilization so more requests' working sets fit at once -- and the finer scheduling Orca does makes vLLM's fragmentation-free memory management even more valuable."
+    }
+  ]
+}

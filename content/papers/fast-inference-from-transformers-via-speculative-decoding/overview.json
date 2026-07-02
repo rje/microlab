@@ -1,0 +1,65 @@
+{
+  "paperId": "fast-inference-from-transformers-via-speculative-decoding",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "Speculative decoding accelerates inference from a large autoregressive Transformer 2X-3X by having a small, cheap draft model guess several tokens ahead and verifying them all in a single parallel forward pass of the large model — with a provably exact accept/reject rule that leaves the target's output distribution completely unchanged, and no retraining or architecture change.",
+  "overview": "Leviathan, Kalman, and Matias observe that autoregressive decoding is slow because generating K tokens requires K serial runs of the model, and that step is memory-bandwidth bound rather than compute bound — so spare arithmetic capacity is available. They exploit this by generalizing speculative execution to the stochastic setting. A small approximation (draft) model M_q autoregressively proposes gamma candidate tokens; the large target model M_p is then run once, in parallel, over all gamma+1 positions to obtain the true next-token distributions. A novel speculative sampling rule decides how many drafts to accept: each draft token is accepted with probability min(1, p(x)/q(x)), and the first rejection is replaced by a sample from the adjusted distribution norm(max(0, p(x) - q(x))). The authors prove this procedure samples from p(x) exactly, so the output distribution is identical to standard sampling from M_p alone. Each target run therefore yields at least one token and up to gamma+1, cutting the number of serial target calls. On T5-XXL (11B) with T5-small as the draft, and on GPT-like and LaMDA models, they measure 2X-3X wall-time speedups with byte-for-byte identical output distributions and no model changes.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Decoding K tokens from a large Transformer takes K serial model runs, and a single large-model step is far slower than a small model's. Two observations drive the method: (1) many decoding steps are 'easy' and can be approximated well by a smaller model, and (2) inference is bottlenecked on memory bandwidth and communication, not arithmetic, so extra compute is available to spend on parallel speculation. The goal is to accelerate off-the-shelf models without retraining, architecture changes, or any change to the output distribution."
+    },
+    {
+      "title": "2.1 Speculative Decoding — Overview",
+      "summary": "Let M_p be the target model (distribution p) we want to accelerate, and M_q a cheaper approximation model (distribution q). The loop is: (1) run M_q to generate gamma candidate completions autoregressively; (2) run M_p once in parallel over all gamma+1 prefixes to get p_1..p_{gamma+1}; (3) accept the longest prefix of guesses consistent with an exact draw from p, then sample one adjusted token to fix the first rejection (or an extra token if all gamma were accepted). Every parallel run of M_p yields at least one token and up to gamma+1."
+    },
+    {
+      "title": "2.2 Standardized Sampling",
+      "summary": "argmax, top-k, nucleus, and temperature sampling are all recast as standard sampling from an adjusted probability distribution (e.g. argmax = zero out non-max entries and renormalize). This lets the whole analysis assume plain sampling from adjusted p and q, so the method applies unchanged across decoding schemes."
+    },
+    {
+      "title": "2.3 Speculative Sampling (the accept/reject rule)",
+      "summary": "To sample x ~ p(x) while proposing from q(x): draw x ~ q(x); keep it if q(x) <= p(x); if q(x) > p(x), reject with probability 1 - p(x)/q(x) and resample from the adjusted distribution p'(x) = norm(max(0, p(x) - q(x))). Equivalently, accept with probability min(1, p(x)/q(x)). Appendix A.1 proves that x sampled this way is distributed exactly as p(x)."
+    },
+    {
+      "title": "Algorithm 1 — SpeculativeDecodingStep",
+      "summary": "Sample gamma guesses x_1..x_gamma from M_q. Run M_p in parallel to get p_1(x)..p_{gamma+1}(x). Draw r_1..r_gamma ~ U(0,1) and set the number of accepted guesses n = min({ i-1 : r_i > p_i(x_i)/q_i(x_i) } ∪ {gamma}). Set p'(x) = p_{n+1}(x); if n < gamma, adjust p'(x) = norm(max(0, p_{n+1}(x) - q_{n+1}(x))). Sample t ~ p'(x) and return prefix + [x_1..x_n, t] — that is n tokens from the draft plus one guaranteed token from the target."
+    },
+    {
+      "title": "3.1 Number of Generated Tokens",
+      "summary": "With the simplifying assumption that per-token acceptances are i.i.d. with success probability alpha, the number of tokens produced by one Algorithm-1 step is a capped geometric variable (cap gamma+1). The expected number is E(#tokens) = (1 - alpha^(gamma+1)) / (1 - alpha) (Eq. 1) — this is the factor by which serial target calls are reduced."
+    },
+    {
+      "title": "3.2 Calculating alpha",
+      "summary": "The acceptance rate beta is the probability of accepting a token drawn from q. Using a natural divergence D_LK(p,q) = sum |p(x) - M(x)| with M = (p+q)/2, Lemma 3.3 gives D_LK = 1 - sum min(p(x), q(x)). Theorem 3.5 proves beta = 1 - D_LK(p,q), and Corollary 3.6 gives alpha = E(beta) = E(min(p,q)) = 1 - E(D_LK). alpha is an intrinsic property of the model pair and task; higher when q is a good approximation of p and when the distribution is sharper."
+    },
+    {
+      "title": "3.3 Walltime Improvement",
+      "summary": "Let c (the cost coefficient) be the ratio of the time for one run of M_q to one run of M_p. Assuming enough compute to run gamma+1 target evaluations in parallel, the expected wall-time improvement factor (Theorem 3.8) is (1 - alpha^(gamma+1)) / ((1 - alpha)(gamma*c + 1)). In their experiments c was under 0.05, often near 0, so speedup approaches the token-count reduction."
+    },
+    {
+      "title": "3.4 Number of Arithmetic Operations",
+      "summary": "The trade-off: latency drops via increased concurrency, but total arithmetic operations increase by a factor (1 - alpha)(gamma*c_hat + gamma + 1) / (1 - alpha^(gamma+1)) (Theorem 3.11), where c_hat is the per-token op ratio. Crucially, total memory accesses shrink by (1 - alpha^(gamma+1)) / (1 - alpha) because the target's weights and KV cache are read once per step instead of once per token — which is why the method wins when memory bandwidth, not FLOPs, is the bottleneck."
+    },
+    {
+      "title": "3.5 Choosing gamma & 3.6 Approximation Models",
+      "summary": "Given c and alpha, the optimal gamma is found numerically by maximizing the wall-time formula. Speculative sampling guarantees identical outputs for ANY choice of M_q, so the draft can be an off-the-shelf smaller Transformer (best around two orders of magnitude smaller than M_p), a negligible-cost n-gram model (a table lookup that still yields non-trivial alpha), a non-autoregressive model, or even random tokens. No custom training or architecture changes are required."
+    },
+    {
+      "title": "4. Experiments",
+      "summary": "On T5-XXL (11B) as M_p with T5-small (77M) as the draft, they measure 3.4X speedup on EnDe translation (argmax, temp=0) and 2.6X (temp=1); a GPT-like 97M model with a 6M draft reaches alpha=0.88. alpha rises with draft-model size and is higher for argmax than for stochastic sampling. Even a trivial bigram draft gives alpha=0.2 on EnDe, worth a 1.25X speedup. Overall: consistent 2X-3X wall-time gains with identical output distributions."
+    },
+    {
+      "title": "5. Related Work & 6. Discussion",
+      "summary": "Unlike adaptive-computation, distillation, quantization, or early-exit methods — which change architecture, training, or outputs — speculative decoding accelerates existing models unchanged. Blockwise Parallel Decoding and Shallow Aggressive Decoding also decode several tokens in parallel but only support greedy decoding or copying, and require custom training. The main limitation is that speedup costs extra arithmetic, so the method only helps when spare compute is available (the common memory-bandwidth-bound regime)."
+    }
+  ],
+  "readingFocus": [
+    "Master the accept/reject rule in Section 2.3 first — accept a draft token with probability min(1, p(x)/q(x)), resample rejections from norm(max(0, p(x) - q(x))). This is the exact rule you will hand-write in Phase 6, so read it until it is muscle memory.",
+    "Work through the Appendix A.1 proof (or reconstruct it): show that P(output = x) = min(p,q) + max(0, p-q) = p(x). Understanding WHY the target distribution is preserved unchanged is the whole point of the exercise — it is not an approximation.",
+    "Trace Algorithm 1 line by line, especially how n (the number of accepted guesses) is computed from uniform draws r_i and the ratio p_i(x_i)/q_i(x_i), and how the single guaranteed target token is sampled from the adjusted p'.",
+    "Internalize alpha = E(min(p,q)) (Corollary 3.6) and the capped-geometric E(#tokens) = (1 - alpha^(gamma+1))/(1 - alpha). These tell you exactly how draft quality translates into speedup.",
+    "Note the compute-vs-latency trade-off in 3.3-3.4: the method spends extra arithmetic to save memory bandwidth, so it only pays off when the target's decode step is bandwidth-bound (the usual case for a single-stream large-model decode).",
+    "Keep Section 3.6 in mind for later — any M_q that approximates M_p works with zero change to outputs. In Phase 14 your distilled student, trained to mimic the teacher, is an unusually good draft model precisely because it maximizes alpha."
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "paperId": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "Under the Maximal Update Parametrization (muP), a network's optimal hyperparameters stay stable as width grows, so you can tune learning rate and multipliers on a cheap narrow proxy and copy them zero-shot to the full-size target (muTransfer) — transferring from a 40M-parameter proxy to GPT-3 6.7B at only 7% of pretraining cost and outperforming the original tuned model.",
+  "overview": "Yang et al. turn the infinite-width theory of the Tensor Programs series into a practical recipe for tuning huge models without huge sweeps. The core observation: in the standard parametrization (SP, the PyTorch default) the loss-vs-learning-rate curve shifts as width changes, so the best LR found on a small model is wrong for a large one. muP fixes this by scaling each parameter tensor's initialization variance, learning rate, and output multiplier by the right power of width, chosen so that every layer's activations update by a width-independent amount. The rules are a small table (Table 3, and the easier-to-implement Table 8) organized by three parameter classes — input weights & biases, output weights, and hidden weights. In practice the load-bearing rules are: hidden-weight init variance ~ 1/fan_in (std ~ 1/sqrt(width)), hidden-weight Adam LR ~ 1/width, an output-logit multiplier ~ 1/width, and 1/d attention (dividing q-dot-k by d_head instead of sqrt(d_head)). Once the target is written in muP, the workflow (Algorithm 1) is: parametrize the target in muP, tune a narrow proxy, copy the hyperparameters over. Correctness is checked with a coordinate check — plot the average coordinate size of each activation over a few training steps across a wide range of widths; a correct muP implementation keeps every curve flat (Theta(1)), while a bug shows some activation blowing up or vanishing with width. The authors validate transfer of learning rate, initialization scale, and attention/output multipliers across width (theoretically justified) and empirically across depth, batch size, sequence length, and training steps, on Transformers (IWSLT, WMT, BERT, GPT-3) and ResNets — while noting regularization hyperparameters (dropout, weight decay) do not transfer.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "HP tuning is prohibitively expensive at billion-parameter scale, and in SP wider models do not even share optimal HPs with narrower ones (Fig. 1, left: the LR optimum shifts). muP keeps the optimum stable (Fig. 1, right), enabling zero-shot transfer of HPs from a small model to a large one — headline results: transfer from 13M to BERT-large and from 40M to GPT-3 6.7B."
+    },
+    {
+      "title": "2. Parametrization Matters: A Primer",
+      "summary": "A CLT toy example builds intuition for why a hyperparameter must be reparametrized with the correct power of width (c = alpha / sqrt(n)) for its optimum to be copyable across scale. The key lesson: to make any HP transferable you must correctly reparametrize ALL of them together, not just the one you care about."
+    },
+    {
+      "title": "3. Hyperparameters Don't Transfer Conventionally",
+      "summary": "Demonstrates HP instability in SP: for MLPs on CIFAR-10 (Fig. 3, left) and Transformers on Wikitext-2 (Fig. 1, left), the optimal learning rate drifts by roughly an order of magnitude as width grows, so the small model's best LR gives poor or divergent performance at large width."
+    },
+    {
+      "title": "4. Unlocking Zero-Shot Hyperparameter Transfer with muP",
+      "summary": "Introduces muP concretely for MLPs (Eq. 3-4) and Transformers. Definition 4.1: the Transformer muP uses 1/d attention — the attention logit is q-dot-k / d instead of q-dot-k / sqrt(d). Under muP the LR optimum is stable and performance improves monotonically with width. This is the section behind the muP multiplier table you will hand-write."
+    },
+    {
+      "title": "5. The Defects of SP and How muP Fixes Them",
+      "summary": "Explains the failure mode: in SP, logits and other hidden quantities blow up with width after even one optimizer step (some layers update too fast, others too slow), so no single global LR is right for all widths. muP scales per-layer LR/init so every activation updates by a width-independent amount — which is also why wider-is-better holds in muP but not SP."
+    },
+    {
+      "title": "6. Which Hyperparameters Can Be muTransferred?",
+      "summary": "Table 1 partitions HPs into three groups: muTransferable (optimization, init, parameter multipliers — e.g. LR, momentum, Adam betas, LR schedule, init variance, multipliers), NOT muTransferable (regularization: dropout, weight decay), and dimensions you transfer ACROSS (width, and empirically depth, batch size, sequence length, training time). Sec 6.1: transfer needs a minimum scale — width >= ~256, depth >= ~4, batch >= ~32, seqlen >= ~128, steps >= ~5000; depth transfer works reliably only for pre-LN Transformers."
+    },
+    {
+      "title": "7. Efficiency and Performance of muTransfer",
+      "summary": "End-to-end validation. IWSLT (Table 4): muTransfer from a 0.25x-width proxy beats heavily-tuned fairseq and dominates conventional tuning on the compute-vs-quality Pareto frontier (Fig. 6). WMT (Table 5) matches the tuned baseline. BERT (Table 6): tuning a 13M 'BERT-prototype' beats Megatron BERT-large at 22x model / 220x total speedup. GPT-3 6.7B (Sec 7.4, Table 7/10/11): a 40M proxy (168x smaller) tuned at 7% of pretraining cost yields a model that beats the original 6.7B and rivals the twice-as-large 13B."
+    },
+    {
+      "title": "8. Wider is Better in muP Throughout Training",
+      "summary": "Beyond stable optima, muP has the property that a wider model achieves lower training loss than a narrower one at every point in training given the same HPs (Figs. 7-8, widths 256 to 32768). Because SP lacks this, checking 'wider-is-better' early in training is itself a cheap way to debug a muP implementation."
+    },
+    {
+      "title": "Appendix B. Further Explanations of the muP Tables (incl. Table 8 and B.1 walkthrough)",
+      "summary": "Table 8 is the implementation-friendly, equivalent form: all 'vector-like' parameters (input + output weights and biases) get a unified 1/fan_in init variance, output weights carry an explicit 1/fan_in multiplier, and hidden weights get Adam LR 1/fan_in. The unifying rule: a multiplier of order 1/fan_in should accompany any weight that maps an infinite (width) dimension to a finite one — which covers both the output logits and the 1/d attention. B.1 walks through every Transformer tensor (word/positional embeddings with width-independent fan_in, LayerNorm, W_q/W_k/W_v/W_o as hidden weights, and the attention-logit scaling alpha_attn * sqrt(d_head_0)/d_head)."
+    },
+    {
+      "title": "Appendix D. Practical Considerations",
+      "summary": "D.1 Coordinate checking: the cheap correctness test — plot each activation's average coordinate size over a few steps as width sweeps a large range; a bug shows blow-up/shrinkage. D.2: zero-initialize output layers and the query projection W_q (makes the initial attention logit exactly 0 regardless of width) to better match proxy and target. D.4: decouple and enlarge d_k (e.g. peg d_k = 32-128) to denoise the proxy's HP landscape. D.3: prefer ReLU — squashing activations (tanh, softmax) degrade transfer. D.7: in practice tune only global LR, init std, and input/output/attention multipliers."
+    },
+    {
+      "title": "Appendix H. Implementing muTransfer in a Jiffy",
+      "summary": "A minimal how-to for retrofitting muP onto an existing codebase and the mup PyTorch package (pip install mup, github.com/microsoft/mup), including the built-in coordinate-check utility — the reference for turning the tables into working code."
+    }
+  ],
+  "readingFocus": [
+    "Table 3 (and the equivalent, easier-to-implement Table 8) IS the artifact to reproduce: memorize the init-variance, learning-rate, and multiplier rules for the three parameter classes. The load-bearing rules for your Transformer are hidden-weight init var ~ 1/fan_in (std ~ 1/sqrt(width)), hidden-weight Adam LR ~ 1/width, and output-logit multiplier ~ 1/width.",
+    "Definition 4.1 and the attention-logit scaling in B.1: muP for Transformers uses 1/d attention (divide q-dot-k by d_head, not sqrt(d_head)), because after training q and k become correlated so their dot product scales like d rather than sqrt(d). This is the one architectural change to your attention block.",
+    "The unifying interpretation from Appendix B: 'a 1/fan_in multiplier accompanies any weight mapping an infinite dimension to a finite one.' It explains the output multiplier and 1/d attention as the same rule and is easier to remember than the per-cell table.",
+    "The coordinate check (Appendix D.1 / Fig. 5): this is how you verify your hand-written table is implemented correctly. Run a few training steps across a wide range of widths and confirm every activation's coordinate size stays Theta(1); a blow-up or vanishing curve means a bug in one row of your table.",
+    "Table 1: which HPs transfer (optimization, init, multipliers) and, crucially, which do NOT (regularization — dropout, weight decay). Your proxy sweep should tune LR / init std / multipliers, not regularization.",
+    "Algorithm 1 and Sec 7.4: the whole practical payoff — parametrize the target in muP, tune a narrow proxy, copy the HPs. This is exactly how you should pick the capstone 1B model's learning rate instead of running an unaffordable full-scale sweep.",
+    "Practical gotchas that make transfer actually work (Appendix D): zero-init the output and query layers, enlarge d_k to denoise the proxy landscape, and use ReLU rather than squashing activations."
+  ]
+}

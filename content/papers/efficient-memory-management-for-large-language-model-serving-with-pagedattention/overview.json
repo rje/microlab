@@ -1,0 +1,86 @@
+{
+  "paperId": "efficient-memory-management-for-large-language-model-serving-with-pagedattention",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "PagedAttention borrows OS virtual-memory paging to store each request's KV cache in fixed-size, non-contiguous blocks addressed through a block table, cutting the fragmentation and over-reservation waste of contiguous caches to near zero — which lets vLLM batch far more requests and serve popular LLMs at 2-4x the throughput of FasterTransformer and Orca at the same latency.",
+  "overview": "Kwon et al. observe that LLM serving is memory-bound: the autoregressive KV cache grows and shrinks unpredictably per request, yet existing systems store it in a single contiguous, pre-allocated chunk sized to the maximum sequence length. Their profiling shows only 20.4-38.2% of that memory ever holds real token state — the rest is lost to reserved slots, internal fragmentation, and external fragmentation. PagedAttention fixes this by partitioning each sequence's KV cache into fixed-size blocks (default 16 tokens) that need not be contiguous in GPU memory; a per-request block table maps logical blocks to physical blocks exactly as an OS maps virtual pages to physical frames. On top of it, vLLM adds a centralized block manager, copy-on-write block sharing (for parallel sampling, beam search, and shared prefixes), and FCFS scheduling with preemption via swapping or recomputation. The result is near-zero KV waste (96.3% effective utilization) and 2-4x higher serving throughput, with gains largest for long sequences, big models, and complex decoding.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Serving LLMs is expensive and throughput-limited because generation is autoregressive and memory-bound. For a 13B model on an A100 40GB, ~65% of memory is weights and >30% is the dynamic KV cache; managing that cache badly caps the batch size and thus throughput."
+    },
+    {
+      "title": "2.1 Transformer-Based Large Language Models",
+      "summary": "Recaps autoregressive factorization and self-attention: each position produces query, key, and value vectors, and each output token's attention depends on the key/value vectors of all previous tokens — the vectors that become the KV cache."
+    },
+    {
+      "title": "2.2 LLM Service & Autoregressive Generation",
+      "summary": "Generation splits into a parallelizable prompt/prefill phase (all prompt tokens processed at once) and a sequential decode phase that emits one token per step. The decode phase is matrix-vector, underutilizes the GPU, and dominates request latency."
+    },
+    {
+      "title": "2.3 Batching Techniques for LLMs",
+      "summary": "Batching amortizes weight-loading cost, but naive request-level batching stalls on differing arrival times and lengths. Iteration-level (continuous) scheduling like Orca adds and removes requests after every step, which PagedAttention's memory model is designed to feed."
+    },
+    {
+      "title": "3. Memory Challenges in LLM Serving",
+      "summary": "The KV cache is large (800 KB per token for 13B OPT; up to 1.6 GB per request at 2048 tokens) and its length is unknown a priori. Complex decoding (parallel sampling, beam search) also wants to share cache across sequences, which contiguous storage cannot do."
+    },
+    {
+      "title": "3.1 Memory Management in Existing Systems",
+      "summary": "Because frameworks need tensors contiguous, prior systems pre-allocate a max-length chunk per request, producing three wastes: reserved (not-yet-used) slots, internal fragmentation (unused tail of the over-provisioned chunk), and external fragmentation from the buddy allocator. Only 20.4-38.2% of KV memory holds real tokens."
+    },
+    {
+      "title": "4.1 PagedAttention",
+      "summary": "The core algorithm partitions each sequence's KV cache into fixed-size KV blocks of B tokens and rewrites attention as a block-wise computation, so the kernel gathers keys/values from non-contiguous physical blocks instead of one contiguous tensor."
+    },
+    {
+      "title": "4.2 KV Cache Manager",
+      "summary": "A block table per request maps logical KV blocks (filled left-to-right) to physical GPU blocks and records how many slots are filled, exactly like OS page tables. Physical blocks are allocated on demand, so memory is never reserved for positions that do not yet exist."
+    },
+    {
+      "title": "4.3 Decoding with PagedAttention and vLLM",
+      "summary": "Walks a single sequence through prefill and decode: vLLM reserves only the blocks needed so far, appends new tokens into the last block's free slots, and allocates a fresh physical block only when the current one fills — confining waste to at most one block per sequence."
+    },
+    {
+      "title": "4.4 Application to Other Decoding Scenarios",
+      "summary": "Block granularity enables sharing: parallel samples and beam candidates share prompt/prefix blocks via reference counts, and divergence triggers copy-on-write of a single block. Shared system prompts are cached once across requests, saving 6.1-66.3% of blocks depending on scenario."
+    },
+    {
+      "title": "4.5 Scheduling and Preemption",
+      "summary": "vLLM schedules FCFS and, when memory runs out, preempts whole sequences with an all-or-nothing eviction policy; sequence groups (e.g., beam candidates) are gang-scheduled. Evicted blocks are recovered by swapping to CPU RAM or by recomputation."
+    },
+    {
+      "title": "4.6 Distributed Execution",
+      "summary": "A single centralized KV cache manager serves Megatron-style tensor-parallel workers: the scheduler broadcasts block tables and token IDs each step, and each worker stores only its attention heads' slice of the KV cache."
+    },
+    {
+      "title": "5. Implementation",
+      "summary": "vLLM is ~8.5K lines of Python plus ~2K lines of C++/CUDA, with a FastAPI/OpenAI-style frontend. Custom kernels fuse reshape-and-block-write, block-aware attention, and block copy; decoding algorithms are built from three primitives: fork, append, and free."
+    },
+    {
+      "title": "6. Evaluation",
+      "summary": "On OPT-13B/66B/175B and LLaMA-13B with ShareGPT and Alpaca traces, vLLM sustains 1.7-2.7x (vs Orca Oracle) to 2.7-8x (vs Orca Max) higher request rates at similar latency, batching e.g. 30.42 vs 7-13.6 requests for OPT-13B on ShareGPT."
+    },
+    {
+      "title": "6.3-6.5 Sharing, Prefix, and Chatbot Workloads",
+      "summary": "Gains widen with complex decoding: up to 2.3x over Orca Oracle on beam search, 1.67-3.58x on shared-prefix translation, and ~2x on the chatbot workload where long shared histories otherwise force max-length reservation."
+    },
+    {
+      "title": "7. Ablation Studies",
+      "summary": "PagedAttention's block indirection adds 20-26% attention-kernel latency but is dwarfed by end-to-end gains. Block size 16 is the sweet spot; recomputation has constant overhead (better for small blocks) while swapping wins for large blocks."
+    },
+    {
+      "title": "8-10. Discussion, Related Work, Conclusion",
+      "summary": "Paging helps precisely because LLM serving is memory-bound with dynamic, unpredictable allocation — it would not help compute-bound DNN inference. vLLM is complementary to Orca-style iteration-level scheduling and delivers 2-4x throughput over the prior state of the art."
+    }
+  ],
+  "readingFocus": [
+    "Map the three memory wastes in Sec 3.1 (reserved / internal frag / external frag) directly onto the naive contiguous preallocated KV cache you just wrote for the 150M model — each waste is a bug your cache has.",
+    "The block table in Sec 4.2 is the whole idea: logical-to-physical block mapping is the concrete data structure you would implement to replace a flat max-length tensor. Trace how it grows one block at a time.",
+    "Understand why attention must be rewritten (Eq 4, block-wise) once KV lives in non-contiguous blocks — a paged cache is useless unless the attention kernel can gather from scattered blocks.",
+    "Block size (Sec 7.2) is the tunable that trades GPU parallelism against internal fragmentation and sharing granularity; note why the default is 16 and how it interacts with your model's head/layer dimensions.",
+    "Copy-on-write with reference counts (Sec 4.4) is how paging unlocks KV sharing for parallel sampling, beam search, and shared prefixes — capabilities a contiguous cache fundamentally cannot offer.",
+    "Continuous (iteration-level) batching is the payoff: PagedAttention removes the memory reservation that blocks it, so read Sec 2.3 and 4.5 together to see why paged memory and continuous batching are co-designed.",
+    "Preemption via swapping vs recomputation (Sec 4.5, 7.3) is the serving-scale answer to 'what happens when the KV cache overflows' — a question your fixed preallocated cache answers only by crashing or capping batch size."
+  ]
+}

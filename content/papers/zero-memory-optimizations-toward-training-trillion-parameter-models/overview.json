@@ -1,0 +1,69 @@
+{
+  "paperId": "zero-memory-optimizations-toward-training-trillion-parameter-models",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "ZeRO (Zero Redundancy Optimizer) removes the memory redundancy of standard data parallelism by partitioning the three model-state tensors — optimizer states, gradients, and parameters — across data-parallel ranks in three cumulative stages, shrinking per-GPU memory from (2+2+K)*Psi bytes toward (2+2+K)*Psi/N_d while keeping communication volume at 1x-1.5x of baseline DP, enough to fit trillion-parameter models on 1024 GPUs.",
+  "overview": "Rajbhandari et al. attack the memory wall that blocks training models past ~1.4B parameters under plain data parallelism (DP). They first classify all training memory into model states (optimizer states, gradients, parameters) and residual states (activations, temporary buffers, fragmentation). For mixed-precision Adam, model states dominate: an fp16 copy of the parameters (2*Psi bytes) and gradients (2*Psi bytes) plus the optimizer states — an fp32 master copy of the parameters, the momentum, and the variance — totalling K*Psi bytes where K=12. Standard DP replicates all (2+2+K)*Psi = 16*Psi bytes on every device, so a 7.5B model needs 120GB per GPU. ZeRO-DP eliminates this redundancy in three stages: P_os (stage 1) partitions the optimizer states across the N_d data-parallel ranks for a 4x reduction; P_os+g (stage 2) adds gradient partitioning for an 8x reduction at the same communication volume as baseline DP; P_os+g+p (stage 3) adds parameter partitioning, reducing memory linearly with N_d (a 64x reduction at N_d=64) at the cost of only a 1.5x increase in communication. A companion set of optimizations, ZeRO-R, tackles residual states via partitioned activation checkpointing, constant-size fused buffers, and on-the-fly memory defragmentation. The authors implement a subset (ZeRO-100B) in DeepSpeed, train 100B+ parameter models at 15 Petaflops on 400 V100 GPUs with super-linear speedup, and use it to build Turing-NLG (17B), the largest language model of its day.",
+  "sections": [
+    {
+      "title": "1. Extended Introduction",
+      "summary": "Frames the problem: model sizes are growing (BERT-large 0.3B, GPT-2 1.5B, Megatron 8.3B, T5 11B) but a single device cannot hold them, and adding devices via plain DP does not reduce per-device memory (it OOMs past ~1.4B params on 32GB GPUs). Model parallelism (MP) shrinks memory but has poor compute/communication efficiency beyond a single node. Introduces ZeRO-DP's three cumulative stages (P_os 4x, P_os+g 8x, P_os+g+p linear in N_d) and ZeRO-R for residual memory."
+    },
+    {
+      "title": "3. Where Did All the Memory Go?",
+      "summary": "Splits training memory into model states and residual states and shows model states usually dominate. Sets up the accounting that the rest of the paper formalizes, using a 1.5B GPT-2 as the running example (3GB for fp16 weights alone, yet cannot train on a 32GB GPU)."
+    },
+    {
+      "title": "3.1 Model States: Optimizer States, Gradients and Parameters",
+      "summary": "The core memory-accounting section. Mixed-precision Adam holds an fp16 parameter copy (2*Psi bytes) and fp16 gradients (2*Psi bytes) for the forward/backward pass, plus optimizer states: an fp32 master copy of the parameters, the momentum, and the variance (4*Psi + 4*Psi + 4*Psi = 12*Psi = K*Psi bytes, K=12). Total is 2*Psi + 2*Psi + K*Psi = 16*Psi bytes. For GPT-2 (1.5B) that is at least 24GB of model state versus 3GB for the fp16 params alone. This is the exact 12-bytes-per-param bookkeeping the memory-budget calculator implements."
+    },
+    {
+      "title": "3.2 Residual Memory Consumption",
+      "summary": "The other memory sink: activations (proportional to layers x hidden_dim x seq_length x batch; ~60GB for a 100B model at batch 32 even with checkpointing), temporary buffers for fused all-reduce / grad-norm ops (a 6GB fp32 buffer for a 1.5B model), and memory fragmentation that can cause OOM with 30%+ of memory still free."
+    },
+    {
+      "title": "4. ZeRO: Insights and Overview",
+      "summary": "Motivates the two optimization families. ZeRO-DP is built on three insights: DP has better compute/communication efficiency than MP but worse memory efficiency; MP partitions state but replicates activations; and not all model states are needed at all times (a layer's parameters are only needed during its own forward/backward). ZeRO exploits the temporal nature of state to partition rather than replicate while keeping communication low."
+    },
+    {
+      "title": "5.1 P_os: Optimizer State Partitioning",
+      "summary": "Stage 1. Group the optimizer states into N_d equal partitions; rank i only stores and updates 1/N_d of them (and thus updates 1/N_d of the parameters), then an all-gather at the end of each step reconstructs the full updated parameters. Memory drops from 4*Psi + K*Psi to 4*Psi + K*Psi/N_d, a ~4x reduction for large N_d. Example: 7.5B model at N_d=64 goes from 120GB to 31.4GB. Communication volume is unchanged from baseline DP."
+    },
+    {
+      "title": "5.2 P_g: Gradient Partitioning",
+      "summary": "Stage 2, added on top of P_os. Since each rank only updates its own parameter partition, it only needs the reduced gradients for that partition. Gradients are reduced to the owning rank via a reduce-scatter (bucketized for efficiency) and then freed, dropping gradient memory from 2*Psi to 2*Psi/N_d. Combined footprint falls to 2*Psi + (2+K)*Psi/N_d, an ~8x reduction. Example: 7.5B model at N_d=64 needs 16.6GB. Communication volume stays at baseline DP's 2*Psi."
+    },
+    {
+      "title": "5.3 P_p: Parameter Partitioning",
+      "summary": "Stage 3, added on top of P_os+g. Each rank stores only its own 1/N_d of the parameters; the parameters for other partitions are broadcast (all-gathered) on demand during forward and backward, then discarded. Memory becomes (2+2+K)*Psi/N_d = 16*Psi/N_d, a reduction linear in N_d (64x at N_d=64: the 7.5B model needs just 1.9GB). This is FSDP's full-shard mode. Total communication rises only to 3*Psi (1.5x baseline)."
+    },
+    {
+      "title": "5.4 Implication on Model Size",
+      "summary": "Table 1 tabulates per-device model-state memory for 7.5B, 128B, and 1T models across DP degrees. At N_d=64, the three stages fit 7.5B / 14B / 128B respectively; with all optimizations at N_d=1024, ZeRO fits a 1-trillion-parameter model. Without ZeRO, DP alone tops out below 1.5B."
+    },
+    {
+      "title": "6. Deep Dive into ZeRO-R",
+      "summary": "Residual-state optimizations. P_a (partitioned activation checkpointing) partitions activation checkpoints across MP ranks and all-gathers them on demand, cutting activation memory by the MP degree (100B model: ~33GB to ~2GB per GPU), optionally offloading to CPU (P_a+cpu). C_B uses constant-size fused buffers so temporary-buffer memory does not grow with model size. M_D defragments by copying long-lived tensors (checkpoints, gradients) into pre-allocated contiguous buffers."
+    },
+    {
+      "title": "7. Communication Analysis of ZeRO-DP",
+      "summary": "Proves the memory savings are nearly free in communication. Baseline DP moves 2*Psi per step (reduce-scatter + all-gather of an all-reduce). P_os+g keeps this at 2*Psi (reduce-scatter of gradients + all-gather of parameters). P_os+g+p adds a second parameter all-gather (Psi during forward, replayed for backward), raising the total to 3*Psi — only a 1.5x increase for an N_d-fold memory reduction."
+    },
+    {
+      "title": "9. Step Towards 1 Trillion Parameters",
+      "summary": "Argues trillion-parameter training is fit-able on 1024 current GPUs with ZeRO (DP-only P_os+g+p, or combined with 16-way MP), but the compute wall remains: a 1T model would take ~140+ days on that hardware, requiring exascale systems to train in reasonable time."
+    },
+    {
+      "title": "10. Implementation and Evaluation",
+      "summary": "ZeRO-100B (P_os+g of ZeRO-DP plus ZeRO-R) trains 170B-parameter models — 8x larger than prior SOTA — at up to 10x higher throughput (15 Petaflops on 400 GPUs) with super-linear scaling, and powers Turing-NLG (17B), then the largest published model."
+    }
+  ],
+  "readingFocus": [
+    "Section 3.1 is the heart of the paper for this curriculum: internalize the 2*Psi (fp16 params) + 2*Psi (fp16 grads) + K*Psi (optimizer states) breakdown and why mixed-precision Adam gives K=12 (fp32 master params 4 + momentum 4 + variance 4 bytes per param). This is precisely the per-GPU accounting your memory-budget calculator implements.",
+    "Map the three ZeRO-DP stages onto your calculator's zero_stage parameter: stage 1 = P_os divides only the K*Psi optimizer states by N_d; stage 2 = P_os+g additionally divides the 2*Psi gradients; stage 3 = P_os+g+p divides everything (all 16*Psi) by N_d. Get the per-stage formulas from Figure 1 exactly right.",
+    "Figure 1 and its worked example (Psi=7.5B, N_d=64, K=12 giving 120 / 31.4 / 16.6 / 1.9 GB) is the reference you should reproduce numerically before trusting your calculator against nvidia-smi.",
+    "Track what each stage costs in communication (Section 7): stages 1 and 2 are free (2*Psi, same as baseline DP), stage 3 costs 1.5x (3*Psi). This is why FSDP full-shard is the default trade-off for large models.",
+    "Note that stage 3 (P_os+g+p) is exactly PyTorch FSDP's full-shard mode — the descendant you will verify predictions against on a rented node. Understand the on-demand all-gather / discard schedule that makes it work.",
+    "Keep residual states (Section 3.2 / ZeRO-R) in mind as the reason nvidia-smi will read higher than your model-state calculator predicts: activations, fused temporary buffers, and fragmentation are real memory your budget must leave headroom for."
+  ]
+}

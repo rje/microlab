@@ -1,0 +1,65 @@
+{
+  "paperId": "megatron-lm-training-multi-billion-parameter-language-models-using-model-parallelism",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "Megatron-LM introduces intra-layer (tensor) model parallelism that splits each transformer block's GEMMs across GPUs — the MLP column-then-row, attention by heads — so a full transformer layer needs only two all-reduces in the forward pass and two in the backward pass. With this, the authors train an 8.3B-parameter GPT-2 on 512 V100s at 76% scaling efficiency, in pure PyTorch with no custom compiler.",
+  "overview": "Shoeybi et al. tackle the problem that the largest transformer language models no longer fit in a single accelerator's memory — weights, gradients, and the extra per-parameter optimizer state (e.g. Adam's momentum and variance) together exceed 32 GB. Rather than build a new framework like GPipe or Mesh-TensorFlow, they exploit the internal structure of the transformer to add a handful of synchronization primitives to an existing PyTorch implementation. Each transformer layer's two big matrix multiplies — the MLP and the multi-head attention — are partitioned so that most of the computation runs independently on each GPU and the partial results are combined by a single all-reduce. The MLP's first GEMM is split column-wise so the nonlinear GeLU can be applied per-partition without any communication, and its second GEMM is split row-wise so it consumes that output directly. Attention is split by assigning whole heads to different GPUs. Two conjugate operators, f and g, insert the all-reduces: g reduces in the forward pass and is identity in the backward pass, while f is identity forward and reduces in the backward pass. The result is two all-reduces per layer each direction. The input/output embedding is split along the vocabulary dimension, and the output logits GEMM is fused with the cross-entropy loss so only scalar losses (b x s) are communicated instead of full logits (b x s x v). Layer normalization, dropout, and residual connections are duplicated across the model-parallel GPUs rather than split. This tensor parallelism is orthogonal and complementary to data parallelism: the authors combine 8-way tensor parallel with 64-way data parallel to reach 512 GPUs, sustaining 15.1 PetaFLOPS (76% of linear scaling from a 39-TFLOPS single-GPU baseline), and set state-of-the-art results on WikiText103 (perplexity 10.8), LAMBADA (66.5%), and RACE (90.9%). A separate finding is that rearranging layer-norm placement in BERT-style models is what lets them keep scaling past BERT-Large.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Very large transformers are hard to train because they exceed single-GPU memory, and optimizers like Adam add extra per-parameter state (momentum/variance) that further shrinks the trainable model size. Existing model-parallel frameworks (GPipe, Mesh-TensorFlow) require rewriting the model against a new compiler/library. Megatron instead implements a simple, efficient intra-layer model-parallel approach with only a few targeted changes to a PyTorch transformer — no custom compiler — that is orthogonal and complementary to pipeline parallelism."
+    },
+    {
+      "title": "2.1-2.2 Background: LM Pretraining & Transformers",
+      "summary": "Pretrained language models have grown from transferring word embeddings to finetuning entire multi-billion-parameter transformers, driving the need for hardware/systems techniques that operate efficiently at scale. The work targets both GPT-2 (decoder) and BERT (encoder) architectures, which use GeLU nonlinearities and layer normalization."
+    },
+    {
+      "title": "2.3 Data and Model Parallelism",
+      "summary": "Data parallelism replicates the model and splits the minibatch (weak scaling by growing global batch size), but every worker must still hold the whole model — so it cannot train models that do not fit on one GPU, and very large batches degrade convergence. Model parallelism distributes the model itself. Within model parallelism there are two paradigms: pipeline (layer-wise) parallelism, which suffers from pipeline bubbles and optimizer-consistency issues, and distributed tensor computation, which partitions individual tensor operations across devices. Megatron is the latter."
+    },
+    {
+      "title": "3. Model Parallel Transformers — MLP block",
+      "summary": "The MLP is Y = GeLU(XA) followed by Z = Dropout(YB). Splitting the first weight A row-wise (with X split column-wise) would force a synchronization before GeLU because GeLU is nonlinear: GeLU(X1A1 + X2A2) != GeLU(X1A1) + GeLU(X2A2). Splitting A column-wise, A = [A1, A2], instead lets each GPU compute GeLU(XAi) independently with no communication. The second GEMM B is then split row-wise so it consumes the column-parallel output directly; the partial products are summed by one all-reduce (the g operator) in the forward pass, with a matching all-reduce (f) in the backward pass."
+    },
+    {
+      "title": "3. Model Parallel Transformers — Self-Attention block",
+      "summary": "The key, query, and value GEMMs are partitioned column-wise by attention head, so the multiply and softmax for each head run entirely on one GPU with no communication — attention-head parameters and work split naturally across GPUs. The output linear projection after attention is parallelized row-wise so it takes the per-GPU attention output directly. As in the MLP, this fuses two GEMMs with a single all-reduce between the block and the next region, giving one f-g pair."
+    },
+    {
+      "title": "3. Communication operators (f, g) and embeddings",
+      "summary": "f and g are conjugate: f is identity in the forward pass and all-reduce in the backward pass; g is all-reduce in the forward pass and identity in the backward pass — each implementable in a few lines as a torch.autograd.Function. With one pair in the MLP and one in attention, a single transformer layer needs two all-reduces forward and two backward (four total, Figure 4). The input embedding E (H x v) is split along the vocabulary dimension E = [E1, E2], requiring an all-reduce after lookup; the tied output embedding's logits GEMM is fused with the cross-entropy loss so only b x s scalar losses are communicated instead of the huge b x s x v logits."
+    },
+    {
+      "title": "3. What is duplicated vs. split",
+      "summary": "Rather than compute layer normalization, dropout, and the residual connection on one GPU and broadcast, Megatron duplicates these across all model-parallel GPUs: each worker keeps duplicate copies of the layer-norm parameters and applies dropout/residual to the (already all-reduced) tensors before feeding the next model-parallel region. Each worker optimizes its own local/duplicated parameters, so no communication of updated parameters is needed. The practical consequence for a memory budget: these components do not shrink with the tensor-parallel degree."
+    },
+    {
+      "title": "4. Setup — Dataset & Hyperparameters",
+      "summary": "Training uses a 174 GB deduplicated aggregate (Wikipedia, CC-Stories, RealNews, OpenWebText; LSH dedup at Jaccard > 0.7). Practical tricks matter: weights are initialized W ~ N(0, 0.02) and weights immediately before residual layers are scaled by 1/sqrt(2N) (N = number of transformer layers); mixed precision with dynamic loss scaling; global gradient-norm clipping at 1.0; Adam with weight decay; dropout 0.1; activation checkpointing after every transformer layer to manage memory. The GPT-2 vocabulary is padded from 50,257 to 51,200 (a multiple of 128 x 8) so the per-partition vocab size gives efficient GEMMs."
+    },
+    {
+      "title": "5.1 Scaling Analysis",
+      "summary": "Table 1 lists four GPT-2 configs (1.2B/2.5B/4.2B/8.3B params) that keep hidden size per attention head constant at 96, using 1/2/4/8-way model parallelism (and up to 64-way data parallelism for 512 GPUs). The single-GPU 1.2B baseline sustains 39 TeraFLOPS (30% of peak). 8-way model parallel alone achieves 77% of linear scaling; the 8.3B model on 512 GPUs (model + data parallel) still achieves 74%, sustaining 15.1 PetaFLOPS overall (76% scaling efficiency versus the strong single-GPU baseline)."
+    },
+    {
+      "title": "5.2 GPT-2 Language Modeling Results",
+      "summary": "Larger models converge faster and to lower validation perplexity (Figure 6). The 8.3B model sets state of the art: WikiText103 perplexity 10.8 (vs prior 15.79) and LAMBADA accuracy 66.5% (vs 63.24%). The authors verify test-set contamination is minimal via 8-gram overlap checks."
+    },
+    {
+      "title": "5.3 BERT Results & layer-norm placement",
+      "summary": "Naively scaling BERT past BERT-Large (336M) degrades accuracy. Megatron shows that rearranging the order of layer normalization and the residual connection (Figure 7b) removes the training instability and enables monotonic improvement with size up to 3.9B params, setting SOTA on RACE (90.9%) and strong MNLI/QQP/SQuAD results. This is a separate architectural finding from tensor parallelism but important for anyone scaling encoder models."
+    },
+    {
+      "title": "6. Conclusion",
+      "summary": "A few all-reduce insertions into an existing PyTorch transformer suffice to train models up to 8.3B parameters on 512 GPUs at high efficiency, with no compiler and full compatibility with data and pipeline parallelism. The code and pipelines were open-sourced as NVIDIA/Megatron-LM."
+    }
+  ],
+  "readingFocus": [
+    "The MLP split is the heart of the paper: understand exactly why the first GEMM must be column-parallel (so the nonlinear GeLU applies per-partition with no sync) and the second row-parallel (so it consumes that output and the partials are summed by one all-reduce). Trace Figure 3a.",
+    "The attention split by heads (Figure 3b): each GPU owns whole heads and runs their softmax(QK^T/sqrt(d))V locally, then a row-parallel output projection — one all-reduce, no per-head communication.",
+    "The f and g conjugate operators and the count that matters for your Phase 7 mental model: two all-reduces per transformer layer forward, two backward (Figure 4). This is the entire communication cost of tensor parallelism per block.",
+    "What is duplicated (layer norm, dropout, residual, their parameters) versus split (the two GEMMs and attention heads). This distinction is exactly what your per-GPU memory-budget calculator must encode — only the split region divides by the tensor-parallel degree.",
+    "The embedding parallelism along the vocabulary dimension and the trick of fusing the output GEMM with cross-entropy to communicate b x s scalar losses instead of b x s x v logits.",
+    "The scaling results and their framing (weak scaling, 8-way = 77% of linear, 512 GPUs = 74%), plus why tensor parallelism and data parallelism are orthogonal and are composed (8-way tp x 64-way dp = 512 GPUs) — the same composition your DDP drills sit inside."
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "paperId": "zero-memory-optimizations-toward-training-trillion-parameter-models",
+  "cards": [
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#1",
+      "question": "For mixed-precision Adam training of a model with Psi parameters, write the per-device memory of standard data parallelism as a sum of its component tensors in bytes.",
+      "answer": "Total = 2*Psi (fp16 parameter copy) + 2*Psi (fp16 gradients) + K*Psi (optimizer states), which is (2 + 2 + K)*Psi bytes. With mixed-precision Adam K = 12, so the total is 16*Psi bytes per device. The optimizer states K*Psi break down as an fp32 master copy of the parameters (4*Psi), the Adam momentum (4*Psi), and the Adam variance (4*Psi) = 12*Psi = K*Psi."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#2",
+      "question": "Why does the optimizer-state multiplier K equal 12 for mixed-precision Adam, i.e. where do the 12 bytes per parameter come from?",
+      "answer": "Mixed-precision Adam keeps three fp32 (4-byte) tensors per parameter: an fp32 master copy of the weights (used to apply updates accurately), the first-moment momentum, and the second-moment variance. 3 tensors x 4 bytes = 12 bytes per parameter, so K = 12. These are separate from the 2-byte fp16 parameter copy and 2-byte fp16 gradient used in the forward/backward pass. This 12-bytes-per-param figure is the dominant term in the memory budget for large models."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#3",
+      "question": "What does ZeRO-DP stage 1 (P_os, optimizer state partitioning) shard across the N_d data-parallel ranks, and what is the resulting per-device memory formula and reduction factor?",
+      "answer": "Stage 1 partitions only the optimizer states (the K*Psi bytes) into N_d equal shards; each rank stores and updates 1/N_d of them, then an all-gather reconstructs the full updated parameters after each step. Per-device memory becomes 2*Psi + 2*Psi + K*Psi/N_d = 4*Psi + K*Psi/N_d. For large N_d this approaches 4*Psi, a ~4x reduction from 16*Psi. Communication volume is unchanged from baseline DP."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#4",
+      "question": "What does ZeRO-DP stage 2 (P_os+g) add over stage 1, what is its per-device memory formula, and how much does it cost in communication?",
+      "answer": "Stage 2 additionally partitions the gradients: since each rank only updates its own parameter partition, it only needs those gradients. Gradients are reduce-scattered to their owning rank (bucketized) and then freed, dropping gradient memory from 2*Psi to 2*Psi/N_d. Per-device memory becomes 2*Psi + (2 + K)*Psi/N_d, an ~8x reduction for large N_d. Communication volume stays at 2*Psi, exactly the same as baseline DP (reduce-scatter of gradients + all-gather of parameters)."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#5",
+      "question": "What does ZeRO-DP stage 3 (P_os+g+p) shard, what is its per-device memory formula, and what is its communication cost relative to baseline DP?",
+      "answer": "Stage 3 additionally partitions the parameters themselves: each rank stores only 1/N_d of the parameters and all-gathers the others on demand during forward and backward, discarding them immediately after use. Per-device model-state memory becomes (2 + 2 + K)*Psi/N_d = 16*Psi/N_d, a reduction linear in N_d (e.g. 64x at N_d = 64). Communication rises to 3*Psi per step — only 1.5x the baseline 2*Psi — because of an extra parameter all-gather in forward that is replayed in backward. This full-shard mode is what PyTorch FSDP implements."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#6",
+      "question": "Using the paper's worked example (Psi = 7.5B parameters, N_d = 64, K = 12), give the per-device memory for baseline DP and each of the three ZeRO stages.",
+      "answer": "Baseline DP: (2+2+12)*7.5B = 16*Psi = 120 GB. Stage 1 (P_os): 4*Psi + 12*Psi/64 approx 31.4 GB. Stage 2 (P_os+g): 2*Psi + 14*Psi/64 approx 16.6 GB. Stage 3 (P_os+g+p): 16*Psi/64 approx 1.9 GB. This is Figure 1's example and the reference set of numbers to reproduce when validating a per-GPU memory-budget calculator."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#7",
+      "question": "Beyond model states, what are the residual states ZeRO-R targets, and why do they matter when comparing a model-state memory calculator against nvidia-smi?",
+      "answer": "Residual states are activations (proportional to layers x hidden_dim x seq_length x batch), temporary buffers (fused fp32 buffers for all-reduce / grad-norm ops), and fragmented memory. ZeRO-R addresses them with partitioned activation checkpointing (P_a, optionally offloaded to CPU), constant-size fused buffers (C_B), and on-the-fly defragmentation (M_D). They matter because a model-state-only budget (params + grads + optimizer states) will under-predict actual GPU usage: nvidia-smi also includes activations, temporary buffers, fragmentation, and the allocator's caching, so a budget must leave headroom for them."
+    },
+    {
+      "id": "zero-memory-optimizations-toward-training-trillion-parameter-models#8",
+      "question": "Why does ZeRO-DP achieve MP-level memory efficiency without MP's efficiency penalty, and what key insight lets parameter partitioning stay cheap in communication?",
+      "answer": "Standard DP replicates all model states on every rank (good compute/communication efficiency, poor memory efficiency); MP partitions state but at fine granularity with heavy inter-layer communication that degrades past a single node. ZeRO-DP partitions the model states across DP ranks instead of replicating them, keeping DP's coarse granularity and low communication. The key insight is temporal: not all states are needed at once — a layer's parameters are only needed during its own forward/backward — so stage 3 can all-gather each partition just in time and discard it after, reducing memory linearly in N_d for only a 1.5x communication increase."
+    }
+  ]
+}
