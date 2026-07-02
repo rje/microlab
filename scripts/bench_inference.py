@@ -41,6 +41,8 @@ def load_model(run_dir: Path) -> VariantGPT:
 
 
 def bench(fn, *args, n=3, **kwargs) -> float:
+    # tok/s counts the prompt tokens too, equally on both sides of the comparison — the
+    # cached/uncached ratio is exact; absolute figures are ~3% inflated (8 / 264 tokens).
     fn(*args, **kwargs)  # warmup
     t0 = time.perf_counter()
     for _ in range(n):
@@ -78,7 +80,7 @@ def main() -> None:
 
     cfg = model.config
     hd = cfg.n_embd // cfg.n_head
-    for n_kv in (cfg.n_head, cfg.n_head // 2, 1):
+    for n_kv in (cfg.n_head, max(1, cfg.n_head // 2), max(1, cfg.n_head // 4), 1):
         by = 2 * cfg.n_layer * n_kv * cfg.block_size * hd * 2  # k+v, bf16 bytes
         print(f"KV cache @ n_kv_head={n_kv:>2}: {by / 1e6:7.1f} MB per sequence")
 
