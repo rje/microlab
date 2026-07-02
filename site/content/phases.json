@@ -107,30 +107,71 @@
     "id": "phase-3",
     "title": "Phase 3: Architecture Ablations",
     "status": "planned",
-    "goal": "Change one architectural decision at a time and measure loss, throughput, and behavior.",
-    "summary": "This phase turns transformer implementation details into concrete tradeoffs.",
+    "goal": "Change one architectural decision at a time — norms, positions, MLPs, attention head topology (GQA), and MoE routing — and measure loss, throughput, and behavior.",
+    "summary": "This phase turns transformer implementation details — including grouped-query attention (GQA) and mixture-of-experts (MoE) routing with load balancing — into concrete tradeoffs.",
     "tasks": [],
     "readingPaperIds": [
       "roformer-enhanced-transformer-with-rotary-position-embedding",
       "root-mean-square-layer-normalization",
       "glu-variants-improve-transformer",
       "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness",
-      "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity"
+      "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity",
+      "fast-transformer-decoding-one-write-head-is-all-you-need",
+      "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints"
     ]
   },
   {
     "id": "phase-4",
     "title": "Phase 4: Scaling Experiments",
     "status": "planned",
-    "goal": "Train a small family of models to see scaling behavior on one GPU.",
-    "summary": "This phase builds intuition about parameter count, token budget, throughput, and bottlenecks.",
+    "goal": "Train a small family of models to see scaling behavior on one GPU, and use muP to transfer tuned hyperparameters across widths.",
+    "summary": "This phase builds intuition about parameter count, token budget, throughput, bottlenecks, and muP (maximal-update parametrization) hyperparameter transfer, closing with a compute-optimal 1B config.",
     "tasks": [],
     "readingPaperIds": [
       "scaling-laws-for-neural-language-models",
       "training-compute-optimal-large-language-models",
       "llama-open-and-efficient-foundation-language-models",
       "the-llama-3-herd-of-models",
-      "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling"
+      "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling",
+      "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer",
+      "small-scale-proxies-for-large-scale-transformer-training-instabilities"
+    ]
+  },
+  {
+    "id": "phase-5",
+    "title": "Phase 5: Interpretability",
+    "status": "planned",
+    "goal": "Open up the trained 150M model and find real structure: logit lens, attention patterns, induction heads.",
+    "summary": "This phase turns 'I built it' into 'I can see what it learned' — decoding every layer's residual stream with the model's own unembedding, scoring induction heads on repeated sequences, and (stretch) watching induction heads form across saved checkpoints. Web reading: Anthropic's In-context Learning and Induction Heads (transformer-circuits.pub).",
+    "tasks": [],
+    "readingPaperIds": [
+      "eliciting-latent-predictions-from-transformers-with-the-tuned-lens",
+      "locating-and-editing-factual-associations-in-gpt"
+    ]
+  },
+  {
+    "id": "phase-6",
+    "title": "Phase 6: Inference Engineering",
+    "status": "planned",
+    "goal": "Build everything between a checkpoint and a served token: KV cache, sampling, quantization, speculative decoding.",
+    "summary": "This phase makes inference constraints concrete — why generation is memory-bound, why GQA exists (measure the 4x KV-cache shrink), what int8/int4 cost in perplexity, and how a draft model makes decoding faster for free. The KV-cache exercise is graded by exact token-match against uncached generation.",
+    "tasks": [],
+    "readingPaperIds": [
+      "efficient-memory-management-for-large-language-model-serving-with-pagedattention",
+      "fast-inference-from-transformers-via-speculative-decoding",
+      "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers"
+    ]
+  },
+  {
+    "id": "phase-7",
+    "title": "Phase 7: Distributed Training",
+    "status": "planned",
+    "goal": "Learn the parallelism vocabulary of every frontier lab — DP/TP/PP, ZeRO, FSDP — and feel it on rented multi-GPU hardware. Ends with the 1B capstone.",
+    "summary": "This phase hand-writes the per-GPU memory budget, proves it against nvidia-smi on a rented 4x A100 node (~$25-50), measures DDP scaling efficiency on the real 150M training script, and opens with a vendor-affordability research spike that decides whether the 1B capstone trains in the cloud (~12-14h on 8x H100) or locally (~3-4 weeks).",
+    "tasks": [],
+    "readingPaperIds": [
+      "megatron-lm-training-multi-billion-parameter-language-models-using-model-parallelism",
+      "zero-memory-optimizations-toward-training-trillion-parameter-models"
     ]
   },
   {
@@ -144,7 +185,8 @@
       "llama-open-and-efficient-foundation-language-models",
       "opt-open-pre-trained-transformer-language-models",
       "the-llama-3-herd-of-models",
-      "deepseek-v3-technical-report"
+      "deepseek-v3-technical-report",
+      "extending-context-window-of-large-language-models-via-positional-interpolation"
     ]
   },
   {

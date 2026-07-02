@@ -19,8 +19,11 @@ understand line by line. Every phase has the same four layers; you climb through
    stays green while your stubs are unsolved. Start with `docs/hand-write/<phase>-*.md`.
 4. **Run for real (scale)** — for the pretraining phases (1, 2, 4), the production
    infrastructure to actually train a model: a fast tokenizer, a streaming data pipeline,
-   and a checkpoint/resume Trainer. This is *build-and-verify* (no closed-form oracle for a
-   training loop) — verified by driving a real model to low validation loss.
+   and a checkpoint/resume Trainer. Later phases exercise real runs too — Phases 5–6 profile
+   and interpret the trained 150M checkpoint (interp report, inference bench), and Phase 7
+   scales the Trainer to multi-GPU for the ~1B capstone. This is *build-and-verify* (no
+   closed-form oracle for a training loop) — verified by driving a real model to low
+   validation loss.
 
 ## The phases
 
@@ -29,8 +32,11 @@ understand line by line. Every phase has the same four layers; you climb through
 | 0 | Evaluation harness | pass@k, ECE | — |
 | 1 | Data & tokenization | byte-level BPE | fast 32k BPE + FineWeb-Edu `.bin` pipeline |
 | 2 | Tiny GPT pretraining | attention, block, train step, sampling | production Trainer + 150M run |
-| 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU | — |
-| 4 | Scaling experiments | param/FLOP count, scaling-law fit | compute-optimal 1B config + capstone run |
+| 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU, GQA, MoE routing + load-balance loss | — |
+| 4 | Scaling experiments | param/FLOP count, scaling-law fit, muP transfer table | compute-optimal 1B config |
+| 5 | Interpretability | logit lens, induction-head score | interp report on the 150M ckpt |
+| 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench on the 150M ckpt |
+| 7 | Distributed training | per-GPU memory budget (DP/TP/PP x ZeRO) | grad-ckpt/compile drills + cloud DDP + 1B capstone |
 | 8 | Continued pretraining | forgetting metric, replay mix | (uses scale) |
 | 9 | Supervised fine-tuning | prompt loss-masking, masked CE | (uses scale) |
 | 10 | Efficient fine-tuning | LoRA adapter + merge, quantizer | (uses scale) |
