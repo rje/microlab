@@ -11,6 +11,7 @@ import {
   FlaskConical,
   Layers3,
   PlayCircle,
+  Sparkles,
   TerminalSquare,
   X
 } from "lucide-react";
@@ -118,7 +119,7 @@ export function App({ initialState }: AppProps) {
   const [markdownLoadingPath, setMarkdownLoadingPath] = useState<string | null>(null);
   const [activePaperId, setActivePaperId] = useState<string | null>(null);
   const [recallOpen, setRecallOpen] = useState(false);
-  const [view, setView] = useState<"phases" | "training">("phases");
+  const [view, setView] = useState<"phases" | "training" | "playground">("phases");
 
   useEffect(() => {
     if (initialState) {
@@ -220,10 +221,15 @@ export function App({ initialState }: AppProps) {
             setView("phases");
           }}
           onSelectTraining={() => setView("training")}
+          onSelectPlayground={() => setView("playground")}
         />
         {view === "training" ? (
           <main className="workspace workspace-full">
             <TrainingPanel />
+          </main>
+        ) : view === "playground" ? (
+          <main className="workspace workspace-full">
+            <PlaygroundPanel />
           </main>
         ) : (
           <>
@@ -277,13 +283,15 @@ function PhaseRail({
   phases,
   activeView,
   onSelectPhase,
-  onSelectTraining
+  onSelectTraining,
+  onSelectPlayground
 }: {
   activePhaseId: string;
   phases: Phase[];
-  activeView: "phases" | "training";
+  activeView: "phases" | "training" | "playground";
   onSelectPhase: (phaseId: string) => void;
   onSelectTraining: () => void;
+  onSelectPlayground: () => void;
 }) {
   return (
     <nav className="phase-rail" aria-label="Microlab phases">
@@ -327,6 +335,19 @@ function PhaseRail({
             <small>TensorBoard</small>
           </span>
         </button>
+        <button
+          className={`phase-nav ${activeView === "playground" ? "is-active" : ""}`}
+          onClick={onSelectPlayground}
+          type="button"
+        >
+          <span className="phase-number" aria-hidden="true">
+            <Sparkles />
+          </span>
+          <span>
+            <strong>Playground</strong>
+            <small>Your model, live</small>
+          </span>
+        </button>
       </div>
     </nav>
   );
@@ -347,6 +368,158 @@ function TrainingPanel() {
         src="/tensorboard/"
         style={{ width: "100%", border: 0, height: "calc(100vh - 96px)" }}
       />
+    </section>
+  );
+}
+
+function PlaygroundPanel() {
+  const [prompt, setPrompt] = useState("Once upon a time");
+  const [output, setOutput] = useState("");
+  const [temperature, setTemperature] = useState(0.8);
+  const [topK, setTopK] = useState(0); // 0 = off
+  const [topP, setTopP] = useState(0); // 0 = off
+  const [maxTokens, setMaxTokens] = useState(128);
+  const [running, setRunning] = useState(false);
+  const [stats, setStats] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const generate = async () => {
+    setRunning(true);
+    setOutput("");
+    setStats(null);
+    setError(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const t0 = performance.now();
+    let chars = 0;
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          max_new_tokens: maxTokens,
+          temperature,
+          top_k: topK || null,
+          top_p: topP || null
+        }),
+        signal: controller.signal
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const piece = decoder.decode(value, { stream: true });
+        chars += piece.length;
+        setOutput((prev) => prev + piece);
+      }
+      const secs = (performance.now() - t0) / 1000;
+      setStats(`${(chars / Math.max(secs, 0.001)).toFixed(0)} chars/s · ${secs.toFixed(1)}s`);
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") setError((err as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <section className="playground-panel" aria-labelledby="playground-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Live</p>
+          <h2 id="playground-heading">Playground</h2>
+        </div>
+        <Sparkles aria-hidden="true" />
+      </div>
+
+      <label className="playground-field">
+        <span className="playground-label">Prompt</span>
+        <textarea
+          className="playground-prompt"
+          aria-label="Prompt"
+          rows={3}
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+        />
+      </label>
+
+      <div className="playground-controls">
+        <label className="playground-control">
+          <span className="playground-label">Temperature {temperature.toFixed(1)}</span>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.1}
+            value={temperature}
+            onChange={(event) => setTemperature(Number(event.target.value))}
+          />
+        </label>
+        <label className="playground-control">
+          <span className="playground-label">Top-p {topP.toFixed(2)} (0 = off)</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={topP}
+            onChange={(event) => setTopP(Number(event.target.value))}
+          />
+        </label>
+        <label className="playground-control">
+          <span className="playground-label">Top-k (0 = off)</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={topK}
+            onChange={(event) => setTopK(Number(event.target.value))}
+          />
+        </label>
+        <label className="playground-control">
+          <span className="playground-label">Max tokens</span>
+          <input
+            type="number"
+            min={1}
+            max={512}
+            step={1}
+            value={maxTokens}
+            onChange={(event) => setMaxTokens(Number(event.target.value))}
+          />
+        </label>
+      </div>
+
+      <div className="playground-actions">
+        <button
+          type="button"
+          className="playground-run"
+          onClick={generate}
+          disabled={running}
+        >
+          {running ? "Generating…" : "Generate"}
+        </button>
+        <button
+          type="button"
+          className="playground-stop"
+          onClick={() => abortRef.current?.abort()}
+          disabled={!running}
+        >
+          Stop
+        </button>
+        {stats && <span className="playground-stats">{stats}</span>}
+      </div>
+
+      {error && <p className="playground-error">{error}</p>}
+
+      <pre className="playground-output" aria-live="polite">
+        {output}
+      </pre>
     </section>
   );
 }

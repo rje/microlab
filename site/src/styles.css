@@ -948,3 +948,21 @@ svg {
 .ws-hl-item .hl-page { color: #8a8175; font-size: 0.72rem; white-space: nowrap; padding-top: 0.15rem; }
 .ws-hl-del { background: none; border: 0; color: #b3261e; cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 0.2rem; }
 .ws-hl-empty { color: #8a8175; font-size: 0.82rem; padding: 0.3rem 0; }
+
+/* Playground — stream from the owner's own trained model (authed) */
+.playground-panel { display: flex; flex-direction: column; gap: 14px; }
+.playground-field { display: flex; flex-direction: column; gap: 6px; }
+.playground-label { color: #6f675c; font-size: 0.78rem; font-weight: 700; }
+.playground-prompt { width: 100%; background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 8px; padding: 0.6rem; font: inherit; resize: vertical; }
+.playground-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.playground-control { display: flex; flex-direction: column; gap: 6px; }
+.playground-control input[type="number"] { background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 6px; padding: 0.35rem 0.4rem; font: inherit; }
+.playground-control input[type="range"] { accent-color: #116466; }
+.playground-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.playground-run { padding: 0.55rem 1.2rem; border: 0; border-radius: 8px; background: #116466; color: #fff; font-weight: 600; cursor: pointer; }
+.playground-run:disabled { background: #cdd6d2; color: #6f675c; cursor: default; }
+.playground-stop { padding: 0.55rem 1.1rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fffdf8; color: #24231f; font-weight: 600; cursor: pointer; }
+.playground-stop:disabled { color: #a29a8c; cursor: default; }
+.playground-stats { color: #6f675c; font-size: 0.8rem; }
+.playground-error { color: #b3261e; margin: 0; font-size: 0.88rem; }
+.playground-output { margin: 0; min-height: 40vh; max-height: 60vh; overflow-y: auto; background: #fffdf8; border: 1px solid #ddd6c5; border-radius: 8px; padding: 0.9rem; color: #24231f; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
