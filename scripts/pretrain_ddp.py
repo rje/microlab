@@ -37,11 +37,18 @@ class DDPTrainer(Trainer):
     """Trainer whose train_step syncs grads across ranks (no_sync on all but the last
     micro-step) and averages the logged loss over the world."""
 
-    def __init__(self, cfg, train_ds, val_ds, tokenizer, rank: int, world: int) -> None:
+    def __init__(self, cfg, train_ds, val_ds, tokenizer, rank: int) -> None:
         super().__init__(cfg, train_ds, val_ds, tokenizer=tokenizer)
-        self.rank, self.world = rank, world
+        self.rank = rank
         self.data_gen = torch.Generator().manual_seed(cfg.seed + rank)  # shard by stream
         self.ddp = DDP(self.model, device_ids=[rank])
+
+    def load_checkpoint(self, path: str) -> None:
+        super().load_checkpoint(path)
+        # The checkpoint restores rank-0's data generator onto every rank, which would make
+        # all ranks draw identical batches after a resume. Re-seed per rank, mixing in the
+        # resumed step so the stream also differs from the pre-crash stream.
+        self.data_gen = torch.Generator().manual_seed(self.cfg.seed + self.rank + self.step)
 
     def train_step(self) -> float:
         cfg = self.cfg
@@ -78,10 +85,11 @@ def main() -> None:
     ap.add_argument("--data-dir", default="data/shards")
     args = ap.parse_args()
 
+    # Single-node assumption: LOCAL_RANK doubles as the global rank for data sharding
+    # (multi-node would need dist.get_rank() to keep per-rank data streams distinct).
     rank = int(os.environ["LOCAL_RANK"])
     dist.init_process_group("nccl")
     torch.cuda.set_device(rank)
-    world = dist.get_world_size()
 
     cfg = load_config(args.config)
     cfg.device = f"cuda:{rank}"
@@ -96,7 +104,7 @@ def main() -> None:
 
     train_ds = ShardDataset(args.data_dir, split="train")
     val_ds = ShardDataset(args.data_dir, split="val")
-    trainer = DDPTrainer(cfg, train_ds, val_ds, tok, rank, world)
+    trainer = DDPTrainer(cfg, train_ds, val_ds, tok, rank)
     ckpts = sorted(Path(cfg.out_dir).glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
     if ckpts:
         trainer.load_checkpoint(str(ckpts[-1]))

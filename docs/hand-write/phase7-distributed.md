@@ -8,7 +8,7 @@ How labs train models that don't fit on one GPU — and the phase where the 1B c
 happens. One hand-write: `memory_budget` — params/grads/optimizer/activations per GPU
 under data/tensor/pipeline parallelism and ZeRO stages 0-3. Every "can we afford to
 train X" conversation in every lab starts with this arithmetic. Graded against the
-oracle across a 7B/70B config matrix.
+oracle across a 7B config matrix.
 
 ## The three rungs
 
