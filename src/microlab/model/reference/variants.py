@@ -196,6 +196,9 @@ class VariantGPT(nn.Module):
     def __init__(self, config: VariantConfig) -> None:
         super().__init__()
         self.config = config
+        # Trainer flips this on to trade compute for ~30x less activation memory; only the
+        # training forward path (kv_cache is None) is ever checkpointed.
+        self.grad_checkpoint = False
         modules = dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),
             drop=nn.Dropout(config.dropout),
@@ -228,7 +231,12 @@ class VariantGPT(nn.Module):
             x = x + self.transformer.wpe(pos)
         x = self.transformer.drop(x)
         for i, block in enumerate(self.transformer.h):
-            x = block(x, kv_cache=(kv_cache, i) if kv_cache is not None else None)
+            if self.grad_checkpoint and self.training and torch.is_grad_enabled():
+                # Training path only: kv_cache is always None here (caching asserts
+                # pos=="rope" and runs under no_grad in eval/generation).
+                x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x, kv_cache=(kv_cache, i) if kv_cache is not None else None)
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
         loss = None
