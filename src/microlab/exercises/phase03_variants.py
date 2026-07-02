@@ -87,3 +87,15 @@ class GQAAttention(nn.Module):
             ".split(n_kv_head*head_dim, dim=2), apply RoPE to q and k, repeat_interleave "
             "k/v by n_head//n_kv_head groups, causal SDPA, merge heads, c_proj"
         )
+
+
+def route_topk(router_logits: torch.Tensor, k: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """Softmax over all experts, top-k per token, renormalize kept probs to sum to 1.
+    Returns (weights (N,k), indices (N,k)). Graded vs microlab.model.reference.moe."""
+    raise NotImplementedError("softmax -> topk -> renormalize")
+
+
+def load_balance_loss(router_probs: torch.Tensor, expert_indices: torch.Tensor) -> torch.Tensor:
+    """Switch aux loss: E * sum_e (fraction dispatched to e) * (mean router prob of e).
+    1.0 when routing is uniform; E when it collapses onto one expert."""
+    raise NotImplementedError("one-hot the indices; f_e over all (token, slot) pairs")
