@@ -34,15 +34,17 @@ def main() -> None:
     cfg = load_config(args.config)
     # match the model's vocab to the tokenizer that produced the shards
     tok_path = Path(args.data_dir) / "tokenizer.json"
+    tok = None
     if tok_path.exists():
-        cfg.vocab_size = FastTokenizer.load(str(tok_path)).vocab_size
+        tok = FastTokenizer.load(str(tok_path))
+        cfg.vocab_size = tok.vocab_size
         print(f"vocab_size set from tokenizer: {cfg.vocab_size}")
 
     train_ds = ShardDataset(args.data_dir, split="train")
     val_ds = ShardDataset(args.data_dir, split="val")
     print(f"train tokens={train_ds.total_tokens:,} val tokens={val_ds.total_tokens:,}")
 
-    trainer = Trainer(cfg, train_ds, val_ds)
+    trainer = Trainer(cfg, train_ds, val_ds, tokenizer=tok)
     ckpts = sorted(Path(cfg.out_dir).glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
     if ckpts:
         print(f"resuming from {ckpts[-1]} (latest of {len(ckpts)} checkpoints)")

@@ -6,6 +6,7 @@ import secrets
 from datetime import date
 from pathlib import Path
 
+import requests as _requests
 from flask import (
     Flask,
     redirect,
@@ -323,6 +324,40 @@ def register_content_routes(app: Flask) -> None:
         except (ValueError, TypeError) as exc:
             return jsonify({"error": str(exc)}), 400
         return jsonify({"ok": True, "next": result})
+
+    TENSORBOARD_UPSTREAM = os.environ.get("TENSORBOARD_URL", "http://127.0.0.1:6006")
+
+    @app.route("/tensorboard/", defaults={"subpath": ""})
+    @app.route("/tensorboard/<path:subpath>")
+    @auth.login_required
+    def tensorboard_proxy(subpath: str):
+        # Authed reverse-proxy to a local TensorBoard (127.0.0.1:6006, --path_prefix
+        # /tensorboard). TensorBoard has no auth of its own, so login_required is the ONLY
+        # thing standing between the public internet and it — do not remove.
+        upstream = f"{TENSORBOARD_UPSTREAM}/tensorboard/{subpath}"
+        try:
+            resp = _requests.request(
+                method=request.method,
+                url=upstream,
+                params=request.args,
+                data=request.get_data(),
+                headers={"Accept": request.headers.get("Accept", "*/*")},
+                stream=True,
+                timeout=30,
+            )
+        except _requests.exceptions.RequestException:
+            return (
+                "<h3>TensorBoard isn't running.</h3><p>Start it on the box: "
+                "<code>tensorboard --logdir runs --path_prefix=/tensorboard "
+                "--host 127.0.0.1 --port 6006</code></p>",
+                503,
+                {"Content-Type": "text/html"},
+            )
+        excluded = {"content-encoding", "content-length", "transfer-encoding", "connection"}
+        headers = [(k, v) for k, v in resp.raw.headers.items() if k.lower() not in excluded]
+        return app.response_class(
+            resp.iter_content(chunk_size=8192), status=resp.status_code, headers=headers
+        )
 
     @app.route("/")
     @app.route("/<path:requested>")

@@ -7,14 +7,20 @@ from __future__ import annotations
 
 import math
 import os
+import time
 from contextlib import nullcontext
 
 import torch
 
 from microlab.data.reference.dataset import get_batch
+from microlab.model.reference.sample import generate
 from microlab.model.reference.train import _resolve_device
 from microlab.model.reference.variants import VariantConfig, VariantGPT
 from microlab.train.config import RunConfig
+
+# Fixed prompt used for sample-text logging so generations are comparable across steps.
+SAMPLE_PROMPT = "\n"
+SAMPLE_TOKENS = 64
 
 
 def get_lr(step: int, cfg: RunConfig) -> float:
@@ -54,10 +60,13 @@ class Trainer:
     `get_batch(block_size, batch_size, device, generator) -> (x, y)`.
     """
 
-    def __init__(self, cfg: RunConfig, train_data, val_data=None) -> None:
+    def __init__(self, cfg: RunConfig, train_data, val_data=None, tokenizer=None) -> None:
         self.cfg = cfg
         self.train_data = train_data
         self.val_data = val_data
+        # Used only for sample-text logging (add_text of generated completions); never
+        # touches the training math.
+        self.tokenizer = tokenizer
         self.device = _resolve_device(cfg.device)
         # Seed BEFORE building the model so weight init is deterministic and identical
         # across runs regardless of ambient global RNG state (the resume test relies on
@@ -88,6 +97,9 @@ class Trainer:
         self.data_gen = torch.Generator().manual_seed(cfg.seed)
         self.use_amp = self.device.startswith("cuda") and cfg.dtype == "bfloat16"
         self.step = 0
+        # Last-step telemetry captured by train_step for side-effect-only TB logging.
+        self.last_lr = cfg.lr
+        self.last_grad_norm = 0.0
 
     def _autocast(self):
         if self.use_amp:
@@ -97,6 +109,7 @@ class Trainer:
     def train_step(self) -> float:
         cfg = self.cfg
         lr = get_lr(self.step, cfg)
+        self.last_lr = lr
         for group in self.optimizer.param_groups:
             group["lr"] = lr
         self.model.train()
@@ -112,7 +125,13 @@ class Trainer:
             loss.backward()
             total_loss += loss.item()
         if cfg.grad_clip > 0:
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), cfg.grad_clip)
+            # clip_grad_norm_ returns the total grad L2 norm computed before clipping;
+            # capturing it is side-effect free (the clip itself is unchanged).
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), cfg.grad_clip)
+        else:
+            # No clipping: read the norm without mutating grads (max_norm=inf scales by 1.0).
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), float("inf"))
+        self.last_grad_norm = float(grad_norm)
         self.optimizer.step()
         self.step += 1
         return total_loss
@@ -166,10 +185,33 @@ class Trainer:
             # map_location moved these ByteTensors onto CUDA; RNG state must be CPU bytes.
             torch.cuda.set_rng_state_all([s.cpu() for s in ckpt["cuda_rng_state"]])
 
+    @torch.no_grad()
+    def _log_sample(self, writer, step: int) -> None:
+        """Greedy-decode a short completion from a fixed prompt for add_text. Greedy
+        (temperature=0) consumes no RNG, so this observational logging never perturbs the
+        training trajectory. Restores train() mode that generate() flips to eval()."""
+        ids = self.tokenizer.encode(SAMPLE_PROMPT) or [0]
+        idx = torch.tensor([ids], dtype=torch.long, device=self.device)
+        was_training = self.model.training
+        out = generate(self.model, idx, SAMPLE_TOKENS, temperature=0.0)
+        if was_training:
+            self.model.train()
+        writer.add_text("samples", self.tokenizer.decode(out[0].tolist()), step)
+
     def train(self) -> dict:
         cfg = self.cfg
         if self.device.startswith("cuda"):
             torch.cuda.reset_peak_memory_stats()
+        # Guarded so training is a no-op-logging run when tensorboard isn't importable.
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+
+            writer = SummaryWriter(log_dir=cfg.out_dir)
+        except Exception:
+            writer = None
+        tokens_per_step = cfg.batch_size * cfg.grad_accum * cfg.block_size
+        last_log_time = time.perf_counter()
+        last_log_step = self.step
         self.model.train()
         history: list[float] = []
         val_loss: float | None = None
@@ -179,12 +221,28 @@ class Trainer:
             step = self.step  # already incremented by train_step
             if cfg.eval_interval > 0 and step % cfg.eval_interval == 0:
                 val_loss = self.estimate_val()
+                if writer is not None and val_loss is not None:
+                    writer.add_scalar("val/loss", val_loss, step)
+                    writer.add_scalar("val/perplexity", math.exp(val_loss), step)
+                    if self.tokenizer is not None:
+                        self._log_sample(writer, step)
             if cfg.log_interval > 0 and step % cfg.log_interval == 0:
                 print(f"step {step}/{cfg.max_steps} loss {loss:.4f} lr {get_lr(step, cfg):.2e}")
+                if writer is not None:
+                    now = time.perf_counter()
+                    dt = now - last_log_time
+                    tps = tokens_per_step * (step - last_log_step) / dt if dt > 0 else 0.0
+                    writer.add_scalar("train/loss", loss, step)
+                    writer.add_scalar("lr", self.last_lr, step)
+                    writer.add_scalar("train/tokens_per_sec", tps, step)
+                    writer.add_scalar("train/grad_norm", self.last_grad_norm, step)
+                    last_log_time, last_log_step = now, step
             if cfg.ckpt_interval > 0 and step % cfg.ckpt_interval == 0:
                 self.save_checkpoint(os.path.join(cfg.out_dir, f"ckpt_{step}.pt"))
         if self.val_data is not None and val_loss is None:
             val_loss = self.estimate_val()
+        if writer is not None:
+            writer.close()
         return {
             "final_loss": history[-1] if history else None,
             "history": history,
