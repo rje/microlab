@@ -53,7 +53,8 @@ Six pieces in `phase03_variants.py`. Four architecture primitives:
    `n_kv_head` K/V heads. Project q normally; project kv at `2*n_kv_head*head_dim` and
    `.split(n_kv_head*head_dim, dim=2)`; RoPE on q,k; `repeat_interleave` k,v by
    `n_head//n_kv_head`; causal SDPA. `n_kv_head=1` is MQA (Shazeer 2019), `=n_head` is
-   plain MHA. **Why it exists won't fully land until Phase 6**: the KV *cache* shrinks by
+   plain MHA. Note `n_kv_head` requires the RoPE block (`pos="rope"`), or construction
+   asserts. **Why it exists won't fully land until Phase 6**: the KV *cache* shrinks by
    `n_head/n_kv_head`, and at inference time the cache — not compute — is the bottleneck.
    Ablate it now (add `n_kv_head` to your ablation matrix: loss barely moves); measure the
    cache payoff when you build inference.

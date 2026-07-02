@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 3): implement the four architecture primitives —
-RMSNorm, rotary position embeddings (RoPE), a SwiGLU MLP, and grouped-query attention.
+"""Hand-write exercise (Phase 3): implement the six architecture pieces —
+RMSNorm, RoPE, SwiGLU, GQA attention, top-k routing, and the load-balance loss.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_variants.py``
+Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase03_variants.py``
 passes. The differential tests copy the reference oracle's weights into your modules
 (or call your pure ``apply_rope`` with the same inputs) and compare outputs, so your
 math must match `microlab.model.reference.variants`. See docs/hand-write/phase3-ablations.md.

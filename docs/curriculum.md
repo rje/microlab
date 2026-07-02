@@ -37,7 +37,7 @@ understand line by line. Every phase has the same four layers; you climb through
 | 5 | Interpretability | logit lens, induction-head score | interp report on the 150M ckpt |
 | 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench on the 150M ckpt |
 | 7 | Distributed training | per-GPU memory budget (DP/TP/PP x ZeRO) | grad-ckpt/compile drills + cloud DDP + 1B capstone |
-| 8 | Continued pretraining | forgetting metric, replay mix | (uses scale) |
+| 8 | Continued pretraining | forgetting metric, replay mix, RoPE position interpolation | (uses scale) |
 | 9 | Supervised fine-tuning | prompt loss-masking, masked CE | (uses scale) |
 | 10 | Efficient fine-tuning | LoRA adapter + merge, quantizer | (uses scale) |
 | 11 | Reward models | Bradley-Terry preference loss | — |
@@ -72,7 +72,9 @@ code (`VariantGPT` with RoPE + RMSNorm + SwiGLU), scaled up:
 3. **Train** — `scripts/pretrain.py` runs `microlab.train.Trainer` from a config
    (`configs/150m.py`, `configs/1b.py`), resumable across interruptions.
 4. **Climb** — prove the whole pipeline at ~150M (~a day), then commit to the ~1B capstone
-   (~1–3 weeks). See `docs/superpowers/specs/2026-07-01-scale-infrastructure-design.md`.
+   (~3–4 weeks locally on the RTX 6000, or ~12–14 h on a rented 8x H100 node, venue decided
+   by the Phase 7 vendor spike). See
+   `docs/superpowers/specs/2026-07-01-scale-infrastructure-design.md`.
 
 **Honest capability note:** a from-scratch ~1B on ~20B tokens is GPT-2-XL / Pythia-1B class
 — coherent, instructable after SFT, basic reasoning after RL. It won't match modern 1–2B

@@ -1,6 +1,6 @@
 """Hand-write exercise (Phase 15): tool-call parsing, schema validation, and validity rate.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_tools.py`` passes.
+Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase15_tools.py`` passes.
 Graded against ``microlab.model.reference.tools``. See docs/hand-write/phase15-tools.md.
 """
 

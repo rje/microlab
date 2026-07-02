@@ -1,6 +1,6 @@
 """Hand-write exercise (Phase 13): verifiable reward, GRPO advantages, and the PPO clip loss.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_rl.py`` passes.
+Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase13_rl.py`` passes.
 Graded against ``microlab.model.reference.rl``. See docs/hand-write/phase13-rl.md.
 
 ``extract_answer`` (parsing "#### N" or the last number in a string) is already implemented

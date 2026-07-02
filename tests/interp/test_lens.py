@@ -1,5 +1,6 @@
 """Interp oracle tests: residual-stream collection, logit lens, induction scoring."""
 
+import pytest
 import torch
 
 from microlab.interp.reference.lens import (
@@ -12,15 +13,16 @@ from microlab.interp.reference.lens import (
 from microlab.model.reference.variants import VariantConfig, VariantGPT
 
 
-def _model():
+def _model(n_kv_head=None):
     torch.manual_seed(0)
     cfg = VariantConfig(vocab_size=64, block_size=64, n_layer=3, n_head=4, n_embd=32,
-                        norm="rms", pos="rope", mlp="swiglu")
+                        norm="rms", pos="rope", mlp="swiglu", n_kv_head=n_kv_head)
     return VariantGPT(cfg).eval()
 
 
-def test_residual_stream_shapes_and_final_equals_forward():
-    m = _model()
+@pytest.mark.parametrize("n_kv_head", [None, 2])
+def test_residual_stream_shapes_and_final_equals_forward(n_kv_head):
+    m = _model(n_kv_head)
     x = torch.randint(0, 64, (2, 10))
     res = collect_residual_stream(m, x)
     assert len(res) == 4 and all(r.shape == (2, 10, 32) for r in res)
@@ -30,8 +32,9 @@ def test_residual_stream_shapes_and_final_equals_forward():
     assert torch.allclose(lens[-1], logits, atol=1e-5)  # last layer IS the model output
 
 
-def test_attention_patterns_rows_sum_to_one_and_causal():
-    m = _model()
+@pytest.mark.parametrize("n_kv_head", [None, 2])
+def test_attention_patterns_rows_sum_to_one_and_causal(n_kv_head):
+    m = _model(n_kv_head)
     x = torch.randint(0, 64, (1, 12))
     attn = attention_patterns(m, x)
     assert attn.shape == (3, 4, 12, 12)

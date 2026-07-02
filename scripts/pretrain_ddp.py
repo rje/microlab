@@ -41,6 +41,7 @@ class DDPTrainer(Trainer):
         super().__init__(cfg, train_ds, val_ds, tokenizer=tokenizer)
         self.rank = rank
         self.data_gen = torch.Generator().manual_seed(cfg.seed + rank)  # shard by stream
+        assert not cfg.compile, "compile + DDP wrapping order is untested; disable one"
         self.ddp = DDP(self.model, device_ids=[rank])
 
     def load_checkpoint(self, path: str) -> None:

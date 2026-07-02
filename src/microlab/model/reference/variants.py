@@ -1,5 +1,7 @@
 """Reference architecture variants (Phase 3): RMSNorm, rotary position embeddings
 (RoPE), and a SwiGLU MLP, plus a flag-configurable GPT and helpers to build ablations.
+This file also carries grouped-query attention (GQA) and the optional KV-cache and
+gradient-checkpointing forward paths (the latter two used by Phases 6/7).
 These are the known-correct versions the owner diffs hand-written variants against."""
 
 from __future__ import annotations
@@ -234,6 +236,7 @@ class VariantGPT(nn.Module):
             if self.grad_checkpoint and self.training and torch.is_grad_enabled():
                 # Training path only: kv_cache is always None here (caching asserts
                 # pos=="rope" and runs under no_grad in eval/generation).
+                assert kv_cache is None, "kv_cache is unsupported under gradient checkpointing"
                 x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
             else:
                 x = block(x, kv_cache=(kv_cache, i) if kv_cache is not None else None)

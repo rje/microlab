@@ -1,6 +1,6 @@
 """Hand-write exercise (Phase 10): the LoRA adapter math and the QLoRA-style quantizer.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_lora.py`` passes.
+Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase10_lora.py`` passes.
 Graded against ``microlab.model.reference.lora``. See docs/hand-write/phase10-lora.md.
 """
 

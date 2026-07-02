@@ -12,7 +12,7 @@ When forced to choose, optimize for deep understanding over speed. Each phase sh
 - Hardware target: one RTX 6000-class GPU with 48GB VRAM
 - Primary stack: Python, PyTorch, Hugging Face datasets/transformers/accelerate, PEFT, TRL, bitsandbytes
 - Model sizes:
-  - From scratch: start around 10M-50M parameters, then scale toward 100M-300M
+  - From scratch: start around 10M-50M parameters, then scale toward 100M-300M and a ~1B capstone
   - Full fine-tuning: small models, roughly 0.5B-3B depending on context length and optimizer
   - LoRA/QLoRA: 7B-14B comfortably, 30B as a stretch, 70B-class only as a careful experiment
 - Preferred style: small reproducible experiments, written notes, plots, evals, and postmortems
@@ -110,6 +110,7 @@ Deliverables:
 
 - ablation matrix
 - plots of validation loss and throughput
+- grouped-query attention (GQA/MQA) and a tiny top-k MoE with load-balance loss
 - short notes explaining which changes mattered and why
 
 Key readings:
@@ -119,6 +120,8 @@ Key readings:
 - GLU Variants Improve Transformer
 - FlashAttention
 - Switch Transformers
+- Fast Transformer Decoding: One Write-Head is All You Need (MQA, Shazeer 2019)
+- GQA: Training Generalized Multi-Query Transformer Models (Ainslie 2023)
 
 ### Phase 4: Scaling Experiments
 
@@ -129,6 +132,7 @@ Deliverables:
 - at least three model sizes
 - token budget comparison
 - compute/time/VRAM table
+- muP hyperparameter transfer table + a coordinate check across widths
 - summary of where the server bottlenecks
 
 Key readings:
@@ -137,6 +141,8 @@ Key readings:
 - Chinchilla
 - LLaMA
 - Llama 3 Herd of Models
+- muP: Tensor Programs V (Feature Learning in Infinite-Width Neural Networks)
+- Small-scale proxies for large-scale Transformer training instabilities
 
 ### Phase 5: Interpretability
 
@@ -208,6 +214,7 @@ Deliverables:
 - continued-pretraining run
 - base-vs-adapted evals
 - forgetting analysis
+- long-context extension via RoPE position interpolation
 
 Key readings:
 
@@ -215,6 +222,7 @@ Key readings:
 - OPT
 - Llama 3 Herd of Models
 - DeepSeek-V3
+- Extending Context Window of Large Language Models via Position Interpolation (Chen 2023)
 
 ### Phase 9: Supervised Fine-Tuning
 

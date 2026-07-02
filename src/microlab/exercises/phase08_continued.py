@@ -1,9 +1,9 @@
-"""Hand-write exercise (Phase 8): the two conceptual primitives of continued
-pretraining — the forgetting metric and replay mixing.
+"""Hand-write exercise (Phase 8): the three primitives of continued pretraining —
+the forgetting metric, replay mixing, and RoPE position interpolation.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_continued.py``
-passes. They're graded against ``microlab.model.reference.continued``. See
-docs/hand-write/phase8-continued.md.
+Fill in the ``NotImplementedError`` bodies (forgetting_score, build_replay_mix,
+interpolated_rope_cache) so ``tests/exercises/test_phase08_continued.py`` passes. They're
+graded against ``microlab.model.reference.continued``. See docs/hand-write/phase8-continued.md.
 """
 
 from __future__ import annotations

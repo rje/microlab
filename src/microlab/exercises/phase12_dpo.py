@@ -1,6 +1,6 @@
 """Hand-write exercise (Phase 12): DPO sequence log-probs and the DPO loss.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_dpo.py`` passes.
+Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase12_dpo.py`` passes.
 Graded against ``microlab.model.reference.dpo``. See docs/hand-write/phase12-dpo.md.
 """
 

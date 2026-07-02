@@ -26,6 +26,7 @@ class KVCache:
 
     def append(self, layer: int, k: torch.Tensor, v: torch.Tensor):
         t = k.size(2)
+        assert self.seq_len == 0 or t == 1, "append supports full prefill or single-token steps"
         assert self.seq_len + t <= self.capacity, "KV cache overflow"
         self.k[layer][:, :, self.seq_len:self.seq_len + t] = k
         self.v[layer][:, :, self.seq_len:self.seq_len + t] = v
