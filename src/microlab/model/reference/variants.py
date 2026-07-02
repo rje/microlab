@@ -65,16 +65,23 @@ class RoPECausalSelfAttention(nn.Module):
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
         B, T, C = x.shape
         q, k, v = self.c_attn(x).split(self.n_embd, dim=2)
         k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
-        q = apply_rope(q, self.rope_cos.to(q.dtype), self.rope_sin.to(q.dtype))
-        k = apply_rope(k, self.rope_cos.to(k.dtype), self.rope_sin.to(k.dtype))
+        offset = kv_cache[0].seq_len if kv_cache is not None else 0
+        cos = self.rope_cos[offset:offset + T].to(q.dtype)
+        sin = self.rope_sin[offset:offset + T].to(q.dtype)
+        q = apply_rope(q, cos, sin)
+        k = apply_rope(k, cos, sin)
+        if kv_cache is not None:
+            cache, layer = kv_cache
+            k, v = cache.append(layer, k, v)
         y = F.scaled_dot_product_attention(
-            q, k, v, is_causal=True, dropout_p=self.dropout if self.training else 0.0
+            q, k, v, is_causal=(q.size(-2) == k.size(-2)),
+            dropout_p=self.dropout if self.training else 0.0,
         )
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.c_proj(y)
@@ -104,19 +111,26 @@ class GQAAttention(nn.Module):
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
         B, T, C = x.shape
         q = self.q_proj(x).view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         k, v = self.kv_proj(x).split(self.n_kv_head * self.head_dim, dim=2)
         k = k.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
-        q = apply_rope(q, self.rope_cos.to(q.dtype), self.rope_sin.to(q.dtype))
-        k = apply_rope(k, self.rope_cos.to(k.dtype), self.rope_sin.to(k.dtype))
+        offset = kv_cache[0].seq_len if kv_cache is not None else 0
+        cos = self.rope_cos[offset:offset + T].to(q.dtype)
+        sin = self.rope_sin[offset:offset + T].to(q.dtype)
+        q = apply_rope(q, cos, sin)
+        k = apply_rope(k, cos, sin)
+        if kv_cache is not None:
+            cache, layer = kv_cache
+            k, v = cache.append(layer, k, v)
         groups = self.n_head // self.n_kv_head
         k = k.repeat_interleave(groups, dim=1)
         v = v.repeat_interleave(groups, dim=1)
         y = F.scaled_dot_product_attention(
-            q, k, v, is_causal=True, dropout_p=self.dropout if self.training else 0.0
+            q, k, v, is_causal=(q.size(-2) == k.size(-2)),
+            dropout_p=self.dropout if self.training else 0.0,
         )
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.c_proj(y)
@@ -166,8 +180,11 @@ class VariantBlock(nn.Module):
         self.ln_2 = _make_norm(config.norm, config.n_embd)
         self.mlp = SwiGLUMLP(config) if config.mlp == "swiglu" else MLP(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.ln_1(x))
+    def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
+        if kv_cache is not None:
+            x = x + self.attn(self.ln_1(x), kv_cache=kv_cache)
+        else:
+            x = x + self.attn(self.ln_1(x))
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -200,16 +217,18 @@ class VariantGPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, targets=None, kv_cache=None):
         _, T = idx.shape
         assert T <= self.config.block_size, f"sequence length {T} > block_size"
+        if kv_cache is not None:
+            assert self.config.pos == "rope", "KV cache requires the RoPE block"
         x = self.transformer.wte(idx)
         if self.config.pos == "learned":
             pos = torch.arange(T, device=idx.device)
             x = x + self.transformer.wpe(pos)
         x = self.transformer.drop(x)
-        for block in self.transformer.h:
-            x = block(x)
+        for i, block in enumerate(self.transformer.h):
+            x = block(x, kv_cache=(kv_cache, i) if kv_cache is not None else None)
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
         loss = None
