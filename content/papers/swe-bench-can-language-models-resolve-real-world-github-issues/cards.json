@@ -1,0 +1,45 @@
+{
+  "paperId": "swe-bench-can-language-models-resolve-real-world-github-issues",
+  "cards": [
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#1",
+      "question": "What does a single SWE-bench task instance give the model as input, and what must the model produce as output?",
+      "answer": "Input: the text of a real GitHub issue (a bug report or feature request) plus a snapshot of the complete codebase at the commit just before the fix. Output: an edit to the codebase, represented as a patch file that specifies which lines to modify to resolve the issue. There are 2,294 such instances mined from merged pull requests across 12 popular Python repositories (e.g. django, sympy, scikit-learn, matplotlib, sphinx)."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#2",
+      "question": "Describe the three-stage pipeline that constructs SWE-bench instances, and how many PRs survive it.",
+      "answer": "Stage I (scrape): collect ~90,000 pull requests from 12 popular, well-maintained Python repositories. Stage II (attribute filter): keep merged PRs that both resolve a linked GitHub issue and modify test files (evidence the contributor added tests). Stage III (execution filter): run the tests before and after the PR's non-test changes and keep only instances with at least one test that flips from fail to pass ('fail-to-pass'), discarding any that fail to install or error at runtime. The 90,000 PRs are filtered down to 2,294 task instances."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#3",
+      "question": "Exactly how is a proposed solution scored as 'resolved' in SWE-bench, and what two kinds of tests are involved?",
+      "answer": "The generated patch is applied to the codebase with the unix `patch` program, then the repository's associated unit and system tests are executed. An instance counts as resolved only if the patch applies successfully AND all relevant tests pass. Two test categories matter: 'fail-to-pass' tests (which failed before the gold fix and must now pass — verifying the issue is addressed; every instance has at least one, 40% have at least two) and 'pass-to-pass' tests (a median of 51 additional tests that must remain passing — verifying existing functionality is not broken). The benchmark metric is the percentage of instances resolved."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#4",
+      "question": "Why does SWE-bench use execution-based (test-verified) evaluation instead of comparing generated patches to the gold patch textually, and what does this cost in evaluation infrastructure?",
+      "answer": "Because a good benchmark must be hard to game but easy to verify, and there are many valid ways to fix an issue that need not match the reference patch. Running the repository's own tests checks functional correctness directly, allowing creative solutions that deviate from the gold PR while rejecting patches that merely look plausible. The cost is heavy infrastructure: each instance needs a reproducible install of the exact codebase snapshot and its dependencies so the fail-to-pass and pass-to-pass tests can actually execute — the same execution-harness philosophy a phase-0 eval uses, scaled up to whole repositories."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#5",
+      "question": "How well did models perform on SWE-bench at publication, and why is that low number the point rather than a flaw?",
+      "answer": "Extremely poorly: with BM25 retrieval the best model, Claude 2, resolved only 1.96% of issues (the leaderboard-refreshed Table 5 later shows Claude 3 Opus at 3.79%, 4.33% on SWE-bench Lite). In the more generous 'oracle' retrieval setting Claude 2 reaches 4.8%. The low ceiling is deliberate: the authors wanted a challenging, non-saturated benchmark that reflects real-world software engineering, leaving large headroom to measure future progress — especially from agent-based and tool-augmented approaches."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#6",
+      "question": "What is the difference between BM25 and 'oracle' retrieval in SWE-bench, and why is retrieval a bottleneck at all?",
+      "answer": "Codebases average ~438K lines of non-test code — far more than any context window — so relevant files must be selected before generation. BM25 is a sparse (realistic) retriever that ranks files by term overlap with the issue; dense retrievers are ill-suited because of the very long documents and the mismatch of natural-language queries against code. The 'oracle' setting instead hands the model exactly the files the reference patch edited (unrealistic, since an engineer would not know these in advance). BM25 recovers a superset of the oracle files in only ~40% of instances at a 27K-token limit and none of them in almost half, so retrieval quality — not just generation — gates end-to-end performance."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#7",
+      "question": "What are the main reasons SWE-bench is so hard, and what characteristic failure modes did the authors observe in model generations?",
+      "answer": "Difficulty is driven by scale and localization: models must find the handful of lines to edit (gold patches average 32.8 lines across 1.7 files and 3.0 functions) inside codebases of thousands of files, and performance drops sharply as context length grows because models cannot localize the buggy code. Notably, difficulty does NOT correlate with the issue's date, suggesting models are not simply reciting a later version of the repo. Failure modes: models generate shorter, simpler edits than the gold patch (~30 vs ~75 lines), rarely touch more than one file, write primitive Python instead of leveraging existing libraries or the rest of the codebase, and take a 'greedy' approach that ignores code style and logical constraints (e.g. relative vs absolute imports)."
+    },
+    {
+      "id": "swe-bench-can-language-models-resolve-real-world-github-issues#8",
+      "question": "What are SWE-Llama and SWE-bench Lite, and what problem does each address?",
+      "answer": "SWE-Llama: CodeLlama-Python 7b and 13b fine-tuned to be repository editors, because off-the-shelf CodeLlama cannot follow the long instructions and emits placeholders. Training uses 19,000 issue-PR pairs from 37 additional repositories that are disjoint from the eval set (to avoid contamination), via LoRA on attention-sublayer weights, excluding sequences over 30,000 tokens (10,000 effective instances); the models handle 100K+ token contexts. SWE-bench Lite: a 300-instance subset sampled to be more self-contained and focused on functional bug fixes (covering 11 of 12 repos), created because full-benchmark evaluation is time- and compute-intensive and to give early systems a less intimidating entry point."
+    }
+  ]
+}

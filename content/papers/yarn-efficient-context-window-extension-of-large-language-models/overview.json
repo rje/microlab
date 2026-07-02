@@ -1,0 +1,73 @@
+{
+  "paperId": "yarn-efficient-context-window-extension-of-large-language-models",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "YaRN extends the context window of RoPE-based LLMs by interpolating only the low-frequency (long-wavelength) rotary dimensions while leaving the high-frequency ones untouched, and adding a single attention-softmax temperature term — reaching 128k context with roughly 10x fewer tokens and 2.5x fewer training steps than plain position interpolation.",
+  "overview": "Peng et al. present YaRN (Yet another RoPE extensioN method), a compute-efficient recipe for stretching the usable context window of models trained with Rotary Position Embeddings. Plain Position Interpolation (PI) compresses every RoPE dimension by the same scale factor s = L'/L, which destroys the high-frequency information the network relies on for local token order and caps practical extension around s=8. YaRN instead treats each rotary dimension by its wavelength: it interpolates only the dimensions whose wavelength exceeds the pretrained context (the 'NTK-by-parts' ramp) and leaves short-wavelength dimensions alone, then multiplies the attention logits by a temperature that counteracts the entropy increase interpolation causes. On Llama 2 7B/13B, YaRN reaches 128k context after fine-tuning on under ~0.1% of the original pretraining tokens, converges faster and to lower loss than PI/NTK-aware, extrapolates beyond the fine-tuning length ('train short, test long'), and — combined with inference-time Dynamic Scaling — extends context more than 2x with no fine-tuning at all. It is the production interpolation scheme behind long-context variants of Qwen and DeepSeek.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "The context window fixed at pretraining is a hard limit on RoPE-based LLMs, and naive extrapolation past it fails. The paper surveys the family of RoPE extension methods (PI, NTK-aware, Dynamic NTK, NTK-by-parts) and positions YaRN as the efficient culmination that combines the best of them."
+    },
+    {
+      "title": "2.1 Rotary Position Embeddings",
+      "summary": "Recaps RoPE: queries/keys are rotated by position-dependent angles m·theta_d with per-dimension frequencies theta_d = b^(-2d/|D|), base b=10000, so the attention dot product depends only on relative distance m-n. A general interpolation is written as f'(x_m, m, theta) = f(x_m, g(m), h(theta))."
+    },
+    {
+      "title": "2.2 Additional Notations",
+      "summary": "Defines the scale factor s = L'/L (target over pretrained length) and the per-dimension wavelength lambda_d = 2*pi / theta_d = 2*pi*b^(2d/|D|) — the number of tokens needed for dimension d to complete one full 2*pi rotation. Wavelength is the quantity that separates 'local' from 'absolute' dimensions."
+    },
+    {
+      "title": "2.3 Related Work",
+      "summary": "Position Interpolation (Chen et al.; kaiokendev) sets g(m)=s*m, h(theta)=theta — compressing all positions uniformly. ReRoPE and LM-Infinite instead modify the attention mechanism, so they are not pure embedding-interpolation methods and are incompatible with Flash Attention 2."
+    },
+    {
+      "title": "3.1 Loss of High-Frequency Information — NTK-aware",
+      "summary": "From NTK/Fourier-features theory, uniformly scaling all dimensions by s (as PI does) strips out high-frequency components the network needs, degrading badly as s grows (PI tops out near s=8). NTK-aware interpolation instead does a base change b -> b', spreading interpolation pressure so high frequencies are scaled less and low frequencies more — but the optimal base must be found empirically."
+    },
+    {
+      "title": "3.2 Loss of Relative Local Distances — NTK-by-parts",
+      "summary": "Thinking in wavelengths: dimensions with lambda >> L encode absolute position (they never complete a rotation) and should be interpolated, while short-wavelength dimensions encode relative local order and must be left untouched. Using the ratio r(d) = L/lambda_d and a ramp gamma(r) with cutoffs alpha, beta (alpha=1, beta=32 for Llama), h(theta_d) = (1 - gamma) * theta_d/s + gamma * theta_d interpolates low-frequency dims and passes high-frequency dims through unchanged."
+    },
+    {
+      "title": "3.3 YaRN",
+      "summary": "Adds a temperature t to the attention softmax — softmax(q^T k / (t*sqrt(|D|))) — which has a uniform, beneficial effect on perplexity across the extended window because interpolation raises attention entropy. It is applied for free by length-scaling q and k by sqrt(1/t) with no code change. YaRN = NTK-by-parts interpolation + this attention scaling; for Llama, sqrt(1/t) = 0.1*ln(s) + 1."
+    },
+    {
+      "title": "3.4 Dynamic Scaling — Dynamic NTK",
+      "summary": "At inference the scale can be updated per forward pass as s = max(1, l'/L) instead of being fixed, so the model degrades gracefully as sequences grow rather than breaking abruptly at L'. Dynamic-YaRN gives >2x extension with no fine-tuning; with KV-caching, cache the pre-RoPE embeddings because each token's rotation changes when s changes."
+    },
+    {
+      "title": "4.1 Training",
+      "summary": "Llama 2 7B/13B are extended to 128k using s=16 and s=32, fine-tuned on PG19 in 64k-token chunks with AdamW (lr 2e-5), FSDP, and Flash Attention 2 — 400 steps for s=16, then only +200 more steps from that checkpoint for s=32. Ablations use Llama 7B (2k pretrained) extended to 32k, where YaRN converges faster and to lower loss than PI, NTK-aware, and NTK-by-parts."
+    },
+    {
+      "title": "4.2 Long Sequence Language Modeling",
+      "summary": "Measured by sliding-window perplexity (S=256) on GovReport and Proof-pile, YaRN monotonically lowers perplexity out to 128k and, crucially, the s=32 model — trained only 200 extra steps on 64k data — extrapolates to 128k, demonstrating transfer learning and extrapolation beyond the fine-tuning length."
+    },
+    {
+      "title": "4.3 Passkey Retrieval",
+      "summary": "On the passkey task (recover a 5-digit number hidden in filler text, 50 trials at lengths 2k-32k), YaRN retains higher retrieval accuracy across the extended window than PI and the other interpolation methods at equal training budget."
+    },
+    {
+      "title": "4.4 Standardized Benchmarks",
+      "summary": "On the Hugging Face Open LLM suite (25-shot ARC-c, 10-shot HellaSwag, 5-shot MMLU, 0-shot TruthfulQA), YaRN-extended models show only minimal degradation versus their original short-context Llama baselines, confirming context extension does not sacrifice base capability."
+    },
+    {
+      "title": "4.5 Computational Efficiency",
+      "summary": "Because RoPE tables are precomputed/cached, YaRN adds no runtime cost, and it converges fastest of all four methods: extending Llama 2 7B to 64k took ~256 A100-hours versus 640+ for PI at 16k — roughly 10x fewer tokens and 2.5x fewer steps."
+    },
+    {
+      "title": "5. Conclusion",
+      "summary": "YaRN is a drop-in replacement for PI that improves on all prior RoPE interpolation methods with negligible implementation effort, preserves the model's original abilities, benefits from transfer learning, and enables efficient 'train short, test long' context extension."
+    }
+  ],
+  "readingFocus": [
+    "Anchor on plain Position Interpolation first — g(m)=s*m, h(theta)=theta — since that is exactly the interpolated_rope_cache you hand-write in Phase 8; every later method is defined as a delta from it.",
+    "The wavelength lambda_d and the ratio r(d) = L/lambda_d are the whole conceptual key: internalize why some rotary dimensions encode absolute position (long wavelength, interpolate them) and others encode local order (short wavelength, leave them alone).",
+    "Trace the NTK-by-parts ramp gamma(r) and h(theta_d) = (1-gamma)*theta_d/s + gamma*theta_d by hand for a few dimensions — this is the concrete change from 'scale every frequency by s' to 'treat RoPE frequencies unequally'.",
+    "Understand the attention temperature both mechanically (softmax(.../ (t*sqrt(|D|))), implemented as a sqrt(1/t) length-scaling of q and k) and as an entropy correction, and note the empirical Llama fit sqrt(1/t) = 0.1*ln(s)+1.",
+    "Dynamic Scaling (s = max(1, l'/L) per forward pass) and the KV-cache caveat (cache pre-RoPE embeddings) matter for any inference-time long-context implementation you build on top of the cache.",
+    "Note why YaRN stays a pure embedding-interpolation method (Flash-Attention-2 compatible, zero overhead) unlike ReRoPE/LM-Infinite — this is why Qwen and DeepSeek adopt it for their long-context variants."
+  ]
+}

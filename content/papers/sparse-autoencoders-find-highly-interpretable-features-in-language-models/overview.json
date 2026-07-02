@@ -1,0 +1,57 @@
+{
+  "paperId": "sparse-autoencoders-find-highly-interpretable-features-in-language-models",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "Cunningham et al. train a sparse autoencoder on a language model's residual-stream activations to learn an overcomplete dictionary of directions; the resulting dictionary features are more monosemantic and more interpretable (by GPT-4 autointerpretation) than neurons, PCA, or ICA, and localise the IOI circuit more precisely than PCA — evidence that superposition can be resolved with a scalable, unsupervised method.",
+  "overview": "The paper attacks polysemanticity — the observation that individual neurons fire in multiple, semantically unrelated contexts — which blocks concise mechanistic explanations of a network. Following Elhage et al.'s toy-models work, the authors adopt superposition as the cause: a d-dimensional layer can represent far more than d features by packing them into an overcomplete set of near-orthogonal directions rather than onto individual neurons, provided the features are sufficiently sparse. Recovering those directions is exactly sparse dictionary learning. They train a one-hidden-layer autoencoder on internal activations x (mainly the residual stream of Pythia-70M, d=512, and Pythia-410M, d=1024): c = ReLU(Mx + b) produces sparse codes, x_hat = M^T c reconstructs, with tied, row-normalised weights and loss ||x - x_hat||_2^2 + alpha ||c||_1. The hidden layer is overcomplete by a ratio R = d_hid / d_in, and the L1 penalty is what pressures the codes to be sparse and (theoretically) to recover the ground-truth generating features. They then validate the learned dictionary three ways. First, interpretability: using Bills et al.'s automated pipeline (GPT-4 writes a description of a feature from its top activations, then predicts activations on held-out text; the correlation is the score), dictionary features beat neurons, random directions, PCA, and ICA across layers — most strongly in early layers, fading by the final layer. Second, causality: on the Indirect Object Identification task they patch dictionary-feature directions (selected by the ACDC circuit-discovery algorithm) and reach a target KL divergence with fewer patches and smaller edits than PCA, while a non-sparse (alpha=0) dictionary provides no such advantage. Third, case studies of individual monosemantic features — an apostrophe feature whose ablation specifically suppresses the 's' logit, and a closing-parenthesis feature whose upstream causes form a clean cross-layer circuit. Limitations remain: reconstruction is imperfect (substituting a reconstructed layer raises Pile perplexity from 25 to 40), and the method works best on the residual stream, not yet robustly inside MLPs. The authors frame the work as a step toward 'enumerative safety' — a complete, human-readable feature list that could rule out dangerous behaviours.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Mechanistic interpretability wants to decompose a network into features that can be analysed in isolation, but neurons are often polysemantic — they activate for several unrelated features — and in the residual stream there is little reason for features to align with the neuron basis at all. The authors adopt Elhage et al.'s superposition hypothesis: networks pack more features than they have dimensions into an overcomplete set of directions, feasible only when features fire sparsely. Recovering those directions is framed as sparse dictionary learning."
+    },
+    {
+      "title": "2. Taking Features out of Superposition with Sparse Dictionary Learning",
+      "summary": "Model each activation vector as x = sum_j a_j g_j, a sparse combination of unknown ground-truth features g_j, and learn a dictionary {f_k} to recover them. The autoencoder computes c = ReLU(Mx + b) (Eq 1) and reconstructs x_hat = M^T c = sum_i c_i f_i (Eq 2-3), with M in R^{d_hid x d_in}, d_hid = R * d_in (R controls overcompleteness), tied encoder/decoder weights, and M normalised row-wise so features cannot shrink to cheat the sparsity term. The loss is L(x) = ||x - x_hat||_2^2 + alpha ||c||_1 (Eq 4): MSE reconstruction plus an L1 penalty on the codes, whose weight alpha trades reconstruction against sparsity and, per Wright & Ma / Sharkey et al., lets L1 recover the generating features."
+    },
+    {
+      "title": "3.1 Interpretability at Scale",
+      "summary": "To measure interpretability across thousands of features they use Bills et al.'s automated pipeline: sample text where a feature activates, have a language model (GPT-4) write a human-readable description, then prompt it to predict the feature's activation on new text; the correlation between predicted and actual activations is the feature's interpretability score (top-and-random scoring). Table 1 shows five layer-1 residual features with GPT-4 descriptions such as 'instances of the letter W and words beginning with w' (score 0.55)."
+    },
+    {
+      "title": "3.2 Sparse Dictionary Features Are More Interpretable Than Baselines",
+      "summary": "Interpretability scores of dictionary features are compared against the default neuron basis, random directions, PCA, and ICA (with negative residual-stream activations zeroed so all bases are non-negative). Figure 2 (dictionaries with alpha = .00086, R = 2, 150 features) shows sparse coding scores highest at every layer, but the advantage shrinks with depth — comparable to ICA by layer 4 and minimal in the final layer — plausibly because later-layer features are more complex and current autointerpretation struggles with patterns centred on preceding or following tokens."
+    },
+    {
+      "title": "4. Identifying Causally-Important Dictionary Features for IOI",
+      "summary": "Beyond interpretability, they test whether dictionary features causally localise a specific behaviour: Indirect Object Identification (Wang et al.), completing 'Then, Alice and Bob went to the store. Alice gave a snack to ___'. Using activation patching (causal mediation, Vig et al.), they run a counterfactual sentence, save the encoded feature activations, and patch them into the base run via x'_i = x_i + sum_{j in F} (c-bar_{i,j} - c_{i,j}) f_j, measuring KL divergence from the target. The patched-feature subset F is ordered by the ACDC algorithm (Conmy et al.)."
+    },
+    {
+      "title": "4.2 Precise Localisation of IOI Dictionary Features",
+      "summary": "Figure 3 (layer 11 of Pythia-410M, dictionaries on the first 10,000 Pile elements) shows sparse dictionaries reach a given KL divergence from the target with fewer patched features and smaller mean edit magnitude than the PCA decomposition, improving the Pareto frontier of edit-thoroughness versus edit-size. A non-sparse dictionary (alpha=0) does not, confirming sparsity is what buys the localisation; larger alpha lowers reconstruction accuracy and so raises the minimum achievable KL."
+    },
+    {
+      "title": "5.1 Input: Dictionary Features Are Highly Monosemantic",
+      "summary": "Case studies inspect individual features for a single human-understandable meaning. Feature 556 activates almost exclusively on apostrophes (Figure 4, left), with lower activations on conceptually similar punctuation; the corresponding apostrophe direction is monosemantic where the closest neuron in the default basis is polysemantic. Note it does not fire on all apostrophes — other apostrophe-selective features cover contexts like '[don/won/wouldn]'t'."
+    },
+    {
+      "title": "5.2 Output: Dictionary Features Have Intuitive Effects on the Logits",
+      "summary": "Ablating a feature from the residual stream (via a less-than-rank-one ablation that lowers the activation along the feature only until it is no longer active) should have a logical effect on next-token predictions. Removing the apostrophe feature 556 mainly reduces the logit of the following 's' token (Figure 4, right) — exactly what a detector of possessive/contraction apostrophes like 'let's' should do."
+    },
+    {
+      "title": "5.3 Intermediate Features: Automatic Circuit Detection",
+      "summary": "Dictionary features can be traced across layers. For a target feature (layer 5's closing-parenthesis feature, whose unembedding row 5_2027 maps to closing-parenthesis tokens), they sample contexts activating it in [M/2, M], then for each previous-layer feature rerun with that feature ablated and rank previous-layer features by how much they reduced the target. Recursing yields a causal tree (Figure 5) of open-bracket, in-parenthesis, and acronym features feeding the closing-parenthesis prediction — automatic circuit discovery grounded in monosemantic features."
+    },
+    {
+      "title": "6. Discussion, Limitations, and Conclusion",
+      "summary": "Related methods either learn dictionaries post-hoc (Yun et al., Sharkey et al.) or bake sparsity into training (sparse attention, L1 on neurons, softmax linear units), the latter being hard to scale. Key limitations: reconstruction is imperfect — substituting a reconstructed layer-2 residual in Pythia-70M raises Pile perplexity from 25 to 40 — and the pipeline works well on the residual stream but not yet robustly inside MLPs. The method is scalable and unsupervised, needing only unlabelled activations and far less compute than training the model, and is pitched as a step toward 'enumerative safety': a complete feature list that could certify a model avoids dangerous behaviour like deception."
+    }
+  ],
+  "readingFocus": [
+    "The four-equation core (Eq 1-4) is the whole method — c = ReLU(Mx+b), x_hat = M^T c, loss = ||x - x_hat||_2^2 + alpha ||c||_1 — understand each term, the tied/row-normalised weights, and why the L1 penalty (not the reconstruction term) is what recovers features before reading anything else.",
+    "The overcompleteness ratio R = d_hid / d_in and the sparsity coefficient alpha are the two knobs that matter: R > 1 is what lets the dictionary hold more features than the layer has dimensions, and alpha trades reconstruction against monosemanticity.",
+    "The autointerpretation metric (Bills et al.): how a description-then-predict loop yields a scalar interpretability score, and the baseline comparison in Figure 2 (dictionary features vs neurons/PCA/ICA) that is the paper's headline evidence.",
+    "The IOI activation-patching experiment (Section 4) is the causal validation — the patch formula x'_i = x_i + sum (c-bar - c) f_j, the ACDC feature ordering, and why 'fewer patches to a given KL than PCA' means the features localise behaviour, with the alpha=0 control proving sparsity is responsible.",
+    "The three case-study lenses on a single feature — input (what activates it), output (what ablating it does to the logits), and intermediate (its upstream circuit) — are the template for validating any feature you find, including on your own model.",
+    "Read the limitations honestly: reconstruction is lossy (perplexity 25 to 40 when substituting a layer), and the method is residual-stream-first, not yet MLP-robust — set expectations before you try to train one yourself."
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "paperId": "2-olmo-2-furious",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "OLMo 2 is a fully open family of dense 7B/13B/32B language models — weights, all training data, code, logs, and thousands of intermediate checkpoints — that reaches the performance-vs-FLOPs Pareto frontier by pairing a stability-hardened training recipe with a two-stage curriculum: a long web-data pretrain (>=90% of FLOPs) followed by a short mid-training 'anneal' (5-10%) on the curated Dolmino Mix that infuses knowledge and patches math.",
+  "overview": "The OLMo Team present OLMo 2, the next generation of the Allen Institute's fully open language models, at 7B, 13B, and 32B scales trained on up to 6 trillion tokens. Unlike open-weights releases, OLMo 2 opens every artifact — model weights, the full pretraining and mid-training data, training and evaluation code, training logs, and thousands of intermediate checkpoints — making it the most reproducible frontier-class recipe available. The report is organized around four deep dives. First, pretraining stability: OLMo-0424 suffered loss and gradient-norm spikes that grew with scale and eventually diverged, so OLMo 2 adopts a bundle of interventions — a repeated-n-gram data filter, N(0, 0.02) initialization of all parameters, RMSNorm applied to the outputs of the attention and MLP blocks (reordered/post-norm), QK-norm, z-loss regularization, no weight decay on embeddings, and a lower AdamW epsilon of 1e-8 — measured via a 'spike score.' Second, the mid-training recipe: after the web-heavy pretraining stage, training is restarted on a curated domain mixture (Dolmino Mix 1124) while the learning rate is linearly decayed to zero; sources are assessed cheaply through 'microannealing,' and multiple anneal runs on different data orders are averaged into a 'checkpoint soup.' Third, a Tulu 3 post-training pipeline (SFT -> DPO -> multi-stage RLVR) yields the competitive OLMo 2-Instruct models. Fourth, the infrastructure — clusters, the Beaker orchestration system, and reliability engineering — that made the runs possible. Mid-training alone lifts the 7B average by 10.6 points (e.g., GSM8K 24.1 -> 67.5), letting the annealed 7B surpass the pretrained 13B, while the base models match Llama 3.1, Qwen 2.5, and Gemma 2 using fewer FLOPs and full transparency.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Situates OLMo 2 in a landscape of open-weights (Llama 3, Qwen 2, Gemma) versus fully-open (Pythia, DCLM, MAP-Neo) models, arguing that weights alone cannot support research into training dynamics, memorization, or concept acquisition. Names the four target areas — pretraining stability, mid-training recipe, post-training pipeline, and infrastructure — and reports that the base models sit on the performance-to-FLOPs Pareto frontier (Figure 1)."
+    },
+    {
+      "title": "2.1 Model Architecture",
+      "summary": "A decoder-only transformer (Vaswani et al. 2017) with no biases, SwiGLU activation, and RoPE. OLMo 2's stability-motivated changes over OLMo-0424 (summarized in Table 1): RMSNorm instead of nonparametric LayerNorm; reordered norm (normalize the outputs of the attention and MLP sub-layers, h := x + RMSNorm(Attention(x))); QK-norm on the query/key projections; z-loss weight 1e-5; RoPE theta raised from 1e4 to 5e5; and no weight decay on embeddings. The 32B uses grouped-query attention (40/8) while 7B/13B use MHA."
+    },
+    {
+      "title": "2.2 Tokenizer",
+      "summary": "OLMo 2 borrows the cl100k vocabulary from GPT-3.5/GPT-4 (Apache 2.0 via tiktoken), a larger vocabulary than the GPT-NeoX-20B tokenizer used before, retaining the Dolma PII masking tokens (PHONE_NUMBER, EMAIL_ADDRESS, IP_ADDRESS) for backwards compatibility. At a 1B/100B-token scale the new tokenizer measurably improves OLMES scores (Table 2), with larger gains expected at scale."
+    },
+    {
+      "title": "2.3 Base Model Training Recipe",
+      "summary": "Base models train in two stages, each with its own data mix. Stage 1 (pretraining, >=90% of FLOPs) uses mostly web-sourced data and cosine LR decay to 10% of peak. Stage 2 (mid-training, 5-10% of FLOPs) up-samples the highest-quality web and curated non-web sources plus synthetic math, linearly decaying the LR to zero. Table 3 gives hyperparameters: peak LR 3e-4 (7B), 9e-4 (13B), 6e-4 (32B); 2000 warmup steps; N(0, 0.02) init; gradient clipping 1.0."
+    },
+    {
+      "title": "2.4 Base Model Data",
+      "summary": "Pretraining uses OLMo 2 Mix 1124 (~3.9T tokens, >95% web): DCLM-Baseline plus StarCoder code, peS2o and arXiv papers, OpenWebMath, Algebraic Stack, and Wikipedia (Table 4). Mid-training uses Dolmino Mix 1124: a high-quality subset (752B filtered DCLM web, FLAN, peS2o, Wikipedia, Stack Exchange Q&A; 832.6B total) plus a 10.7B math mix (Table 5). Totals: 7B on 4.05T tokens, 13B on 5.6T, 32B on 6.6T."
+    },
+    {
+      "title": "2.5 Evaluation and Results",
+      "summary": "Evaluated on the OLMES suite with a held-out task set kept out of all development decisions (advocated as standard practice). OLMo 2 base models are competitive with the best open-weights models of comparable size at far fewer FLOPs, and OLMo 2-Instruct rivals GPT-3.5 Turbo and GPT-4o Mini (Table 7)."
+    },
+    {
+      "title": "3. Deep Dive: Pretraining Stability",
+      "summary": "OLMo-0424 exhibited sudden loss/gradient-norm spikes (more frequent at larger scale) and slow gradient-norm growth, which together led to divergence and made large-scale training impossible (Figure 2). This section catalogs the interventions and introduces the spike score — the percentage of values at least seven standard deviations from a rolling average of the last 1000 — as an objective stability metric on loss and gradient-norm time series."
+    },
+    {
+      "title": "3.1 Repeated n-Grams",
+      "summary": "Training batches at spike points had a high prevalence of long repeated n-gram sequences. At curation time, documents containing a run of 32+ repeated n-grams (an n-gram is any span of 1-13 tokens) are filtered out; the trainer additionally detects and masks the loss on such sequences during data loading. This clearly reduces (though does not eliminate) spikes (Figure 3), with no effect on the slow gradient-norm growth."
+    },
+    {
+      "title": "3.2 Model Initialization",
+      "summary": "OLMo 2 initializes every parameter from N(0, 0.02) instead of OLMo-0424's scaled (per-layer, per-fan-in) init. In a stress test (short warmup), the new init removes loss spikes and cuts the gradient-norm spike score from 0.40 to 0.03 (Figure 4). A 'growth exponent' analysis shows activations/gradients stay near unit scale across layers, and the init's norms correlate with sqrt(d_model), predicting better hyperparameter transfer across width (Yang et al.)."
+    },
+    {
+      "title": "3.3 Architecture Improvements",
+      "summary": "Switches back to RMSNorm (nonparametric LayerNorm was only a legacy workaround). The reordered norm (post-norm on sub-layer outputs) and QK-norm are individually unhelpful but together improve both gradient growth and spikiness, reducing the gradient spike score from 0.108 to 0.069 (Figure 7). Z-loss (add 1e-4 * log^2(Z)) keeps final-softmax logits from growing too large; the authors flag that Flash Attention's fused z-loss diverges from a manual PyTorch implementation in the backward pass (Figure 8)."
+    },
+    {
+      "title": "3.4 Hyperparameter Improvements",
+      "summary": "Lowering AdamW epsilon from 1e-5 to 1e-8 allows larger early updates, so training loss improves faster and the gradient norm settles lower and stays there (Figure 9). Standard weight decay shrinks token embeddings too aggressively — small embeddings produce large early-layer gradients via the LayerNorm Jacobian — so weight decay is turned off for embeddings, whose norms then settle in a healthy range (Figure 10)."
+    },
+    {
+      "title": "4. Deep Dive: Mid-training Recipe",
+      "summary": "Frames mid-training: after pretraining, generate domain-specific mixtures, restart training, and linearly drive the LR to zero to infuse specialized knowledge and patch capabilities (notably math via GSM8K). Both LR schedule and data mixture matter; this is the annealing stage that phase 8 reproduces."
+    },
+    {
+      "title": "4.1 Learning rate annealing",
+      "summary": "Sweeping peak LRs (3e-4 to 30e-4), higher LRs win early on training loss but are overtaken by lower LRs, with the crossover well past 200B tokens — a short experiment would draw the wrong conclusion (Figure 11). Crucially, linearly decaying any of these LRs to zero over 50B/100B tokens yields nearly equivalent final training loss and OLMES scores (Table 8): a learning-rate plateau, enhanced by QK-norm and z-loss, that contradicts 'higher LR is always better.'"
+    },
+    {
+      "title": "4.2 Data Curriculum: Dolmino Mix 1124",
+      "summary": "Describes the mid-training data-curation loop: identify high-quality sources to lift the whole benchmark suite, and collect domain-specific data (math) to patch specific capabilities. Sources are assessed independently via microannealing (Section 4.4.2), and the mix is prepared in 50B/100B/300B token budgets for 7B/13B/32B respectively."
+    },
+    {
+      "title": "4.3 Dolmino Mix 1124: High Quality Sources",
+      "summary": "Curates a higher-quality subset of the pretraining mix plus academic/encyclopedic material. Web is filtered with the DCLM FastText classifier (~65.6% retained) intersected with the FineWeb-Edu classifier (score >=2, 20.3% retained); adds decontaminated FLAN instruction data, Stack Exchange Q&A, peS2o, Wikipedia, and reference content. Ablations (Table 11) show higher-quality web plus instruction and math data give the best overall results."
+    },
+    {
+      "title": "4.4 Dolmino Mix 1124: Math Mix",
+      "summary": "Early mixes lagged on math, so the authors build a dedicated math mix from human-authored and synthetic sources: TuluMath (persona-driven, ~230M tokens), Dolmino SynthMath, TinyGSM-MIND (code rewritten to natural language), MathCoder2-Synthetic, OWM-filtered Metamath/CodeSearchNet, and the GSM8K train split. Microanneals (Section 4.4.2) select the highest-quality subsets cheaply."
+    },
+    {
+      "title": "4.4.2 Evaluating Math Data with Microanneals",
+      "summary": "A microanneal takes a candidate math source, mixes it ~50/50 with general web data, and runs a small annealing run with LR linearly decayed to zero — assessing source quality at a fraction of a full run (19 microanneals, 130B tokens total, less than three 50B runs). Findings (Table 12): domain-specific data helps even in small proportions; light duplication (2x) helps; and rewriting code-form data into natural language (TinyGSM-MIND) dramatically lifts GSM8K."
+    },
+    {
+      "title": "4.5 Final Midtraining mix and Checkpoint Soups",
+      "summary": "The final Dolmino Mix (Table 13) keeps mixing proportions roughly constant across the 50B/100B/300B budgets, with DCLM web ~50% throughout. Model merging ('souping') — a naive average of checkpoints annealed on different data orders — consistently equals or beats the best single checkpoint (Table 14). The 7B averages three 50B runs; 13B/32B average three 100B runs plus one 300B run. Mid-training lifts the 7B average by 10.6 points, surpassing the pretrained 13B (Table 9)."
+    },
+    {
+      "title": "5. Deep Dive: Post-training Pipeline",
+      "summary": "Applies the Tulu 3 recipe with a permissive-license focus: SFT on ~939K prompts, DPO with on-policy preference data, and a multi-stage RLVR (Reinforcement Learning with Verifiable Rewards) pipeline. Improvements in the base models translate to better chat variants, producing OLMo 2-Instruct."
+    },
+    {
+      "title": "6. Deep Dive: Infrastructure as a Research Catalyst",
+      "summary": "Argues reliable infrastructure is a research multiplier that most pretraining papers omit: describes the compute clusters, the Beaker orchestration system, stability/operations monitoring that reduced failure rates and raised cluster utilization, and the environmental impact of the training runs."
+    }
+  ],
+  "readingFocus": [
+    "The two-stage recipe shape (Section 2.3, 4) is the phase-8 blueprint: a long web-data pretrain with cosine decay to ~10% of peak, then a short mid-training anneal that linearly drives the LR to zero on a curated mixture. Trace which capabilities are built where before anything else.",
+    "The pretraining-stability bundle (Section 3): treat init N(0, 0.02), RMSNorm, reordered/post-norm, QK-norm, z-loss, no-weight-decay-on-embeddings, and AdamW eps=1e-8 as a checklist — each targets a specific spike or slow-growth failure, and the spike score is the metric that made them measurable.",
+    "The learning-rate annealing finding (Section 4.1): linear decay to zero makes final loss nearly invariant to peak LR, and the crossover between LRs sits well past 200B tokens — a caution that short hyperparameter sweeps mislead. This is the single most transferable curriculum lesson.",
+    "Microannealing (Section 4.4.2) is the cheap experimental primitive for the single-GPU learner: mix a candidate source ~50/50 with web, anneal small, and read off the benchmark delta — how to assess a data source without a full run.",
+    "Checkpoint souping (Section 4.5): averaging models annealed on different data orders reliably beats the best single run — a free quality gain the learner can reproduce at small scale.",
+    "The repeated-n-gram filter (Section 3.1) is the data-side half of stability: pathological repeated spans trigger spikes, and both curation-time filtering and trainer-side loss masking mitigate them."
+  ]
+}

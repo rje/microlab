@@ -1,0 +1,45 @@
+{
+  "paperId": "yarn-efficient-context-window-extension-of-large-language-models",
+  "cards": [
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#1",
+      "question": "What problem does YaRN solve, and what is its headline efficiency claim over plain Position Interpolation?",
+      "answer": "RoPE-based LLMs cannot generalize past the context length L seen during pretraining, and naive extrapolation fails. YaRN extends the usable context window (e.g., Llama 2 to 128k) while requiring roughly 10x fewer tokens and 2.5x fewer training steps than previous methods like Position Interpolation. It fine-tunes on under ~0.1% of the original pretraining data and, combined with inference-time Dynamic Scaling, can extend context more than 2x with no fine-tuning at all."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#2",
+      "question": "Define the RoPE wavelength lambda_d and the ratio r(d), and explain why they are the key quantities YaRN reasons about.",
+      "answer": "For dimension d with frequency theta_d = b^(-2d/|D|) (base b=10000), the wavelength is lambda_d = 2*pi/theta_d = 2*pi*b^(2d/|D|) — the number of tokens needed for that dimension to complete a full 2*pi rotation. The ratio r(d) = L/lambda_d is the number of rotations the dimension makes over the pretrained context L. Dimensions with lambda >> L (small r) never complete a rotation, so they carry absolute-position information; dimensions with short lambda (large r) carry local relative-order information. This split is what lets YaRN treat frequencies unequally instead of scaling them all the same."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#3",
+      "question": "Under the general form f'(x_m, m, theta) = f(x_m, g(m), h(theta)), how is plain Position Interpolation (PI) defined, and why does it degrade as the scale factor grows?",
+      "answer": "PI sets g(m) = s*m and h(theta) = theta, where s = L'/L is the scale factor — it uniformly compresses all positions by s, scaling every RoPE frequency identically. By NTK/Fourier-features theory, dividing every frequency by s strips out the high-frequency components the network needs to resolve nearby token order, and this loss worsens as s grows. In practice PI degrades badly beyond about s=8 even after fine-tuning."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#4",
+      "question": "What is the core insight of NTK-aware interpolation and its main practical drawback?",
+      "answer": "Instead of scaling every dimension by the same factor s, NTK-aware interpolation performs a base change b -> b' so that interpolation pressure is spread across dimensions — high frequencies are scaled less and low frequencies more — preserving high-frequency information better than PI (good for non-fine-tuned models). Its drawback is that the optimal base b' must be found empirically for each target extension, which increases the difficulty and cost of getting a good fine-tuned model."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#5",
+      "question": "Write the NTK-by-parts ramp and interpolation rule, and state what it does to high- versus low-frequency dimensions.",
+      "answer": "Define the ramp gamma(r) = 0 if r < alpha, 1 if r > beta, and (r - alpha)/(beta - alpha) otherwise, using r(d) = L/lambda_d. NTK-by-parts keeps g(m) = m and sets h(theta_d) = (1 - gamma(r(d))) * theta_d/s + gamma(r(d)) * theta_d. Low-frequency / long-wavelength dimensions (small r, gamma=0) get theta_d/s — fully interpolated like PI — while high-frequency / short-wavelength dimensions (large r, gamma=1) get theta_d unchanged, preserving local relative distances. Dimensions in between blend the two. For the Llama family the recommended cutoffs are alpha=1, beta=32."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#6",
+      "question": "What is the attention temperature that distinguishes YaRN from NTK-by-parts, how is it implemented cheaply, and why does it help?",
+      "answer": "YaRN divides the attention logits by a temperature t before softmax: softmax(q_m^T k_n / (t * sqrt(|D|))). Because RoPE is a set of 2D rotations, this is applied for free by length-scaling both q_m and k_n by the constant sqrt(1/t) — no attention-code change and zero runtime overhead, so it stays compatible with Flash Attention 2. It helps because interpolation increases the entropy of the attention distribution; the temperature counteracts that, uniformly lowering perplexity across the extended window. For LLaMA/Llama 2 the empirical fit is sqrt(1/t) = 0.1*ln(s) + 1, which appears to transfer across model sizes."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#7",
+      "question": "State the precise definition of the YaRN method and how it relates to the earlier interpolation schemes.",
+      "answer": "By Definition 2 in the paper, YaRN = NTK-by-parts interpolation (interpolate low-frequency dimensions via the gamma ramp, leave high-frequency dimensions untouched) combined with the attention-softmax temperature scaling. It is the culmination of the family RoPE -> Position Interpolation / NTK-aware -> NTK-by-parts -> (+ temperature) YaRN. It is a drop-in replacement for PI, is a pure embedding-interpolation method (unlike ReRoPE / LM-Infinite, which modify attention and break Flash Attention 2 compatibility), and outperforms all prior methods in both fine-tuned and non-fine-tuned settings."
+    },
+    {
+      "id": "yarn-efficient-context-window-extension-of-large-language-models#8",
+      "question": "What is Dynamic Scaling (Dynamic NTK), and what KV-cache subtlety does it introduce?",
+      "answer": "Instead of fixing the scale to s = L'/L, Dynamic Scaling updates it per forward pass as s = max(1, l'/L) where l' is the current sequence length. This lets the model degrade gracefully as sequences grow rather than breaking abruptly once they exceed L', and Dynamic-YaRN gives more than 2x extension with no fine-tuning. The subtlety: when combined with KV-caching you must cache the pre-RoPE key/value embeddings, because every token's rotary embedding changes whenever s changes — caching post-RoPE vectors would apply stale rotations."
+    }
+  ]
+}

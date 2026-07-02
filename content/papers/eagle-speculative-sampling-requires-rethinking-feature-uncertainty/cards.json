@@ -1,0 +1,45 @@
+{
+  "paperId": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty",
+  "cards": [
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#1",
+      "question": "What two observations about speculative sampling motivate EAGLE, and what does EAGLE change relative to standard speculative decoding?",
+      "answer": "First, autoregression at the FEATURE level (the second-to-top-layer hidden state, just before the LM head) is simpler and more accurate than at the token level, because feature sequences are more regular than token strings. Second, feature-level autoregression is under-determined: because the target samples its next token, the next feature is ambiguous given only past features. EAGLE leaves the verification/accept-reject stage of speculative decoding unchanged but replaces the DRAFT stage — instead of a separate draft model, it autoregresses features with a lightweight head on the target's own hidden states, conditioned on the token sampled one step ahead."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#2",
+      "question": "In EAGLE, what is a \"feature,\" and why is autoregressing features (then decoding tokens) preferable to directly predicting tokens?",
+      "answer": "A feature is the second-to-top-layer hidden state of the target LLM — the vector fed into the LM head, which maps f_j to distribution p_{j+1}. Token sequences are surface transformations of language, whereas feature sequences carry more structure and regularity, so a small head can learn to extrapolate them more accurately. EAGLE autoregresses features and then reuses the frozen target LM head to derive tokens. Empirically, feature-level drafting reaches ~1.9x speedup versus ~1.5x for a comparable token-level draft."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#3",
+      "question": "What is \"feature uncertainty,\" and how does EAGLE resolve it?",
+      "answer": "Because the target LLM samples its next token, the feature that follows a given feature is not determined by that feature alone. After feature f_I, sampling the token \"always\" versus \"am\" leads to different next features f_always vs f_am, branching the feature sequence. A draft conditioned only on past features (e.g., Medusa) cannot know which branch to take. EAGLE resolves this by additionally feeding the token sequence advanced by one time step — the token actually sampled — so it predicts f_always from (f_I, t_always) and f_am from (f_I, t_am). This shifted-token input raises the speedup from ~1.9x to ~2.8x and is the largest single ablation gain."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#4",
+      "question": "Describe the architecture of EAGLE's draft model and the shapes of its inputs.",
+      "answer": "The draft model has three modules: the target's frozen Embedding layer and LM Head (reused, no extra training) plus a trainable Autoregression Head. Inputs are a feature sequence of shape (bs, seq_len, hidden_dim) and a one-step-advanced token sequence (bs, seq_len); the tokens are embedded to (bs, seq_len, hidden_dim) and concatenated with the features to (bs, seq_len, 2*hidden_dim). The Autoregression Head is a single FC layer that reduces this fused vector back to hidden_dim, followed by one transformer decoder layer that predicts the next feature. The frozen LM head then gives the token distribution. The trainable head is small: 0.24B / 0.37B / 0.56B / 0.99B for 7B / 13B / 33B / 70B targets (0.28B for Mixtral 8x7B)."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#5",
+      "question": "What loss functions and data tricks are used to train EAGLE's Autoregression Head?",
+      "answer": "Two objectives combine: a regression loss L_reg = Smooth L1 between predicted and true next feature, and a classification loss L_cls = cross-entropy between Softmax(LM_Head(true feature)) and Softmax(LM_Head(predicted feature)) that optimizes the eventual token target directly. Because the classification term is numerically an order of magnitude larger, the total is L = L_reg + w_cls * L_cls with w_cls = 0.1. Training uses a fixed dataset (ShareGPT, ~68k dialogues) since EAGLE has low data sensitivity, and augments target features with uniform noise U(-0.1, 0.1) to counter error accumulation from feeding predicted features back in autoregressively."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#6",
+      "question": "How does EAGLE draft and verify a tree of candidates, and why does the target's output distribution stay unchanged?",
+      "answer": "EAGLE builds a tree-structured draft using tree attention — a depth-m draft tree containing more than m tokens produced in m forward passes (e.g., a 10-token tree in 3 passes). The target LLM then verifies the entire tree in a single forward pass, and at each node recursively applies the speculative-sampling accept/reject rule (consistent with SpecInfer): accept a draft token with probability min(1, p_target/p_draft) and resample rejections from norm(max(0, p_target - p_draft)). Because that rule is exact, the emitted distribution equals the target's for both greedy and non-greedy decoding, with no fine-tuning of the target model."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#7",
+      "question": "What speedups does EAGLE achieve, and how does it compare to Lookahead, Medusa, and a separate draft model?",
+      "answer": "EAGLE reaches 2.1x-3.8x latency speedup over vanilla decoding (2.7x-3.5x on LLaMA2-Chat 70B) with roughly 2x throughput, emitting 3.2-4.5 tokens per target forward pass. It is 1.7x-2.1x faster than Lookahead and 1.5x-1.6x faster than Medusa, and reaches ~0.8 draft accuracy versus Medusa's ~0.6 while training on only 2-4B tokens (versus TinyLLaMA's 3,000B). Unlike Lookahead (greedy-only) and Medusa (no guarantee), EAGLE provably preserves the output distribution, and it composes with quantization/compilation (EAGLE + gpt-fast pushes LLaMA2-Chat 7B to 160.4 tokens/s on an RTX 3090)."
+    },
+    {
+      "id": "eagle-speculative-sampling-requires-rethinking-feature-uncertainty#8",
+      "question": "How did the EAGLE family evolve after this first paper, and why does it matter for production serving?",
+      "answer": "This paper is EAGLE-1: feature-level autoregression + shifted-token conditioning + a static draft tree. EAGLE-2 adds context-aware DYNAMIC draft trees, shaping and pruning the tree using the draft model's confidence scores to approximate acceptance and expand only promising branches. EAGLE-3 removes the feature-regression constraint via a training-time test and fuses low/middle/high (multi-layer) features for direct token prediction, which unlocks scaling with more training data and higher acceptance lengths. This 1->2->3 arc made EAGLE the default speculative-decoding path in vLLM, SGLang, and TensorRT-LLM, where speculation is a primary latency lever."
+    }
+  ]
+}

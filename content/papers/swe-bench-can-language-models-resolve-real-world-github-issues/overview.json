@@ -1,0 +1,65 @@
+{
+  "paperId": "swe-bench-can-language-models-resolve-real-world-github-issues",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "SWE-bench evaluates language models on 2,294 real GitHub issues drawn from 12 popular Python repositories: given an issue description and the full codebase, the model must generate a patch that resolves the issue, verified by re-running the repository's own unit tests. The task demands coordinating edits across multiple files and functions inside codebases of thousands of files — and the best model at publication (Claude 2 with BM25 retrieval) resolved only 1.96% of issues.",
+  "overview": "Jimenez et al. argue that language models have outpaced our ability to evaluate them, and that real-world software engineering is a rich, sustainable, execution-verifiable testbed for the next generation of models. They introduce SWE-bench, a benchmark of 2,294 task instances mined from merged pull requests that closed GitHub issues across 12 widely used Python repositories (django, sympy, scikit-learn, matplotlib, sphinx, and others). Each instance gives the model an issue text plus a snapshot of the codebase at the pre-PR commit; the model must produce a patch file that, when applied, makes the repository's test suite pass. Grading is fully execution-based: the patch is applied with unix `patch`, then the associated tests are run — an instance is resolved only if the patch applies and every relevant test passes. Instances are constructed by a three-stage pipeline (scrape ~90,000 PRs, keep merged PRs that resolve an issue and modify test files, then keep only those with at least one test that flips from fail to pass and that install and run cleanly). Because resolving an issue typically requires editing multiple files and functions, reasoning over 100K+ token codebases, and localizing a handful of buggy lines in a sea of context, SWE-bench is dramatically harder than self-contained code-generation benchmarks like HumanEval. The authors evaluate ChatGPT-3.5, GPT-4, and Claude 2 under BM25 and 'oracle' retrieval, and release fine-tuned SWE-Llama 7b/13b models plus a 300-instance SWE-bench Lite subset. Across the board models resolve only a few percent of issues, and the paper closes by pointing toward agent-based and tool-augmented approaches as the way forward.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Existing benchmarks (MMLU, HumanEval) are becoming saturated and fail to capture the frontier of what state-of-the-art LMs can and cannot do. Coding tasks are appealing because generated solutions are easy to verify by running tests, but existing coding benchmarks mostly involve self-contained problems solvable in a few lines. Real software engineering means navigating large repositories, understanding cross-file interplay, and spotting small errors in convoluted code — the motivation for SWE-bench."
+    },
+    {
+      "title": "2. SWE-bench",
+      "summary": "SWE-bench pairs GitHub issues (bug reports or feature requests) with the merged pull requests that resolved them. The task is to generate a pull request (represented as a patch) that addresses a given issue and passes the tests related to it. The benchmark's realistic construction gives it properties absent from contrived NLP benchmarks."
+    },
+    {
+      "title": "2.1 Benchmark Construction",
+      "summary": "A three-stage pipeline turns noisy GitHub data into clean tasks. Stage I scrapes ~90,000 PRs from 12 popular, well-maintained Python repositories. Stage II (attribute filter) keeps merged PRs that both resolve a GitHub issue and modify test files (evidence the author contributed tests). Stage III (execution filter) logs test results before and after the PR's non-test changes and keeps only instances with at least one test that changes from fail to pass ('fail-to-pass'), discarding anything with install or runtime errors. The 90,000 PRs are filtered down to 2,294 task instances."
+    },
+    {
+      "title": "2.2 Task Formulation",
+      "summary": "Model input is an issue text plus a complete codebase; the model outputs an edit represented as a patch file specifying which lines to change. Evaluation applies the patch with unix `patch` and executes the associated unit and system tests. A solution is counted as resolved only if the patch applies successfully AND all relevant tests pass. The benchmark metric is the percentage of task instances resolved."
+    },
+    {
+      "title": "2.3 Features of SWE-bench",
+      "summary": "Real-world SE tasks require skills of experienced engineers not exercised by code-generation benchmarks. The collection process is continually updatable (issues created after a model's training cutoff avoid contamination). Inputs are diverse and long: issues average 195.1 words and codebases contain thousands of files (mean 3,010 non-test files, 438K non-test lines). Evaluation is robust — every instance has at least one fail-to-pass test, 40% have at least two, and a median of 51 additional pass-to-pass tests check that existing functionality is not broken. Editing is cross-context: reference solutions touch on average 1.7 files, 3.0 functions, and 32.8 lines, with no cloze-style scope constraints, leaving wide scope for creative solutions."
+    },
+    {
+      "title": "2.4 SWE-bench Lite",
+      "summary": "Because full SWE-bench evaluation is time-consuming and compute/credit-intensive, the authors curate SWE-bench Lite: a 300-instance subset sampled to be more self-contained and focused on functional bug fixes, covering 11 of the 12 original repositories with similar diversity to the full set. It is intended as a less intimidating entry point for early systems."
+    },
+    {
+      "title": "3. SWE-Llama: Fine-tuning CodeLlama for SWE-bench",
+      "summary": "Off-the-shelf CodeLlama variants cannot follow the detailed instructions to produce repository-wide edits and often emit placeholders or unrelated code. The authors fine-tune CodeLlama-Python 7b and 13b on 19,000 issue-PR pairs collected from 37 additional Python repositories that are disjoint from the evaluation set (avoiding contamination). Fine-tuning uses LoRA on the attention sublayer weights only and excludes sequences longer than 30,000 tokens, yielding an effective corpus of 10,000 instances. The resulting SWE-Llama models run on consumer hardware and can process contexts exceeding 100,000 tokens."
+    },
+    {
+      "title": "4. Experimental Setup (Retrieval, Input Format, Models)",
+      "summary": "Codebases are far larger than any context window, so relevant files must be retrieved. Sparse BM25 retrieval is used because dense retrievers are ill-suited to long code documents queried with natural language; an 'oracle' setting instead supplies exactly the files edited by the reference patch (less realistic, since an engineer would not know these a priori). BM25 retrieves a superset of the oracle files in only ~40% of instances at a 27K-token limit and none of them in almost half. The model input concatenates task instructions, issue text, retrieved files/docs, and an example patch. Evaluated models — ChatGPT-3.5 (16K), GPT-4 (32K), Claude 2 (100K), and SWE-Llama (>=100K) — are limited by how much of each instance fits their context (58.1%, 84.1%, 96.4%, and >=94.8% of instances respectively)."
+    },
+    {
+      "title": "5. Results",
+      "summary": "All models struggle: with BM25 retrieval Claude 2 resolves 1.96% of issues (the best at publication), and the leaderboard-refreshed Table 5 shows Claude 3 Opus at 3.79% (4.33% on Lite). Difficulty differs across repositories and correlates strongly with context length — performance drops as more code is provided, because models fail to localize the lines that need editing. Difficulty does NOT correlate with issue resolution date, suggesting models are not simply 'cheating' from having seen a later version of the repo. Fine-tuned SWE-Llama is sensitive to context distribution shift (trained on oracle, weak under BM25). Models generate shorter, simpler edits than the gold patch (e.g. ~30 vs ~75 lines) and rarely edit more than one file."
+    },
+    {
+      "title": "5.1 Qualitative Analysis of Generations",
+      "summary": "Case studies (e.g. the sphinx-doc__sphinx-8713 instance) show models tend to write primitive Python, fail to leverage existing third-party libraries or the rest of the codebase, and take a 'greedy' approach that solves the literal problem while ignoring code style and logical constraints (such as using relative instead of absolute imports). Gold patches, by contrast, often make structural improvements that anticipate and prevent future issues."
+    },
+    {
+      "title": "6. Related Work",
+      "summary": "Prior LM evaluations either bundle many narrow, self-contained tasks ('potpourri' benchmarks) or use web-based interactive settings. Code benchmarks like HumanEval target synthesizing self-contained functions from natural language. SWE-bench differs by preserving real repository context with minimal post-processing, capturing patch generation, long-context reasoning, directory navigation, and cross-module dependencies, and is easily extended with new instances over time."
+    },
+    {
+      "title": "7. Discussion",
+      "summary": "Limitations: SWE-bench is Python-only (the pipeline could extend to other languages) and the experiments establish only a baseline of the simplest approaches — the authors explicitly encourage agent-based and tool-augmented methods. They also caution that execution-based testing alone cannot guarantee reliable model behavior, since automated generations can be less comprehensive, efficient, or readable than human-written solutions. The conclusion frames SWE-bench as a faithful mirror of real coding environments and a step toward LMs that are more practical, intelligent, and autonomous."
+    }
+  ],
+  "readingFocus": [
+    "The three-stage construction pipeline (Section 2.1, Figure 2) — understand exactly why a valid instance requires a merged, issue-resolving PR that also modifies test files and produces at least one fail-to-pass test; this is what makes the benchmark self-verifying.",
+    "The evaluation contract (Section 2.2): a patch is 'resolved' only if it applies AND all fail-to-pass plus pass-to-pass tests pass. This execution-verified scoring is the paper's core methodological stance and the direct scale-up of a phase-0-style harness.",
+    "Table 1's scale statistics — 195-word issues, thousands of files, 438K lines of context, versus gold patches of ~33 lines across ~1.7 files — the signal-in-noise localization problem that dominates difficulty.",
+    "The BM25 vs 'oracle' retrieval distinction (Section 4.1) and why retrieval quality, not just generation, gates end-to-end performance; note how rarely BM25 recovers the oracle files.",
+    "The headline results in Table 5 and the finding that performance drops as context length grows (Figure 5) — models cannot localize edits in long contexts, the central failure mode agentic scaffolds later attack.",
+    "The limitations in Section 7: the paper deliberately leaves agent-based and tool-augmented approaches as future work, positioning SWE-bench as the destination benchmark for Phase 15 rather than a solved problem."
+  ]
+}

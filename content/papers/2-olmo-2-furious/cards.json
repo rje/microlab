@@ -1,0 +1,45 @@
+{
+  "paperId": "2-olmo-2-furious",
+  "cards": [
+    {
+      "id": "2-olmo-2-furious#1",
+      "question": "Describe OLMo 2's two-stage base-model training recipe: what each stage runs on, its share of FLOPs, and how the learning rate is scheduled in each.",
+      "answer": "Stage 1 is pretraining (>=90-95% of training FLOPs) on mostly web-sourced data (OLMo 2 Mix 1124, ~3.9T tokens, >95% web), using a cosine schedule that decays to about 10% of the peak learning rate. Stage 2 is mid-training (5-10% of FLOPs): training restarts on the curated Dolmino Mix 1124 — up-sampled high-quality web plus curated non-web and synthetic math — while the learning rate is linearly decayed to zero over the remaining tokens. The mid-training stage infuses specialized knowledge and patches capabilities (notably math) that pretraining left weak."
+    },
+    {
+      "id": "2-olmo-2-furious#2",
+      "question": "List OLMo 2's pretraining-stability interventions and state what failure each one targets.",
+      "answer": "Repeated n-gram filter (removes long repeated spans that trigger loss/gradient spikes); N(0, 0.02) initialization of all parameters (removes loss spikes, cuts gradient-norm spikes, improves width transfer); RMSNorm instead of nonparametric LayerNorm (a safe, standard normalizer); reordered/post-norm — RMSNorm on the outputs of the attention and MLP sub-layers — plus QK-norm (together tame gradient growth and spikiness, and keep attention logits from exploding); z-loss (keeps final-softmax logits from growing too large); no weight decay on embeddings (prevents over-shrunk embeddings that cause large early-layer gradients); and AdamW epsilon lowered 1e-5 -> 1e-8 (faster early learning, lower and more stable gradient norm)."
+    },
+    {
+      "id": "2-olmo-2-furious#3",
+      "question": "What is the 'spike score', and what did it show for OLMo 2's initialization change?",
+      "answer": "The spike score is the percentage of values in a time series (typically training loss or the L2 norm of the gradient) that lie at least seven standard deviations away from a rolling average of the previous 1000 values — an objective measure of instability that is otherwise hard to see in plots. Switching from OLMo-0424's scaled per-layer init to N(0, 0.02) removed loss spikes entirely and dropped the gradient-norm spike score from 0.40 to 0.03 in a stress-test run with a shortened warmup."
+    },
+    {
+      "id": "2-olmo-2-furious#4",
+      "question": "How does OLMo 2 mitigate loss spikes caused by repeated n-grams in the data?",
+      "answer": "Investigating batches at spike points revealed a high prevalence of long repeated n-gram sequences. Two mitigations are applied: (1) at data-curation time, any document containing a sequence of 32 or more repeated n-grams (where an n-gram is any span of 1-13 tokens) is filtered out; and (2) the trainer additionally detects such sequences during data loading and masks them when computing the loss. This clearly reduces the frequency of spikes, though it does not eliminate them and has no effect on the separate slow growth of the gradient norm."
+    },
+    {
+      "id": "2-olmo-2-furious#5",
+      "question": "What did OLMo 2's learning-rate annealing experiments reveal about peak learning rate, and why is it a caution against short experiments?",
+      "answer": "Higher peak learning rates give lower training loss early on but are eventually overtaken by lower learning rates, and the crossover point sits well past 200B tokens — so a short sweep would wrongly conclude that a higher LR is better. More importantly, linearly decaying any peak LR to zero over 50B or 100B tokens produces nearly identical final training loss and OLMES scores: a learning-rate 'plateau' of near-invariance (enhanced by QK-norm and z-loss) that contradicts folk wisdom like 'higher learning rate is always better' and 'area under the learning curve matters.'"
+    },
+    {
+      "id": "2-olmo-2-furious#6",
+      "question": "What is 'microannealing', and what three findings did it produce about math data for the mid-training mix?",
+      "answer": "A microanneal cheaply assesses one data source by mixing roughly 50/50 with general web data and running a small annealing run with the learning rate linearly decayed to zero — the whole set of 19 microanneals used 130B tokens, less than three full 50B runs. Findings (Table 12): (1) domain-specific data helps even in small proportions — it need only be present, not dominant; (2) light duplication of scarce high-quality data helps, with 2x math outperforming 1x and 4x; and (3) rewriting code-form data into natural language (TinyGSM-MIND) dramatically improves GSM8K, whereas the code form degrades it."
+    },
+    {
+      "id": "2-olmo-2-furious#7",
+      "question": "What is checkpoint 'souping' in OLMo 2's mid-training, and how were the final 7B, 13B, and 32B models produced?",
+      "answer": "Souping is a naive parameter average of multiple checkpoints that were mid-trained (annealed) on the same data mix but with different random data orders; it consistently equals or beats the best single checkpoint. The 7B final model averages three runs on the 50B Dolmino sample. The 13B and 32B each average four checkpoints — three trained on the 100B sample plus one on the 300B sample — which was empirically better than averaging the three 100B runs alone."
+    },
+    {
+      "id": "2-olmo-2-furious#8",
+      "question": "How large was the effect of mid-training, and why does that matter for OLMo 2's place among open models?",
+      "answer": "Mid-training lifted the 7B model's average across dev and held-out evals by 10.6 points (53.0 -> 62.9), enough that the annealed 7B surpasses the pretrained-only 13B; the 13B gained 10.3 points. Math saw the largest jumps — GSM8K went 24.1 -> 67.5 for the 7B and 37.3 -> 75.1 for the 13B — with gains also on MMLU (59.8 -> 63.7 for 7B) and reading comprehension. Combined with full openness and fewer training FLOPs, this puts the base models on the performance-to-FLOPs Pareto frontier, matching Llama 3.1, Qwen 2.5, and Gemma 2."
+    }
+  ]
+}

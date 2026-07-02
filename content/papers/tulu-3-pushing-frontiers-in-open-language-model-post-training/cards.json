@@ -1,0 +1,45 @@
+{
+  "paperId": "tulu-3-pushing-frontiers-in-open-language-model-post-training",
+  "cards": [
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#1",
+      "question": "What are the four stages of the Tülu 3 post-training recipe, and what kind of data does each stage consume?",
+      "answer": "Stage 1 Data Curation: source, synthesize, and decontaminate prompts across core skills. Stage 2 SFT: prompt-completion pairs. Stage 3 Preference Tuning (length-normalized DPO): preference pairs (chosen/rejected) from on-policy and off-policy generations. Stage 4 RLVR: prompts paired with binary verifiers for verifiable outcomes (math answers, instruction-following constraints). Each stage builds on the checkpoint from the previous one."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#2",
+      "question": "Write the RLVR objective and its reward function. What replaces the learned reward model of classic RLHF?",
+      "answer": "RLVR maximizes E_{y~π_θ(x)}[ v(x,y) - β·KL(π_θ(y|x) ‖ π_ref(y|x)) ], where the verifiable reward v(x,y) = α if the completion is verified correct, else 0 (Tülu 3 uses α=10, set from pilots and not tuned). The learned reward model is replaced by a deterministic verification function — exact-match against extracted answers for GSM8K/MATH, or prompt-specific constraint checkers for instruction following. The objective is optimized with PPO."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#3",
+      "question": "In RLVR's PPO setup, why is dropout disabled during RL training, and what breaks if it is left on?",
+      "answer": "PPO computes token log-probs twice — during the rollout phase and again during the learning phase — and relies on their ratio being ~1 in the first epoch so the clipped surrogate objective behaves correctly. With dropout on, the two forward passes sample different masks, so the log-probs (and thus the ratio) can differ drastically; the ratio gets clipped and can produce zero gradient. Disabling dropout makes the forward pass deterministic so rollout and training log-probs match and the KL penalty is estimated accurately."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#4",
+      "question": "The Tülu 3 team found a loss-aggregation bug during SFT. What was the bug, and what was the fix?",
+      "answer": "The default Transformers forward pass averages loss over non-padding tokens within a batch. Combined with gradient accumulation or distributed training, this averaging happens at the wrong granularity: within one forward pass every token is weighted equally, but across accumulation steps each example (micro-batch) is weighted equally, so the effective per-token weighting changes with the accumulation configuration. The fix is to use a sum loss (drop the denominator) with an adjusted learning rate (5e-6 worked best), which weights all tokens equally and decouples the loss from the accumulation/distribution setup."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#5",
+      "question": "Why did Tülu 3 use length-normalized DPO for the preference stage instead of PPO, and what does the length normalization fix?",
+      "answer": "DPO trains an implicit reward model and the policy simultaneously, offline, without needing a separate trained reward model, on-policy generations, or a reward-model forward pass — so it is far simpler and cheaper than PPO for the preference stage. Length-normalized DPO (Eq. 6) divides each response's log-probability ratio by its token length |y| (β/|y_c| and β/|y_r|), which mitigates the length bias common in human and model preferences (the tendency to prefer longer responses). The team prioritized this simplicity/speed over investing in PPO for preference tuning."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#6",
+      "question": "RLVR can be over-optimized. How does this manifest, and what quantity signals it?",
+      "answer": "As the KL penalty coefficient β is lowered, the policy is allowed to drift further from the reference model, so it accumulates more KL divergence. This typically raises the score on the targeted verifiable task but lowers the average score across all evaluations — the model games the verifier at the expense of general capability. KL divergence from the initial model is therefore the health signal to watch during RLVR; the 70B final run deliberately kept KL below 1 via a lower learning rate."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#7",
+      "question": "Two RLVR ablations concern the value model and the reward signal. What did the team find about (a) initializing the value function and (b) mixing reward-model scores with verifiable rewards?",
+      "answer": "(a) Initializing PPO's value model from a general reward model gave the highest GSM8K test score and better average scores than initializing the value from the DPO policy — the value function plays an important role in RLVR training. (b) Using verifiable rewards alone outperformed adding reward-model scores on top of them; the RM scores injected noise, especially hurting the average scores. The takeaway: keep the reward signal a clean binary verifier rather than blending it with a learned RM."
+    },
+    {
+      "id": "tulu-3-pushing-frontiers-in-open-language-model-post-training#8",
+      "question": "How did Tülu 3 scale RLVR infrastructure to 70B/405B, and what asynchronous-training reproducibility issue did they address?",
+      "answer": "RLVR juggles three models (policy, reference, value) under ZeRO Stage 3, with dedicated GPUs running vLLM PagedAttention (via Ray) for fast rollouts, and asynchronous RL overlapping inference and learner compute to cut GPU idle time. Async training risks stale/non-reproducible data because inference can outrun training; to control this, the policy always trains on the second-latest batch of inference data. At 405B, inference ran on 16 GPUs with 16-way tensor parallelism while 240 GPUs trained (256 total); GRPO is flagged as a future value-model-free alternative to reduce the value-model cost."
+    }
+  ]
+}

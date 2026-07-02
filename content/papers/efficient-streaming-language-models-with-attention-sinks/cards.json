@@ -1,0 +1,45 @@
+{
+  "paperId": "efficient-streaming-language-models-with-attention-sinks",
+  "cards": [
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#1",
+      "question": "What is an \"attention sink,\" and what causes it?",
+      "answer": "An attention sink is a token that receives a large, disproportionate share of attention across most layers and heads regardless of its semantic relevance. In autoregressive LLMs the initial (first few) tokens become the sinks. The cause is the softmax operation: because attention weights must sum to one over all context tokens, a query with no strong match still has to offload its surplus attention somewhere. Initial tokens are the natural target because, under the causal mask, they are visible to every subsequent token and so are most readily trained into the sink role."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#2",
+      "question": "Why does plain window attention (cache only the most recent L tokens' KV) collapse on long streams, and how abruptly?",
+      "answer": "It collapses at the exact moment the input length exceeds the cache size — i.e., when the first tokens get evicted — not gradually with distance. Evicting the initial tokens removes the attention sinks, so a large part of the softmax denominator disappears and the attention distribution shifts sharply from what the model saw in training. On Llama-2-13B over a 65K-token PG-19 book, perplexity jumps from ~5.4 to over 5000 right at the eviction boundary."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#3",
+      "question": "What exactly does StreamingLLM keep in its KV cache, and how many sink tokens are needed?",
+      "answer": "StreamingLLM's cache has two parts: a fixed set of initial \"attention sink\" tokens that are pinned permanently, plus a rolling KV cache of the most recent tokens (a sliding window). Ablations show one or two sink tokens do not fully restore performance, four is enough (the threshold), and adding more gives diminishing returns — so four initial tokens is the default. No fine-tuning is required; this works on already-trained models."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#4",
+      "question": "How does the paper prove attention sinks are about position rather than token content, and why does that matter?",
+      "answer": "They replace the first four tokens with linebreak \"\\n\" tokens and find the model still emphasizes them and streaming perplexity is still restored (5.60 vs 5.40 for the original tokens on Llama-2-13B). This shows it is the absolute position of the starting tokens, not their semantic value, that makes them sinks. It matters because it means you can keep any four initial slots as sinks — the mechanism is robust and content-independent."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#5",
+      "question": "How does StreamingLLM assign positional encodings in the rolling cache, and how is RoPE handled specifically?",
+      "answer": "Positions are assigned by slot within the current cache, not by the token's index in the original text. If the cache holds tokens [0,1,2,3,6,7,8] and is decoding the 9th token, it uses positions [0,1,2,3,4,5,6,7], not [0,1,2,3,6,7,8,9]. For RoPE, the Keys are cached before the rotary transformation, and the rotation is applied per decoding step relative to the token's position in the cache. For ALiBi, the linear positional bias is applied directly by cache position. This within-cache assignment is what lets the model operate beyond its pretraining window."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#6",
+      "question": "What is a dedicated \"sink token,\" and how does it relate to SoftMax-off-by-One (SoftMax_1)?",
+      "answer": "Prepending a single learnable placeholder \"Sink Token\" to every pretraining sample gives the model one committed attention sink, so at inference only that one token is needed for stable streaming (versus several initial tokens for vanilla models). It links to SoftMax-off-by-One (SoftMax_1), which adds 1 to the softmax denominator so attention weights need not sum to one; the equivalent \"Zero Sink\" (prepending an all-zero KV) partially helps but does not fully fix the problem, whereas the learnable sink token does — and adding it does not harm convergence or zero-shot benchmark accuracy."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#7",
+      "question": "What does StreamingLLM achieve on efficiency and scale, and against which baseline?",
+      "answer": "It runs at O(TL) cost and stably models texts of 4 million+ tokens across Llama-2, MPT, Falcon, and Pythia while matching the perplexity of the sliding-window-with-recomputation oracle. Against that recomputation baseline (the only one with acceptable quality), StreamingLLM's per-token latency grows linearly instead of quadratically, giving up to 22.2x speedup at a comparable memory footprint (measured on an A6000)."
+    },
+    {
+      "id": "efficient-streaming-language-models-with-attention-sinks#8",
+      "question": "What does StreamingLLM NOT do — what is the key limitation to avoid overclaiming?",
+      "answer": "It does not extend the model's context length or add long-term memory. It generates coherent, efficient text over the tokens still in the KV cache; it cannot recall or use content that has already been evicted from the rolling window. Ablations even show that increasing the cache size does not consistently lower perplexity, indicating the model does not fully exploit the entire context it is given. StreamingLLM is orthogonal to and can complement true context-extension methods."
+    }
+  ]
+}

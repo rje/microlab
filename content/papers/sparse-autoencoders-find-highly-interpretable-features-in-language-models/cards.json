@@ -1,0 +1,45 @@
+{
+  "paperId": "sparse-autoencoders-find-highly-interpretable-features-in-language-models",
+  "cards": [
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#1",
+      "question": "What is polysemanticity, what is the hypothesised cause, and why does that cause make dictionary learning the right tool?",
+      "answer": "Polysemanticity is when a single neuron activates in multiple, semantically unrelated contexts, which prevents concise human-readable explanations of a network. The hypothesised cause is superposition (Elhage et al.): a layer with d dimensions represents more than d features by assigning them to an overcomplete set of near-orthogonal directions rather than to individual neurons, which is only feasible when the features fire sparsely. That framing — activations are sparse linear combinations of many unknown feature directions — is exactly the sparse dictionary learning problem, so learning an overcomplete sparse dictionary over the activations should recover the underlying features."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#2",
+      "question": "Write the full forward pass and loss of the sparse autoencoder, and explain the role of each piece.",
+      "answer": "Encoder: c = ReLU(Mx + b), producing sparse non-negative codes. Decoder: x_hat = M^T c = sum_i c_i f_i, a linear combination of dictionary features f_i (the rows of M). Loss: L(x) = ||x - x_hat||_2^2 + alpha ||c||_1 — MSE reconstruction plus an L1 penalty on the codes. M is in R^{d_hid x d_in}; weights are tied (encoder and decoder are transposes) and M is normalised row-wise. ReLU + L1 push most codes to zero (sparsity); the reconstruction term forces the active features to actually explain x; alpha sets the trade-off."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#3",
+      "question": "What are the two key hyperparameters R and alpha, and why must the dictionary rows be normalised to unit norm?",
+      "answer": "R is the dictionary ratio: the hidden layer has size d_hid = R * d_in, so R > 1 makes the dictionary overcomplete — it can hold more features than the layer has dimensions, which is the whole point of resolving superposition. alpha is the sparsity coefficient weighting the L1 term ||c||_1, trading reconstruction quality against how sparse (and monosemantic) the codes are. Row-normalising M (unit-norm features) is necessary because otherwise the model could trivially shrink the L1 penalty by scaling feature vectors up and codes down; fixing feature norm removes that degenerate solution."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#4",
+      "question": "How is a feature's interpretability score computed, and what did the comparison against baselines find?",
+      "answer": "Using Bills et al.'s automated pipeline: sample text where the feature activates, have a language model (GPT-4) write a human-readable description of it, then prompt the model to predict the feature's activation on new text; the correlation between predicted and actual activations is the interpretability score (top-and-random scoring), which scales to thousands of features. Compared against the default neuron basis, random directions, PCA, and ICA, the sparse dictionary features scored highest at every layer, though the advantage shrank with depth — comparable to ICA by layer 4 and minimal in the final layer."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#5",
+      "question": "How does the paper show dictionary features are causally important on the IOI task, and what does the alpha=0 control establish?",
+      "answer": "They use activation patching on Indirect Object Identification: run a counterfactual sentence (indirect object swapped), save the encoded feature activations c-bar, and patch them into the base run as x'_i = x_i + sum_{j in F} (c-bar_{i,j} - c_{i,j}) f_j, measuring KL divergence from the target output. The feature subset F is ordered by the ACDC circuit-discovery algorithm. Dictionary features reach a given KL with fewer patches and smaller edit magnitude than the PCA decomposition. A non-sparse dictionary (alpha=0) gives no such advantage, establishing that sparsity — not merely using an autoencoder — is what produces the tight causal localisation."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#6",
+      "question": "Describe the three lenses used in the case studies to establish that a single dictionary feature is monosemantic, using the apostrophe feature as the example.",
+      "answer": "Input: check what text activates the feature — feature 556 fires almost only on apostrophes (with weaker activation on similar punctuation), whereas the closest neuron in the default basis is polysemantic. Output: ablate the feature from the residual stream (a less-than-rank-one ablation that lowers the activation along the feature only until it is no longer active) and inspect the logit change — removing 556 specifically suppresses the following 's' token, as expected for possessives/contractions like 'let's'. Intermediate: trace the feature's upstream causes across layers by ablating each previous-layer feature and ranking by its effect, yielding a causal circuit (e.g. the closing-parenthesis feature's tree)."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#7",
+      "question": "What are the main limitations the authors report, and what long-term safety goal motivates the work?",
+      "answer": "Reconstruction is imperfect — the dictionaries do not reach zero reconstruction loss, and substituting the reconstructed layer-2 residual stream in Pythia-70M raises Pile perplexity from about 25 to 40, showing lost information. The training pipeline works well on the residual stream but cannot yet robustly learn overcomplete bases inside MLP layers. Results are on the IOI task and may or may not generalise. The motivating goal is 'enumerative safety' (Elhage et al.): producing a complete, human-understandable list of a model's features to certify it will not perform dangerous behaviours such as deception."
+    },
+    {
+      "id": "sparse-autoencoders-find-highly-interpretable-features-in-language-models#8",
+      "question": "Why is this method described as scalable and unsupervised, and how does it differ from prior sparsity approaches?",
+      "answer": "It is unsupervised because it trains only on the model's own unlabelled internal activations — no task labels or feature annotations — and scalable because a single-hidden-layer autoencoder trained on cached activations needs orders of magnitude less compute than training the original model, and autointerpretation lets thousands of features be scored automatically. It differs from prior work that bakes sparsity into the model's own training (altering attention, adding L1 penalties to neuron activations, pruning, or softmax linear units), which is hard to scale to foundation models and does not reliably improve interpretability; here sparsity is imposed after training, on the activations, leaving the original model untouched."
+    }
+  ]
+}

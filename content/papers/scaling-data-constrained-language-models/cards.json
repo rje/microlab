@@ -1,0 +1,45 @@
+{
+  "paperId": "scaling-data-constrained-language-models",
+  "cards": [
+    {
+      "id": "scaling-data-constrained-language-models#1",
+      "question": "What problem motivates the paper, and how does its setup differ from the Chinchilla scaling law?",
+      "answer": "Chinchilla-optimal scaling grows parameters and tokens in equal proportion, but extrapolating it exhausts the supply of high-quality internet text (projected around 2024 for English). Chinchilla's law assumes every token is unique (D = U, one epoch). This paper studies the data-constrained regime, where you must repeat a limited unique corpus for multiple epochs, and asks how loss scales with repetition. It splits total tokens D into unique tokens U_D and repetitions R_D = D/U_D - 1 (epochs minus one), and fits a modified law under a data budget U_D <= D_C."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#2",
+      "question": "Write the data-constrained scaling law's 'effective data' term and explain each part.",
+      "answer": "D' = U_D + U_D * R*_D * (1 - e^(-R_D / R*_D)), where U_D is unique tokens, R_D is the number of repetitions (epochs - 1), and R*_D is a learned constant (the half-life of repeated data). For R_D = 0 (single epoch) D' = U_D, matching Chinchilla. Each repetition adds an exponentially decaying fraction of a fresh token's value, so as R_D grows D' plateaus at U_D * (1 + R*_D) — no amount of repetition beats having that many unique tokens. D' then replaces D in the Chinchilla loss L = A/N'^alpha + B/D'^beta + E, with a symmetric N' for excess parameters."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#3",
+      "question": "What is the headline empirical finding about how many epochs of repeated data you can train on?",
+      "answer": "Up to about 4 epochs of repeated data is nearly as good as the same volume of fresh data — the loss difference is negligible and there is no measurable downstream difference. As a concrete anchor, the 8.7B model trained for 4 epochs (44B unique tokens) finishes within 0.5% validation loss of the single-epoch model (178B unique). Beyond ~4 epochs returns diminish, and past the fitted half-life R*_D (about 15 repetitions, ~16 epochs) the value of additional compute decays toward zero; at ~40+ epochs repetition is essentially worthless and loss can even rise."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#4",
+      "question": "The paper fits half-lives R*_D approximately 15 and R*_N approximately 5. What does each mean, and what practical allocation rule follows from R*_D > R*_N?",
+      "answer": "R*_D (about 15.4) is the half-life of repeated data — the number of repetitions over which added epochs keep contributing meaningful value; at R_D = R*_D a repeated token is worth on average 1 - 1/e (about 0.63) of a fresh one. R*_N (about 5.3) is the analogous half-life for excess parameters beyond what the unique data can support. Because R*_D > R*_N, excess parameters lose value faster than repeated data, so under a data budget you should scale epochs faster than parameters — i.e. train a smaller model for more epochs than Chinchilla prescribes. Confirmed at scale: a model with 27% fewer parameters than Chinchilla-optimal (9.3e21 FLOPs, 25B unique tokens) achieves both lower loss and better downstream performance."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#5",
+      "question": "What experimental scale and setup underpin these scaling laws?",
+      "answer": "More than 400 transformer LMs with the GPT-2 architecture and tokenizer, trained on subsets of C4, spanning 10M to 8.7B parameters, up to 900B total tokens, and up to ~1500 epochs. Unique-data budgets of 100M, 400M, and 1.5B tokens are used for the allocation experiments, plus fixed-FLOP experiments up to 9.3e21 FLOPs. They use cosine learning-rate schedules decaying 10x per run, deliberately no early stopping (to observe overfitting), and nested data subsets so more-epoch runs reuse the data of fewer-epoch runs. Compute is approximated as FLOPs = 6ND."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#6",
+      "question": "What are the fitted C4 constants of the closed-form loss, and what is the resulting formula?",
+      "answer": "Fitting on C4 gives base constants A = 521, B = 1488, E = 1.87, alpha = beta = 0.353, with half-lives R*_D = 15.39 and R*_N = 5.31 and U_N = 0.051 * U_D. The full law is L(U_D, R_N, R_D) = 521 / (U_N + 5.3*U_N*(1 - e^(-R_N/5.3)))^0.353 + 1488 / (U_D + 15.4*U_D*(1 - e^(-R_D/15.4)))^0.353 + 1.87. In the single-epoch, non-excess case (R_D = R_N = 0) it reduces to the Chinchilla form L = 1.87 + 521/N^0.353 + 1488/D^0.353."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#7",
+      "question": "Once repetition is exhausted, what two complementary strategies does the paper evaluate for stretching a scarce dataset?",
+      "answer": "(a) Code augmentation: mixing Python code from The Stack into the natural-language data, up to 50% of the budget, causes no natural-language degradation and roughly doubles effective tokens; some tasks needing long-range state-tracking (bAbI, WebNLG) actually improve. (b) Adapting filtering: perplexity filtering helps on noisy corpora, but deduplication gave no downstream benefit on their already-clean C4 benchmark. The recommendation is to reserve aggressive filtering for noisy datasets and to combine code augmentation with repetition — e.g. doubling data with code then repeating 4 epochs yields ~8x training tokens expected to behave like 8x unique data."
+    },
+    {
+      "id": "scaling-data-constrained-language-models#8",
+      "question": "What limitation does the parametric fit have that the empirical curves reveal?",
+      "answer": "The fitted law assumes that excess epochs and excess parameters plateau in value but never actively hurt — so its predicted IsoLoss contours only ever flatten. Empirically, however, loss can rise again when too many epochs or parameters are used: models trained for ~44 epochs diverge midway, and Appendix D documents double descent (loss increasing around 200 epochs before decreasing). So the law reliably predicts diminishing returns but underestimates the eventual damage of extreme over-repetition; treat R*_D (~16 epochs) as a soft ceiling, not a guarantee against overfitting."
+    }
+  ]
+}
