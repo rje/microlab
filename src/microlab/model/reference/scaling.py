@@ -75,6 +75,26 @@ def model_family(
     return configs
 
 
+def mup_multipliers(base_width: int, width: int) -> dict[str, float]:
+    """muP (Tensor Programs V) transfer table, relative to a tuned base width: as width
+    grows by m, hidden (matrix-like) Adam LRs shrink by 1/m, hidden init std by 1/sqrt(m),
+    the output-logit multiplier by 1/m; embedding (vector-like) LR stays put. Tune once at
+    base_width, transfer everywhere."""
+    m = width / base_width
+    return {
+        "width_mult": m,
+        "hidden_lr_mult": 1.0 / m,
+        "hidden_init_std_mult": m**-0.5,
+        "output_logit_mult": 1.0 / m,
+        "embedding_lr_mult": 1.0,
+    }
+
+
+def mup_attn_scale(head_dim: int) -> float:
+    """muP uses 1/d attention scaling instead of the standard 1/sqrt(d)."""
+    return 1.0 / head_dim
+
+
 def run_scaling_sweep(data: torch.Tensor, sizes: list[int], train_cfg: TrainConfig,
                       val_data: torch.Tensor | None = None, vocab_size: int = 512) -> dict:
     """Train each family member on the same data, collect (params, loss), fit the power

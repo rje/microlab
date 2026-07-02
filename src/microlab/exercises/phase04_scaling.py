@@ -33,3 +33,14 @@ def fit_scaling_law(params: list[int], losses: list[float]) -> tuple[float, floa
     """Fit L = A * N^(-alpha) and return (A, alpha). Hint: take logs — log L is linear in
     log N with slope -alpha and intercept log A — then least-squares fit the line."""
     raise NotImplementedError("fit the power law via log-log least squares")
+
+
+def mup_multipliers(base_width: int, width: int) -> dict[str, float]:
+    """The muP transfer table (keys: width_mult, hidden_lr_mult, hidden_init_std_mult,
+    output_logit_mult, embedding_lr_mult). Graded vs microlab.model.reference.scaling."""
+    raise NotImplementedError("m = width/base; hidden LR ~ 1/m; hidden init ~ 1/sqrt(m)")
+
+
+def mup_attn_scale(head_dim: int) -> float:
+    """muP attention temperature: 1/d, not 1/sqrt(d)."""
+    raise NotImplementedError()
