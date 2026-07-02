@@ -70,3 +70,13 @@ only the data and model size change.
 `pytest tests/exercises/test_phase08_continued.py` green → ping me for the Socratic review, then
 sweep the replay fraction (0, 0.1, 0.25, 0.5) and plot forgetting-vs-learning to find the
 knee.
+
+## Long context (new)
+
+Hand-write `interpolated_rope_cache` — RoPE position interpolation (Chen et al.): divide
+positions by `scale` so 2048 positions fit in the rotation range trained at 1024. The
+run-for-real: evaluate the 150M's perplexity at block 2048 raw (it degrades), swap in the
+interpolated cache (`model.transformer.h[i].attn.rope_cos/sin` buffers + config.block_size)
+and re-measure (better), then briefly continue-pretrain at 2048 (best). Also read the
+Llama 3 report's data-annealing section — high-quality data late in pretraining is the
+"midtraining" trick, and `build_replay_mix` from this phase is its mechanism in miniature.

@@ -40,6 +40,18 @@ def build_replay_mix(
     return torch.cat([new_tokens, old_tokens[:n_old]])
 
 
+def interpolated_rope_cache(seq_len: int, head_dim: int, scale: float, base: float = 10000.0):
+    """Position-interpolated RoPE tables (Chen et al. 2023): compress positions by
+    `scale` so seq_len positions fit inside the rotation range the model was trained on.
+    scale=1 reproduces build_rope_cache exactly; scale=2 lets a 1024-trained model
+    address 2048 positions (finetune briefly after swapping the cache in)."""
+    assert head_dim % 2 == 0
+    theta = 1.0 / (base ** (torch.arange(0, head_dim, 2).float() / head_dim))
+    t = torch.arange(seq_len).float() / scale
+    freqs = torch.outer(t, theta)
+    return freqs.cos(), freqs.sin()
+
+
 def continued_pretrain(
     model: torch.nn.Module, new_data: torch.Tensor, eval_corpora: dict[str, torch.Tensor],
     train_cfg: TrainConfig, replay_data: torch.Tensor | None = None,

@@ -28,3 +28,9 @@ def build_replay_mix(
     Hint: to make old tokens `f` of the total, you need `n_old = f/(1-f) * n_new` of them.
     """
     raise NotImplementedError("build the replay mixture (see the fraction hint)")
+
+
+def interpolated_rope_cache(seq_len: int, head_dim: int, scale: float, base: float = 10000.0):
+    """Position interpolation: build_rope_cache but with positions t/scale. Returns
+    (cos, sin) of shape (seq_len, head_dim//2). Graded vs the reference."""
+    raise NotImplementedError("theta as in build_rope_cache; t = arange(seq_len)/scale")
