@@ -340,13 +340,14 @@ def register_content_routes(app: Flask) -> None:
             return jsonify({"error": str(exc)}), 400
         return jsonify({"ok": True, "next": result})
 
-    @app.route("/api/generate", methods=["POST"])
-    def api_generate():
-        # Session auth OR bearer token (for the eval harness). Programmatic clients can't
-        # do the login redirect dance; the token lives in instance/api_token.
-        authed = bool(session.get("authed"))
+    def _api_auth_error():
+        """Session auth OR bearer token (for the eval harness). Programmatic clients can't do
+        the login redirect dance; the token lives in instance/api_token. Returns None when the
+        request is authed, else a JSON ``(response, status)`` to return verbatim."""
+        if session.get("authed"):
+            return None
         header = request.headers.get("Authorization", "")
-        if not authed and header.startswith("Bearer "):
+        if header.startswith("Bearer "):
             provided = header.removeprefix("Bearer ").strip()
             # compare_digest(str, str) raises TypeError on non-ASCII input, and the bearer
             # value comes straight from the client — compare bytes so a malformed token is
@@ -357,21 +358,58 @@ def register_content_routes(app: Flask) -> None:
             except UnicodeEncodeError:
                 ok = False
             if ok:
-                authed = True
-            else:
-                return jsonify({"error": "bad token"}), 401
-        if not authed:
-            # Mirror auth.login_required's /api/* branch: 401 JSON, never a login redirect.
-            return jsonify({"error": "authentication required"}), 401
+                return None
+            return jsonify({"error": "bad token"}), 401
+        # Mirror auth.login_required's /api/* branch: 401 JSON, never a login redirect.
+        return jsonify({"error": "authentication required"}), 401
+
+    @app.route("/api/serve/runs")
+    def api_serve_runs():
+        auth_error = _api_auth_error()
+        if auth_error is not None:
+            return auth_error
+        from microlab.console import serve
+        return jsonify({"runs": serve.list_runs(root), "active": serve.active()})
+
+    @app.route("/api/serve/reload", methods=["POST"])
+    def api_serve_reload():
+        # Force-reload a run to its latest checkpoint — how the owner picks up fresh
+        # checkpoints mid-training. ``run`` omitted -> reload the currently-active run (or the
+        # default if nothing is resident yet).
+        auth_error = _api_auth_error()
+        if auth_error is not None:
+            return auth_error
+        body = request.get_json(silent=True) or {}
+        run = body.get("run")
+        if run is not None and not isinstance(run, str):
+            return jsonify({"error": "run must be a string"}), 400
+        from microlab.console import serve
+        if run is None:
+            current = serve.active()
+            run = current["name"] if current else None
+        try:
+            state = serve.get_state(root, run=run, reload=True)
+        except FileNotFoundError as exc:
+            return jsonify({"error": f"model not servable: {exc}"}), 503
+        return jsonify({"run": state.run, "step": state.step})
+
+    @app.route("/api/generate", methods=["POST"])
+    def api_generate():
+        auth_error = _api_auth_error()
+        if auth_error is not None:
+            return auth_error
         body = request.get_json(silent=True) or {}
         prompt = str(body.get("prompt", ""))
         if not prompt.strip():
             return jsonify({"error": "empty prompt"}), 400
+        run = body.get("run")
+        if run is not None and not isinstance(run, str):
+            return jsonify({"error": "run must be a string"}), 400
         # Lazy import: keeps console restarts light (no torch at boot); the Playground pays
         # the import cost on first use.
         from microlab.console import serve
         try:
-            state = serve.get_state(root)
+            state = serve.get_state(root, run=run)
         except FileNotFoundError as exc:
             return jsonify({"error": f"model not servable: {exc}"}), 503
         try:

@@ -1,5 +1,7 @@
 """Serving core + endpoint: stream correctness, limits, auth, and failure modes."""
 
+from pathlib import Path
+
 import pytest
 import torch
 
@@ -78,7 +80,7 @@ def test_limits_raise():
 
 def test_endpoint_auth_and_stream(tmp_path, monkeypatch):
     app = create_app(str(tmp_path))  # get_state is stubbed below, so no real ckpt is loaded
-    monkeypatch.setattr(serve, "get_state", lambda root: _tiny_state())
+    monkeypatch.setattr(serve, "get_state", lambda root, run=None, reload=False: _tiny_state())
     client = app.test_client()
     body = {"prompt": "hi", "max_new_tokens": 4, "temperature": 0.0}
     # unauthenticated -> redirect to login (302) or 401, never generation
@@ -135,3 +137,220 @@ def test_endpoint_503_ignores_cwd(tmp_path, monkeypatch):
     r = app.test_client().post("/api/generate", json={"prompt": "hi"},
                                headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 503
+
+
+# --- multi-run serving: list_runs, run-switching/eviction, reload, tokenizer resolution ---
+
+
+class _FakeModel(torch.nn.Module):
+    """Stand-in for a loaded VariantGPT — get_state never runs a forward pass on it."""
+
+
+def _fake_run(root: Path, name: str, steps, tokenizer=True) -> Path:
+    """A run dir with fake (non-loadable) ckpt_<step>.pt files; the model load is stubbed in
+    these tests, so the file contents don't matter — only their presence and names do."""
+    run_dir = root / "runs" / name
+    run_dir.mkdir(parents=True)
+    for step in steps:
+        (run_dir / f"ckpt_{step}.pt").write_bytes(b"x")
+    if tokenizer:
+        (run_dir / "tokenizer.json").write_text("{}")
+    return run_dir
+
+
+@pytest.fixture
+def stub_load(monkeypatch):
+    """Patch the heavy model load + tokenizer load so get_state's control flow (selection,
+    caching, eviction, reload) can be exercised without a real checkpoint. Returns the list of
+    (run_name, step) loads so a test can count them."""
+    loads: list[tuple[str, int]] = []
+
+    def fake_load(run_dir, device="cpu"):
+        step = max(int(p.stem.split("_")[1]) for p in Path(run_dir).glob("ckpt_*.pt"))
+        loads.append((Path(run_dir).name, step))
+        return _FakeModel(), step
+
+    class _FakeFast:
+        @staticmethod
+        def load(path):
+            return StubTok()
+
+    monkeypatch.setattr(serve, "load_variant_from_run", fake_load)
+    monkeypatch.setattr("microlab.tokenizer.fast.FastTokenizer", _FakeFast)
+    return loads
+
+
+def test_list_runs(tmp_path):
+    _fake_run(tmp_path, "150m", [200, 6000, 400])
+    _fake_run(tmp_path, "350m", [500, 4000])
+    (tmp_path / "runs" / "empty").mkdir()  # a run dir with no checkpoints is skipped
+    (tmp_path / "runs" / "notes.txt").write_text("x")  # a stray file is skipped
+    assert serve.list_runs(tmp_path) == [
+        {"name": "150m", "latest_step": 6000},
+        {"name": "350m", "latest_step": 4000},
+    ]
+
+
+def test_list_runs_no_runs_dir(tmp_path):
+    assert serve.list_runs(tmp_path) == []
+
+
+def test_get_state_selects_and_caches(tmp_path, stub_load):
+    _fake_run(tmp_path, "150m", [10, 20])
+    s1 = serve.get_state(tmp_path, run="150m")
+    assert s1.run == "150m" and s1.step == 20
+    s2 = serve.get_state(tmp_path, run="150m")  # same run, no newer ckpt -> reuse
+    assert s2 is s1
+    assert stub_load == [("150m", 20)]  # loaded exactly once
+    assert serve.active() == {"name": "150m", "step": 20}
+
+
+def test_get_state_switch_evicts_old_model(tmp_path, stub_load):
+    _fake_run(tmp_path, "150m", [20])
+    _fake_run(tmp_path, "350m", [5])
+    s1 = serve.get_state(tmp_path, run="150m")
+    s2 = serve.get_state(tmp_path, run="350m")  # different run -> evict + load
+    assert s2.run == "350m" and s2.step == 5
+    assert s1.model is None  # the evicted state had its model ref dropped (bounds VRAM)
+    assert stub_load == [("150m", 20), ("350m", 5)]
+
+
+def test_get_state_reload_and_newer_checkpoint(tmp_path, stub_load):
+    run_dir = _fake_run(tmp_path, "150m", [10])
+    s1 = serve.get_state(tmp_path, run="150m")
+    assert s1.step == 10
+    (run_dir / "ckpt_20.pt").write_bytes(b"x")  # training writes a newer checkpoint
+    s2 = serve.get_state(tmp_path, run="150m")  # auto-detects newer step -> reload
+    assert s2 is not s1 and s2.step == 20
+    s3 = serve.get_state(tmp_path, run="150m", reload=True)  # force even with no newer ckpt
+    assert s3 is not s2 and s3.step == 20
+    assert stub_load == [("150m", 10), ("150m", 20), ("150m", 20)]
+
+
+def test_get_state_missing_checkpoint_keeps_resident(tmp_path, stub_load):
+    _fake_run(tmp_path, "150m", [10])
+    (tmp_path / "runs" / "350m").mkdir()  # exists but has no ckpt
+    s1 = serve.get_state(tmp_path, run="150m")
+    with pytest.raises(FileNotFoundError):
+        serve.get_state(tmp_path, run="350m")
+    assert s1.model is not None  # a failed switch didn't evict the working model
+    assert serve.active() == {"name": "150m", "step": 10}
+
+
+def test_tokenizer_resolution_fails_loudly(tmp_path, stub_load, monkeypatch):
+    # A run with a checkpoint but NO resolvable tokenizer must raise, not silently decode with
+    # some other run's tokenizer (which would produce garbage).
+    monkeypatch.delenv("MICROLAB_SERVE_TOKENIZER", raising=False)
+    monkeypatch.delenv("MICROLAB_SERVE_TOKENIZER_350M", raising=False)
+    _fake_run(tmp_path, "350m", [5], tokenizer=False)
+    with pytest.raises(FileNotFoundError, match="no tokenizer for run '350m'"):
+        serve.get_state(tmp_path, run="350m")
+
+
+def test_tokenizer_per_run_env_override(tmp_path, stub_load, monkeypatch):
+    _fake_run(tmp_path, "350m", [5], tokenizer=False)
+    tok = tmp_path / "elsewhere" / "tokenizer.json"
+    tok.parent.mkdir()
+    tok.write_text("{}")
+    monkeypatch.setenv("MICROLAB_SERVE_TOKENIZER_350M", str(tok))
+    s = serve.get_state(tmp_path, run="350m")  # resolves via the per-run env, no raise
+    assert s.run == "350m"
+
+
+def test_serve_runs_endpoint(tmp_path):
+    _fake_run(tmp_path, "150m", [6000])
+    _fake_run(tmp_path, "350m", [4000])
+    app = create_app(str(tmp_path))
+    token = (tmp_path / "instance" / "api_token").read_text().strip()
+    client = app.test_client()
+    assert client.get("/api/serve/runs").status_code in (302, 401)  # unauth -> no listing
+    r = client.get("/api/serve/runs", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    payload = r.get_json()
+    assert payload["runs"] == [
+        {"name": "150m", "latest_step": 6000},
+        {"name": "350m", "latest_step": 4000},
+    ]
+    assert payload["active"] is None  # nothing loaded yet
+
+
+def test_generate_passes_run_field(tmp_path, monkeypatch):
+    app = create_app(str(tmp_path))
+    captured = {}
+
+    def fake_get_state(root, run=None, reload=False):
+        captured["run"] = run
+        return _tiny_state()
+
+    monkeypatch.setattr(serve, "get_state", fake_get_state)
+    token = (tmp_path / "instance" / "api_token").read_text().strip()
+    r = app.test_client().post(
+        "/api/generate",
+        json={"prompt": "hi", "max_new_tokens": 4, "temperature": 0.0, "run": "350m"},
+        headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    assert captured["run"] == "350m"
+    # a non-string run is a 400, never handed to the serving layer
+    r = app.test_client().post("/api/generate", json={"prompt": "hi", "run": 7},
+                               headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 400
+
+
+def test_reload_endpoint(tmp_path, monkeypatch):
+    app = create_app(str(tmp_path))
+    calls = {}
+
+    def fake_get_state(root, run=None, reload=False):
+        calls["run"], calls["reload"] = run, reload
+        state = _tiny_state()
+        state.run, state.step = run or "150m", 42
+        return state
+
+    monkeypatch.setattr(serve, "get_state", fake_get_state)
+    token = (tmp_path / "instance" / "api_token").read_text().strip()
+    client = app.test_client()
+    assert client.post("/api/serve/reload", json={}).status_code in (302, 401)  # unauth
+    r = client.post("/api/serve/reload", json={"run": "350m"},
+                    headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    assert r.get_json() == {"run": "350m", "step": 42}
+    assert calls == {"run": "350m", "reload": True}
+
+
+def test_reload_endpoint_503_when_unservable(tmp_path, monkeypatch):
+    app = create_app(str(tmp_path))
+
+    def boom(root, run=None, reload=False):
+        raise FileNotFoundError("no checkpoint")
+
+    monkeypatch.setattr(serve, "get_state", boom)
+    token = (tmp_path / "instance" / "api_token").read_text().strip()
+    r = app.test_client().post("/api/serve/reload", json={},
+                               headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 503
+    assert "error" in r.get_json()
+
+
+def test_get_state_real_checkpoint_end_to_end(tmp_path):
+    """A genuine on-disk checkpoint + a real run-local tokenizer.json, loaded through
+    get_state and driven to a real streamed completion — proves list_runs -> get_state ->
+    stream_generate works with real artifacts (no monkeypatching), and that the run-local
+    tokenizer convention resolves. CPU-only, tiny, so it stays in the default suite."""
+    from microlab.tokenizer.fast import FastTokenizer
+
+    run_dir = tmp_path / "runs" / "mini"
+    run_dir.mkdir(parents=True)
+    tok = FastTokenizer.train(["hello world", "once upon a time", "the cat sat"] * 4,
+                              vocab_size=300, save_path=str(run_dir / "tokenizer.json"))
+    torch.manual_seed(0)
+    cfg = VariantConfig(vocab_size=tok.vocab_size, block_size=64, n_layer=2, n_head=4,
+                        n_embd=32, norm="rms", pos="rope", mlp="swiglu")
+    model = VariantGPT(cfg)
+    torch.save({"model": model.state_dict(), "step": 30, "cfg": cfg},
+               run_dir / "ckpt_30.pt")
+
+    assert serve.list_runs(tmp_path) == [{"name": "mini", "latest_step": 30}]
+    state = serve.get_state(tmp_path, run="mini")
+    assert state.run == "mini" and state.step == 30
+    out = "".join(serve.stream_generate(state, "hello", max_new_tokens=6, temperature=0.0))
+    assert isinstance(out, str) and out

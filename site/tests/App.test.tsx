@@ -196,4 +196,49 @@ describe("App", () => {
     expect(await screen.findByText("Overview TL;DR line.")).toBeInTheDocument();
     expect(await screen.findByText("1. Intro")).toBeInTheDocument();
   });
+
+  it("populates the playground run picker and reloads a checkpoint", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url) === "/api/serve/runs") {
+        return {
+          ok: true,
+          json: async () => ({
+            runs: [
+              { name: "150m", latest_step: 6000 },
+              { name: "350m", latest_step: 4000 }
+            ],
+            active: null
+          })
+        };
+      }
+      if (String(url) === "/api/serve/reload") {
+        return { ok: true, json: async () => ({ run: "150m", step: 6200 }) };
+      }
+      return { ok: true, json: async () => ({}), text: async () => "" };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("button", { name: /playground/i }));
+
+    // The dropdown is populated from /api/serve/runs and defaults to the first run.
+    const select = (await screen.findByRole("combobox", {
+      name: /run to serve/i
+    })) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("150m"));
+    expect(screen.getByRole("option", { name: /150m · step 6000/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /350m · step 4000/i })).toBeInTheDocument();
+
+    // Reload latest posts to /api/serve/reload and reflects the fresh step as resident.
+    fireEvent.click(screen.getByRole("button", { name: /reload latest/i }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/serve/reload",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+    expect(
+      await screen.findByText(/Serving 150m · step 6200 · resident/i)
+    ).toBeInTheDocument();
+  });
 });
