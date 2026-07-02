@@ -177,12 +177,18 @@ Deliverables:
 - sampling zoo (temperature, top-k, top-p, typical)
 - groupwise int8/int4 quantizer + perplexity table
 - speculative-decoding accept-rate benchmark on the 150M checkpoint
+- served endpoint: authed streaming `/api/generate` + console Playground, backed by the
+  hand-written KV cache and sampler, with a `microlab_http` eval backend so the Phase 0
+  harness scores the model you serve
 
 Key readings:
 
 - PagedAttention (vLLM)
 - Fast Inference from Transformers via Speculative Decoding
 - GPTQ
+- EAGLE (production speculative decoding: draft head on target features + tree verification)
+- Efficient Streaming LMs with Attention Sinks (why streaming needs the first tokens)
+- Native Sparse Attention (the post-GQA, natively-trainable sparse-attention direction)
 
 ### Phase 7: Distributed Training
 

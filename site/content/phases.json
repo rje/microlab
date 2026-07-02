@@ -84,7 +84,8 @@
       "the-pile-an-800gb-dataset-of-diverse-text-for-language-modeling",
       "deduplicating-training-data-makes-language-models-better",
       "datacomp-lm-in-search-of-the-next-generation-of-training-sets-for-language-models",
-      "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale"
+      "the-fineweb-datasets-decanting-the-web-for-the-finest-text-data-at-scale",
+      "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model"
     ]
   },
   {
@@ -100,7 +101,8 @@
       "scaling-laws-for-neural-language-models",
       "training-compute-optimal-large-language-models",
       "cramming-training-a-language-model-on-a-single-gpu-in-one-day",
-      "mixed-precision-training"
+      "mixed-precision-training",
+      "better-faster-large-language-models-via-multi-token-prediction"
     ]
   },
   {
@@ -134,7 +136,9 @@
       "the-llama-3-herd-of-models",
       "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling",
       "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer",
-      "small-scale-proxies-for-large-scale-transformer-training-instabilities"
+      "small-scale-proxies-for-large-scale-transformer-training-instabilities",
+      "muon-is-scalable-for-llm-training",
+      "scaling-data-constrained-language-models"
     ]
   },
   {
@@ -146,7 +150,8 @@
     "tasks": [],
     "readingPaperIds": [
       "eliciting-latent-predictions-from-transformers-with-the-tuned-lens",
-      "locating-and-editing-factual-associations-in-gpt"
+      "locating-and-editing-factual-associations-in-gpt",
+      "sparse-autoencoders-find-highly-interpretable-features-in-language-models"
     ]
   },
   {
@@ -154,12 +159,15 @@
     "title": "Phase 6: Inference Engineering",
     "status": "planned",
     "goal": "Build everything between a checkpoint and a served token: KV cache, sampling, quantization, speculative decoding.",
-    "summary": "This phase makes inference constraints concrete — why generation is memory-bound, why GQA exists (measure the 4x KV-cache shrink), what int8/int4 cost in perplexity, and how a draft model makes decoding faster for free. The KV-cache exercise is graded by exact token-match against uncached generation.",
+    "summary": "This phase makes inference constraints concrete — why generation is memory-bound, why GQA exists (measure the 4x KV-cache shrink), what int8/int4 cost in perplexity, and how a draft model makes decoding faster for free. The KV-cache exercise is graded by exact token-match against uncached generation. The phase ends by SERVING the model: the authed streaming Playground in the console, backed by the same hand-written KV cache and sampler.",
     "tasks": [],
     "readingPaperIds": [
       "efficient-memory-management-for-large-language-model-serving-with-pagedattention",
       "fast-inference-from-transformers-via-speculative-decoding",
-      "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers"
+      "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers",
+      "efficient-streaming-language-models-with-attention-sinks",
+      "eagle-speculative-sampling-requires-rethinking-feature-uncertainty",
+      "native-sparse-attention-hardware-aligned-and-natively-trainable-sparse-attention"
     ]
   },
   {
@@ -186,7 +194,10 @@
       "opt-open-pre-trained-transformer-language-models",
       "the-llama-3-herd-of-models",
       "deepseek-v3-technical-report",
-      "extending-context-window-of-large-language-models-via-positional-interpolation"
+      "extending-context-window-of-large-language-models-via-positional-interpolation",
+      "yarn-efficient-context-window-extension-of-large-language-models",
+      "2-olmo-2-furious",
+      "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model"
     ]
   },
   {
@@ -200,7 +211,8 @@
       "finetuned-language-models-are-zero-shot-learners",
       "scaling-instruction-finetuned-language-models",
       "self-instruct-aligning-language-models-with-self-generated-instructions",
-      "training-language-models-to-follow-instructions-with-human-feedback"
+      "training-language-models-to-follow-instructions-with-human-feedback",
+      "tulu-3-pushing-frontiers-in-open-language-model-post-training"
     ]
   },
   {
@@ -253,7 +265,8 @@
       "deepseekmath-pushing-the-limits-of-mathematical-reasoning-in-open-language-models",
       "deepseek-r1-incentivizing-reasoning-capability-in-llms-via-reinforcement-learning",
       "training-verifiers-to-solve-math-word-problems",
-      "let-s-verify-step-by-step"
+      "let-s-verify-step-by-step",
+      "tulu-3-pushing-frontiers-in-open-language-model-post-training"
     ]
   },
   {
@@ -281,7 +294,9 @@
       "react-synergizing-reasoning-and-acting-in-language-models",
       "toolformer-language-models-can-teach-themselves-to-use-tools",
       "gorilla-large-language-model-connected-with-massive-apis",
-      "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis"
+      "toolllm-facilitating-large-language-models-to-master-16000-real-world-apis",
+      "swe-bench-can-language-models-resolve-real-world-github-issues",
+      "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains"
     ]
   },
   {
