@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase07_lora.py`, then run `pytest -m exercise -k phase07_lora` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase10_lora.py`, then run `pytest -m exercise -k phase10_lora` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — efficient fine-tuning: LoRA + QLoRA (Phase 7)
+# START HERE — efficient fine-tuning: LoRA + QLoRA (Phase 10)
 
 You're on the exercises folder on `main`. You implement the LoRA adapter math and a QLoRA-style
-quantizer in `src/microlab/exercises/phase07_lora.py`; the `apply_lora_to_gpt` wiring, the
+quantizer in `src/microlab/exercises/phase10_lora.py`; the `apply_lora_to_gpt` wiring, the
 param counters, and the training path are already on `main`. Differential tests grade you
 against `microlab.model.reference.lora`.
 
@@ -37,7 +37,7 @@ weights reproduce the adapter exactly (fold-in for zero inference overhead).
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase07_lora.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase10_lora.py -v
 ```
 
 1. **`LoRALinear.forward`** — `base(x) + scaling * (x @ A^T @ B^T)`. The `__init__` is given
@@ -63,5 +63,5 @@ concept, not the exact scheme.)
 
 ## 4. When you're done
 
-`pytest tests/exercises/test_phase07_lora.py` green → ping me for the Socratic review, then sweep
+`pytest tests/exercises/test_phase10_lora.py` green → ping me for the Socratic review, then sweep
 the rank (1, 2, 4, 8, 16) and watch the adaptation quality vs trainable-param trade-off.

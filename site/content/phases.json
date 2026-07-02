@@ -134,8 +134,8 @@
     ]
   },
   {
-    "id": "phase-5",
-    "title": "Phase 5: Continued Pretraining",
+    "id": "phase-8",
+    "title": "Phase 8: Continued Pretraining",
     "status": "planned",
     "goal": "Continue training an open base model on a domain corpus and measure adaptation versus forgetting.",
     "summary": "This phase connects from-scratch understanding to practical lab workflows.",
@@ -148,8 +148,8 @@
     ]
   },
   {
-    "id": "phase-6",
-    "title": "Phase 6: Supervised Fine-Tuning",
+    "id": "phase-9",
+    "title": "Phase 9: Supervised Fine-Tuning",
     "status": "planned",
     "goal": "Create instruction data and train a chat-style model.",
     "summary": "This phase focuses on chat templates, instruction data quality, and before/after behavior.",
@@ -162,8 +162,8 @@
     ]
   },
   {
-    "id": "phase-7",
-    "title": "Phase 7: Efficient Fine-Tuning",
+    "id": "phase-10",
+    "title": "Phase 10: Efficient Fine-Tuning",
     "status": "planned",
     "goal": "Use LoRA and QLoRA to adapt larger models on the RTX 6000.",
     "summary": "This phase makes memory, quantization, adapter rank, and target modules concrete.",
@@ -174,8 +174,8 @@
     ]
   },
   {
-    "id": "phase-8",
-    "title": "Phase 8: Preference Data and Reward Models",
+    "id": "phase-11",
+    "title": "Phase 11: Preference Data and Reward Models",
     "status": "planned",
     "goal": "Build preference pairs, train a reward model, and inspect its failures.",
     "summary": "This phase shows where reward modeling helps and where it can mislead.",
@@ -187,8 +187,8 @@
     ]
   },
   {
-    "id": "phase-9",
-    "title": "Phase 9: Offline Preference Optimization",
+    "id": "phase-12",
+    "title": "Phase 12: Offline Preference Optimization",
     "status": "planned",
     "goal": "Train with DPO-style methods and compare against SFT on the same evals.",
     "summary": "This phase studies how preference optimization changes helpfulness, verbosity, and style.",
@@ -200,8 +200,8 @@
     ]
   },
   {
-    "id": "phase-10",
-    "title": "Phase 10: RL on Verifiable Tasks",
+    "id": "phase-13",
+    "title": "Phase 13: RL on Verifiable Tasks",
     "status": "planned",
     "goal": "Run reinforcement learning on tasks with automatic, checkable rewards.",
     "summary": "This phase builds a verifiable-task environment and studies reward curves, pass rates, and reward hacking on math, code, and schema-validity tasks.",
@@ -215,8 +215,8 @@
     ]
   },
   {
-    "id": "phase-11",
-    "title": "Phase 11: Reasoning and Distillation",
+    "id": "phase-14",
+    "title": "Phase 14: Reasoning and Distillation",
     "status": "planned",
     "goal": "Generate teacher reasoning traces and distill them into a smaller student, then test whether it actually improves.",
     "summary": "This phase explores trace generation, filtering, and distillation, and asks whether the student genuinely gains reasoning ability.",
@@ -229,8 +229,8 @@
     ]
   },
   {
-    "id": "phase-12",
-    "title": "Phase 12: Tool Use and Agentic Behavior",
+    "id": "phase-15",
+    "title": "Phase 15: Tool Use and Agentic Behavior",
     "status": "planned",
     "goal": "Train a model to emit validated tool calls and measure schema validity and task success.",
     "summary": "This phase makes structured tool-calling and environment feedback concrete and easy to measure for real behavioral improvement.",
@@ -243,8 +243,8 @@
     ]
   },
   {
-    "id": "phase-13",
-    "title": "Phase 13: Final Report",
+    "id": "phase-16",
+    "title": "Phase 16: Final Report",
     "status": "planned",
     "goal": "Write a capstone that ties together what improved, what failed, and which methods were worth the complexity.",
     "summary": "This phase consolidates the final model card, eval tables, reading notes index, and recommended next experiments.",

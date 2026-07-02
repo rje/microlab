@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 10): verifiable reward, GRPO advantages, and the PPO clip loss.
+"""Hand-write exercise (Phase 13): verifiable reward, GRPO advantages, and the PPO clip loss.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_rl.py`` passes.
-Graded against ``microlab.model.reference.rl``. See docs/hand-write/phase10-rl.md.
+Graded against ``microlab.model.reference.rl``. See docs/hand-write/phase13-rl.md.
 
 ``extract_answer`` (parsing "#### N" or the last number in a string) is already implemented
 in ``microlab.model.reference.rl`` -- reuse it via import, don't reimplement it.

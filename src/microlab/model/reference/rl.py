@@ -1,4 +1,4 @@
-"""Reference RL-on-verifiable-tasks tools (Phase 10). Verifiable reward = did the model's
+"""Reference RL-on-verifiable-tasks tools (Phase 13). Verifiable reward = did the model's
 answer match the gold answer (checkable, no learned reward model). GRPO normalizes
 rewards within a sampled group into advantages; the PPO clipped objective turns advantages
 into a policy-gradient loss. The oracle the owner diffs their hand-written versions against."""

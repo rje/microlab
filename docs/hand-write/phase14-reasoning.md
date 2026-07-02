@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase11_reasoning.py`, then run `pytest -m exercise -k phase11_reasoning` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase14_reasoning.py`, then run `pytest -m exercise -k phase14_reasoning` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — STaR bootstrapping + knowledge distillation (Phase 11)
+# START HERE — STaR bootstrapping + knowledge distillation (Phase 14)
 
 You're on the exercises folder on `main`. You implement the STaR trace filter and the distillation
-loss in `src/microlab/exercises/phase11_reasoning.py`; `self_consistency` (majority vote) is
+loss in `src/microlab/exercises/phase14_reasoning.py`; `self_consistency` (majority vote) is
 already on `main`. Differential tests grade you against `microlab.model.reference.reasoning`.
 
 ## 1. See distillation pull a student toward a frozen teacher first (~1 min, needs a GPU)
@@ -30,7 +30,7 @@ print(loss.item())  # falls toward 0 as student matches teacher's distribution
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase11_reasoning.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase14_reasoning.py -v
 ```
 
 1. **`filter_correct_traces(traces, gold, extract_fn)`** — keep only the traces whose

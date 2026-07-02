@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase06_sft.py`, then run `pytest -m exercise -k phase06_sft` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase09_sft.py`, then run `pytest -m exercise -k phase09_sft` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — supervised fine-tuning: loss masking (Phase 6)
+# START HERE — supervised fine-tuning: loss masking (Phase 9)
 
 You're on the exercises folder on `main`. You implement two functions in
-`src/microlab/exercises/phase06_sft.py`; the chat template, collator, and SFT training loop are
+`src/microlab/exercises/phase09_sft.py`; the chat template, collator, and SFT training loop are
 already on `main`. The differential tests grade you against `microlab.model.reference.sft`.
 
 ## 1. See SFT run on real instruction data first (~1 min)
@@ -37,7 +37,7 @@ at vocab-512 scale — but the masking machinery is exactly what a real SFT run 
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase06_sft.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase09_sft.py -v
 ```
 
 1. **`build_sft_example(tok, prompt_text, response_text)`** — return `input_ids` (encoded
@@ -65,5 +65,5 @@ code, bigger model and data (and a fast tokenizer, since our BPE won't scale to 
 
 ## 5. When you're done
 
-`pytest tests/exercises/test_phase06_sft.py` green → ping me for the Socratic review, then try
+`pytest tests/exercises/test_phase09_sft.py` green → ping me for the Socratic review, then try
 masking the prompt vs NOT masking it and compare — feeling why the mask matters is the lesson.

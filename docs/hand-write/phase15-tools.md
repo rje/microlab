@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase12_tools.py`, then run `pytest -m exercise -k phase12_tools` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase15_tools.py`, then run `pytest -m exercise -k phase15_tools` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — tool-call parsing, schema validation, and validity rate (Phase 12)
+# START HERE — tool-call parsing, schema validation, and validity rate (Phase 15)
 
 You're on the exercises folder on `main`. You implement the tool-call parser, schema validator, and
-validity-rate metric in `src/microlab/exercises/phase12_tools.py`; `parse_final_answer` and the
+validity-rate metric in `src/microlab/exercises/phase15_tools.py`; `parse_final_answer` and the
 `run_tool_loop` ReAct driver are already on `main` (they call into these once you've
 implemented them). Differential tests grade you against `microlab.model.reference.tools`.
 
@@ -24,7 +24,7 @@ SCHEMA = {"calc": {"required": ["expr"]}}
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase12_tools.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase15_tools.py -v
 ```
 
 1. **`parse_tool_call(text)`** — regex-extract the `<tool>...</tool>` body (`re.DOTALL`, since

@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase05_continued.py`, then run `pytest -m exercise -k phase05_continued` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase08_continued.py`, then run `pytest -m exercise -k phase08_continued` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — continued pretraining: forgetting + replay (Phase 5)
+# START HERE — continued pretraining: forgetting + replay (Phase 8)
 
 You're on the exercises folder on `main`. You implement two small functions in
-`src/microlab/exercises/phase05_continued.py`; the continued-pretraining runner and the
+`src/microlab/exercises/phase08_continued.py`; the continued-pretraining runner and the
 per-corpus evaluator are already on `main`. The differential test grades you against
 `microlab.model.reference.continued`.
 
@@ -40,7 +40,7 @@ Observed: no replay → old-domain loss rises ~+0.47 (forgetting); 25% replay �
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase05_continued.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase08_continued.py -v
 ```
 
 1. **`forgetting_score(loss_before, loss_after)`** — how much the original-domain loss went
@@ -55,7 +55,7 @@ Observed: no replay → old-domain loss rises ~+0.47 (forgetting); 25% replay �
 Continued/domain-adaptive pretraining is how you specialize a base model without paying to
 train from scratch — but naive continuation causes **catastrophic forgetting** of the
 original capabilities. **Replay** (rehearsing a slice of the original data) is the simplest
-mitigation; regularization (EWC) and parameter-isolation (adapters — Phase 7) are others.
+mitigation; regularization (EWC) and parameter-isolation (adapters — Phase 10) are others.
 The measurement you're building — loss on old vs new — is exactly how you'd tune the
 replay ratio for a real run.
 
@@ -67,6 +67,6 @@ only the data and model size change.
 
 ## 5. When you're done
 
-`pytest tests/exercises/test_phase05_continued.py` green → ping me for the Socratic review, then
+`pytest tests/exercises/test_phase08_continued.py` green → ping me for the Socratic review, then
 sweep the replay fraction (0, 0.1, 0.25, 0.5) and plot forgetting-vs-learning to find the
 knee.

@@ -1,13 +1,13 @@
-"""Spec + validation for the hand-written Phase-10 RL-on-verifiable-tasks primitives.
+"""Spec + validation for the hand-written Phase-13 RL-on-verifiable-tasks primitives.
 
-Implement ``microlab.exercises.phase10_rl`` until these pass. Differential tests grade you
+Implement ``microlab.exercises.phase13_rl`` until these pass. Differential tests grade you
 against ``microlab.model.reference.rl``.
 """
 
 import pytest
 import torch
 
-from microlab.exercises.phase10_rl import (
+from microlab.exercises.phase13_rl import (
     group_normalized_advantages,
     ppo_clip_loss,
     verifiable_reward,

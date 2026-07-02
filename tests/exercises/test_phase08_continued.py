@@ -1,13 +1,13 @@
-"""Spec + validation for the hand-written Phase-5 continued-pretraining primitives.
+"""Spec + validation for the hand-written Phase-8 continued-pretraining primitives.
 
-Implement ``microlab.exercises.phase05_continued`` until these pass. The last test diffs your
+Implement ``microlab.exercises.phase08_continued`` until these pass. The last test diffs your
 ``build_replay_mix`` against the reference oracle over randomized fractions.
 """
 
 import pytest
 import torch
 
-from microlab.exercises.phase05_continued import build_replay_mix, forgetting_score
+from microlab.exercises.phase08_continued import build_replay_mix, forgetting_score
 from microlab.model.reference.continued import build_replay_mix as ref_mix
 
 

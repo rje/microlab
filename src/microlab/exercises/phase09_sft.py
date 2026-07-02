@@ -1,8 +1,8 @@
-"""Hand-write exercise (Phase 6): the two SFT primitives — prompt loss masking and
+"""Hand-write exercise (Phase 9): the two SFT primitives — prompt loss masking and
 masked cross-entropy.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_sft.py`` passes.
-They're graded against ``microlab.model.reference.sft``. See docs/hand-write/phase6-sft.md.
+They're graded against ``microlab.model.reference.sft``. See docs/hand-write/phase9-sft.md.
 """
 
 from __future__ import annotations

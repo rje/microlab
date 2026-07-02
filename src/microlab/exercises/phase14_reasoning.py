@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 11): STaR trace filtering and knowledge-distillation loss.
+"""Hand-write exercise (Phase 14): STaR trace filtering and knowledge-distillation loss.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_reasoning.py`` passes.
-Graded against ``microlab.model.reference.reasoning``. See docs/hand-write/phase11-reasoning.md.
+Graded against ``microlab.model.reference.reasoning``. See docs/hand-write/phase14-reasoning.md.
 """
 
 from __future__ import annotations

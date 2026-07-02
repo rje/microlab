@@ -1,6 +1,6 @@
-"""Spec + validation for the hand-written Phase-7 LoRA / QLoRA primitives.
+"""Spec + validation for the hand-written Phase-10 LoRA / QLoRA primitives.
 
-Implement ``microlab.exercises.phase07_lora`` until these pass. Differential tests grade you
+Implement ``microlab.exercises.phase10_lora`` until these pass. Differential tests grade you
 against ``microlab.model.reference.lora``.
 """
 
@@ -8,7 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from microlab.exercises.phase07_lora import LoRALinear, quantize_dequantize
+from microlab.exercises.phase10_lora import LoRALinear, quantize_dequantize
 from microlab.model.reference.lora import LoRALinear as RefLoRA
 from microlab.model.reference.lora import quantize_dequantize as ref_qdq
 

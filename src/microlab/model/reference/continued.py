@@ -1,4 +1,4 @@
-"""Reference continued-pretraining tools (Phase 5): measure catastrophic forgetting when a
+"""Reference continued-pretraining tools (Phase 8): measure catastrophic forgetting when a
 model is trained on a new domain, and mitigate it with replay (rehearsing old-domain data).
 The oracle the owner diffs hand-written forgetting/replay against."""
 

@@ -1,13 +1,13 @@
-"""Spec + validation for the hand-written Phase-6 SFT primitives.
+"""Spec + validation for the hand-written Phase-9 SFT primitives.
 
-Implement ``microlab.exercises.phase06_sft`` until these pass. The differential tests grade
+Implement ``microlab.exercises.phase09_sft`` until these pass. The differential tests grade
 your masking + masked loss against ``microlab.model.reference.sft``.
 """
 
 import pytest
 import torch
 
-from microlab.exercises.phase06_sft import IGNORE_INDEX, build_sft_example, masked_cross_entropy
+from microlab.exercises.phase09_sft import IGNORE_INDEX, build_sft_example, masked_cross_entropy
 from microlab.model.reference.sft import build_sft_example as ref_build
 from microlab.model.reference.sft import masked_cross_entropy as ref_mce
 

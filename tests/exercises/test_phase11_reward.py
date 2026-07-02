@@ -1,6 +1,6 @@
-"""Spec + validation for the hand-written Phase-8 reward-model preference loss.
+"""Spec + validation for the hand-written Phase-11 reward-model preference loss.
 
-Implement ``microlab.exercises.phase08_reward`` until these pass. Differential tests grade you
+Implement ``microlab.exercises.phase11_reward`` until these pass. Differential tests grade you
 against ``microlab.model.reference.reward``.
 """
 
@@ -9,7 +9,7 @@ import math
 import pytest
 import torch
 
-from microlab.exercises.phase08_reward import preference_loss, reward_accuracy
+from microlab.exercises.phase11_reward import preference_loss, reward_accuracy
 from microlab.model.reference.reward import preference_loss as ref_loss
 from microlab.model.reference.reward import reward_accuracy as ref_acc
 

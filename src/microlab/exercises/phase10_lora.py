@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 7): the LoRA adapter math and the QLoRA-style quantizer.
+"""Hand-write exercise (Phase 10): the LoRA adapter math and the QLoRA-style quantizer.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_lora.py`` passes.
-Graded against ``microlab.model.reference.lora``. See docs/hand-write/phase7-lora.md.
+Graded against ``microlab.model.reference.lora``. See docs/hand-write/phase10-lora.md.
 """
 
 from __future__ import annotations

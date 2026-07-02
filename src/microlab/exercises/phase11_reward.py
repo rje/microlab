@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 8): reward-model preference loss and accuracy.
+"""Hand-write exercise (Phase 11): reward-model preference loss and accuracy.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_reward.py`` passes.
-Graded against ``microlab.model.reference.reward``. See docs/hand-write/phase8-reward.md.
+Graded against ``microlab.model.reference.reward``. See docs/hand-write/phase11-reward.md.
 """
 
 from __future__ import annotations

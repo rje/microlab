@@ -1,6 +1,6 @@
-"""Spec + validation for the hand-written Phase-11 STaR / distillation primitives.
+"""Spec + validation for the hand-written Phase-14 STaR / distillation primitives.
 
-Implement ``microlab.exercises.phase11_reasoning`` until these pass. Differential tests grade you
+Implement ``microlab.exercises.phase14_reasoning`` until these pass. Differential tests grade you
 against ``microlab.model.reference.reasoning``.
 """
 
@@ -9,7 +9,7 @@ import re
 import pytest
 import torch
 
-from microlab.exercises.phase11_reasoning import distillation_loss, filter_correct_traces
+from microlab.exercises.phase14_reasoning import distillation_loss, filter_correct_traces
 from microlab.model.reference.reasoning import distillation_loss as ref_distill
 from microlab.model.reference.reasoning import filter_correct_traces as ref_filter
 

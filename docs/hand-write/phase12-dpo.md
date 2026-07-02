@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase09_dpo.py`, then run `pytest -m exercise -k phase09_dpo` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase12_dpo.py`, then run `pytest -m exercise -k phase12_dpo` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — Direct Preference Optimization (Phase 9)
+# START HERE — Direct Preference Optimization (Phase 12)
 
 You're on the exercises folder on `main`. You implement the sequence log-prob helper and the DPO loss in
-`src/microlab/exercises/phase09_dpo.py`; `main` already has the GPT causal LM these numbers come
+`src/microlab/exercises/phase12_dpo.py`; `main` already has the GPT causal LM these numbers come
 from. Differential tests grade you against `microlab.model.reference.dpo`.
 
 ## 1. See DPO reduce loss on paired responses first (~1 min, needs a GPU)
@@ -37,13 +37,13 @@ directly from two models' log-probs on the same (chosen, rejected) pairs.
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase09_dpo.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase12_dpo.py -v
 ```
 
 1. **`sequence_logprob(logits, labels)`** — sum the per-token log-probs of `labels` under
    `logits`, over positions where `labels != IGNORE_INDEX` (-100). **Causal shift**:
    `logits[:, :-1]` predicts `labels[:, 1:]` (position t predicts token t+1) — the same shift
-   as `masked_cross_entropy` in Phase 6, but summed instead of averaged, and returning one
+   as `masked_cross_entropy` in Phase 9, but summed instead of averaged, and returning one
    scalar per sequence (shape `(B,)`) instead of a batch mean.
 2. **`dpo_loss(policy_chosen_logp, policy_rejected_logp, ref_chosen_logp, ref_rejected_logp,
    beta)`** — form the policy log-ratio `pi_chosen - pi_rejected` and the reference log-ratio
@@ -53,7 +53,7 @@ directly from two models' log-probs on the same (chosen, rejected) pairs.
 
 ## 3. Why this matters
 
-DPO (Rafailov et al.) shows that RLHF's reward-model-then-PPO pipeline (Phase 8, then an RL
+DPO (Rafailov et al.) shows that RLHF's reward-model-then-PPO pipeline (Phase 11, then an RL
 loop) is mathematically equivalent, under the Bradley-Terry model, to directly optimizing the
 policy against a frozen copy of itself on preference pairs — no reward model, no rollouts, no
 PPO instability. `beta` controls how far the policy is allowed to diverge from the reference;

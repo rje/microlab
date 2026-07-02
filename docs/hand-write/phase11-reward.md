@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase08_reward.py`, then run `pytest -m exercise -k phase08_reward` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase11_reward.py`, then run `pytest -m exercise -k phase11_reward` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — reward modeling: Bradley-Terry preference loss (Phase 8)
+# START HERE — reward modeling: Bradley-Terry preference loss (Phase 11)
 
 You're on the exercises folder on `main`. You implement the pairwise preference loss and accuracy
-metric in `src/microlab/exercises/phase08_reward.py`; the `RewardModel` (GPT + scalar value head)
+metric in `src/microlab/exercises/phase11_reward.py`; the `RewardModel` (GPT + scalar value head)
 is already on `main`. Differential tests grade you against `microlab.model.reference.reward`.
 
 ## 1. See a reward model learn a preference first (~1 min, needs a GPU)
@@ -30,7 +30,7 @@ the loss pushes `reward(chosen)` above `reward(rejected)` regardless of what "ch
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase08_reward.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase11_reward.py -v
 ```
 
 1. **`preference_loss(chosen_rewards, rejected_rewards)`** — Bradley-Terry:
@@ -51,7 +51,7 @@ behavior — a famously hard-to-detect RLHF failure mode.
 
 ## 4. How it's graded
 
-Differential tests in `tests/exercises/test_phase08_reward.py` compare your output
+Differential tests in `tests/exercises/test_phase11_reward.py` compare your output
 element-for-element against `microlab.model.reference.reward` on random reward tensors, plus
 a known-value check: equal rewards give exactly `log(2)` loss (`sigmoid(0) = 0.5`). Green →
 ping me for the Socratic review.

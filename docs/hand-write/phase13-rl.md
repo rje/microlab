@@ -1,9 +1,9 @@
-> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase10_rl.py`, then run `pytest -m exercise -k phase10_rl` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
+> **Exercise — on `main`, no branch switching.** Implement the stub in `src/microlab/exercises/phase13_rl.py`, then run `pytest -m exercise -k phase13_rl` to grade it against the reference oracle. Your solution is tracked in git; commit it when it passes.
 
-# START HERE — RL on verifiable rewards: GRPO + PPO clip (Phase 10)
+# START HERE — RL on verifiable rewards: GRPO + PPO clip (Phase 13)
 
 You're on the exercises folder on `main`. You implement the reward function, the group-normalized
-advantage, and the PPO clipped loss in `src/microlab/exercises/phase10_rl.py`. `extract_answer`
+advantage, and the PPO clipped loss in `src/microlab/exercises/phase13_rl.py`. `extract_answer`
 (parsing "#### N" or the last number in a string) is already on `main` — reuse it, don't
 reimplement it. Differential tests grade you against `microlab.model.reference.rl`.
 
@@ -30,7 +30,7 @@ print(loss.item())  # falls monotonically
 ## 2. What you implement
 
 ```bash
-/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase10_rl.py -v
+/home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase13_rl.py -v
 ```
 
 1. **`verifiable_reward(generated, gold)`** — `1.0` if `extract_answer(generated) ==

@@ -1,6 +1,6 @@
-"""Spec + validation for the hand-written Phase-9 DPO primitives.
+"""Spec + validation for the hand-written Phase-12 DPO primitives.
 
-Implement ``microlab.exercises.phase09_dpo`` until these pass. Differential tests grade you
+Implement ``microlab.exercises.phase12_dpo`` until these pass. Differential tests grade you
 against ``microlab.model.reference.dpo``.
 """
 
@@ -9,7 +9,7 @@ import math
 import pytest
 import torch
 
-from microlab.exercises.phase09_dpo import IGNORE_INDEX, dpo_loss, sequence_logprob
+from microlab.exercises.phase12_dpo import IGNORE_INDEX, dpo_loss, sequence_logprob
 from microlab.model.reference.dpo import IGNORE_INDEX as REF_IGNORE_INDEX
 from microlab.model.reference.dpo import dpo_loss as ref_dpo_loss
 from microlab.model.reference.dpo import sequence_logprob as ref_sequence_logprob

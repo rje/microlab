@@ -1,12 +1,12 @@
-"""Spec + validation for the hand-written Phase-12 tool-call parsing/validation primitives.
+"""Spec + validation for the hand-written Phase-15 tool-call parsing/validation primitives.
 
-Implement ``microlab.exercises.phase12_tools`` until these pass. Differential tests grade you
+Implement ``microlab.exercises.phase15_tools`` until these pass. Differential tests grade you
 against ``microlab.model.reference.tools``.
 """
 
 import pytest
 
-from microlab.exercises.phase12_tools import (
+from microlab.exercises.phase15_tools import (
     parse_tool_call,
     schema_validity_rate,
     validate_tool_call,

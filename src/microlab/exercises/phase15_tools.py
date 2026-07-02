@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 12): tool-call parsing, schema validation, and validity rate.
+"""Hand-write exercise (Phase 15): tool-call parsing, schema validation, and validity rate.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_tools.py`` passes.
-Graded against ``microlab.model.reference.tools``. See docs/hand-write/phase12-tools.md.
+Graded against ``microlab.model.reference.tools``. See docs/hand-write/phase15-tools.md.
 """
 
 from __future__ import annotations
