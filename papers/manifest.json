@@ -556,5 +556,122 @@
     "source_url": "https://arxiv.org/abs/1910.02054",
     "pdf_url": "https://arxiv.org/pdf/1910.02054",
     "filename": "2019-rajbhandari-zero-memory-optimizations.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "Tulu 3: Pushing Frontiers in Open Language Model Post-Training",
+    "authors": "Lambert et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2411.15124",
+    "pdf_url": "https://arxiv.org/pdf/2411.15124",
+    "filename": "2024-lambert-tulu-3.pdf"
+  },
+  {
+    "topic": "modern-llm-recipes",
+    "title": "2 OLMo 2 Furious",
+    "authors": "OLMo Team et al.",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2501.00656",
+    "pdf_url": "https://arxiv.org/pdf/2501.00656",
+    "filename": "2025-olmo-team-2-olmo-2-furious.pdf"
+  },
+  {
+    "topic": "tokenizers-data",
+    "title": "SmolLM2: When Smol Goes Big -- Data-Centric Training of a Small Language Model",
+    "authors": "Allal et al.",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2502.02737",
+    "pdf_url": "https://arxiv.org/pdf/2502.02737",
+    "filename": "2025-allal-smollm2.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Muon is Scalable for LLM Training",
+    "authors": "Liu et al.",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2502.16982",
+    "pdf_url": "https://arxiv.org/pdf/2502.16982",
+    "filename": "2025-liu-muon-is-scalable-for-llm-training.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Scaling Data-Constrained Language Models",
+    "authors": "Muennighoff et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.16264",
+    "pdf_url": "https://arxiv.org/pdf/2305.16264",
+    "filename": "2023-muennighoff-scaling-data-constrained-language-models.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "YaRN: Efficient Context Window Extension of Large Language Models",
+    "authors": "Peng et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2309.00071",
+    "pdf_url": "https://arxiv.org/pdf/2309.00071",
+    "filename": "2023-peng-yarn.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Better & Faster Large Language Models via Multi-token Prediction",
+    "authors": "Gloeckle et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2404.19737",
+    "pdf_url": "https://arxiv.org/pdf/2404.19737",
+    "filename": "2024-gloeckle-multi-token-prediction.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention",
+    "authors": "Yuan et al.",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2502.11089",
+    "pdf_url": "https://arxiv.org/pdf/2502.11089",
+    "filename": "2025-yuan-native-sparse-attention.pdf"
+  },
+  {
+    "topic": "inference",
+    "title": "Efficient Streaming Language Models with Attention Sinks",
+    "authors": "Xiao et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2309.17453",
+    "pdf_url": "https://arxiv.org/pdf/2309.17453",
+    "filename": "2023-xiao-streaming-llm-attention-sinks.pdf"
+  },
+  {
+    "topic": "inference",
+    "title": "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty",
+    "authors": "Li et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2401.15077",
+    "pdf_url": "https://arxiv.org/pdf/2401.15077",
+    "filename": "2024-li-eagle.pdf"
+  },
+  {
+    "topic": "interpretability",
+    "title": "Sparse Autoencoders Find Highly Interpretable Features in Language Models",
+    "authors": "Cunningham et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2309.08600",
+    "pdf_url": "https://arxiv.org/pdf/2309.08600",
+    "filename": "2023-cunningham-sparse-autoencoders-find-interpretable-features.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?",
+    "authors": "Jimenez et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2310.06770",
+    "pdf_url": "https://arxiv.org/pdf/2310.06770",
+    "filename": "2023-jimenez-swe-bench.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains",
+    "authors": "Yao et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2406.12045",
+    "pdf_url": "https://arxiv.org/pdf/2406.12045",
+    "filename": "2024-yao-tau-bench.pdf"
   }
 ]
