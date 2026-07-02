@@ -69,6 +69,10 @@ def test_endpoint_auth_and_stream(tmp_path, monkeypatch):
     r = client.post("/api/generate", json=body,
                     headers={"Authorization": "Bearer nope"})
     assert r.status_code == 401
+    # non-ASCII token -> 401, never a 500 (compare_digest(str, str) rejects non-ASCII)
+    r = client.post("/api/generate", json=body,
+                    headers={"Authorization": "Bearer café"})
+    assert r.status_code == 401
     # over-limit -> 400 with a real message
     r = client.post("/api/generate", json={"prompt": "hi", "max_new_tokens": 9999},
                     headers={"Authorization": f"Bearer {token}"})

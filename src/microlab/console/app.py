@@ -347,9 +347,16 @@ def register_content_routes(app: Flask) -> None:
         authed = bool(session.get("authed"))
         header = request.headers.get("Authorization", "")
         if not authed and header.startswith("Bearer "):
-            if secrets.compare_digest(
-                header.removeprefix("Bearer ").strip(), app.config["API_TOKEN"]
-            ):
+            provided = header.removeprefix("Bearer ").strip()
+            # compare_digest(str, str) raises TypeError on non-ASCII input, and the bearer
+            # value comes straight from the client — compare bytes so a malformed token is
+            # a 401, never a 500. (str.encode() can't raise for header-decoded text; the
+            # except is belt-and-braces.)
+            try:
+                ok = secrets.compare_digest(provided.encode(), app.config["API_TOKEN"].encode())
+            except UnicodeEncodeError:
+                ok = False
+            if ok:
                 authed = True
             else:
                 return jsonify({"error": "bad token"}), 401

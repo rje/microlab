@@ -10,13 +10,19 @@ import torch
 from microlab.model.reference.variants import VariantConfig, VariantGPT
 
 
-def load_variant_from_run(run_dir: Path, device: str = "cpu") -> tuple[VariantGPT, int]:
-    """Latest ckpt_*.pt by step number. Raises FileNotFoundError when none exists."""
+def latest_checkpoint(run_dir: Path) -> Path:
+    """Newest ckpt_*.pt in run_dir by step number. Raises FileNotFoundError when none
+    exists. Exposed so callers can report WHICH checkpoint file was picked."""
     run_dir = Path(run_dir)
     ckpts = sorted(run_dir.glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
     if not ckpts:
         raise FileNotFoundError(f"no ckpt_*.pt in {run_dir}")
-    ckpt = torch.load(ckpts[-1], map_location=device, weights_only=False)
+    return ckpts[-1]
+
+
+def load_variant_from_run(run_dir: Path, device: str = "cpu") -> tuple[VariantGPT, int]:
+    """Latest ckpt_*.pt by step number. Raises FileNotFoundError when none exists."""
+    ckpt = torch.load(latest_checkpoint(run_dir), map_location=device, weights_only=False)
     cfg = ckpt["cfg"]
     model = VariantGPT(VariantConfig(
         vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
