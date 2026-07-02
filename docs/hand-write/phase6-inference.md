@@ -58,11 +58,14 @@ same checks, now scored against the model you trained and serve:
 
 ```json
 {
-  "type": "microlab_http",
-  "host": "http://127.0.0.1:5000",
-  "token_file": "instance/api_token",
-  "max_new_tokens": 128,
-  "temperature": 0.0
+  "name": "microlab-http-150m",
+  "backend": {
+    "type": "microlab_http",
+    "host": "http://127.0.0.1:5000",
+    "token_file": "instance/api_token",
+    "max_new_tokens": 128,
+    "temperature": 0.0
+  }
 }
 ```
 
