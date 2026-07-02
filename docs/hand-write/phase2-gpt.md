@@ -67,3 +67,13 @@ hardware.
 - Swap `F.scaled_dot_product_attention` back in and confirm your manual version agrees.
 - Add KV-caching to `generate` and measure the speedup on a longer sample.
 - Profile one training step with `torch.profiler` and find where the time goes.
+
+## Multi-token prediction (new — reading, not an exercise)
+
+The GPT you just wrote predicts one next token per position. **Multi-token prediction** (MTP,
+per this phase's new reading) is an objective-level variant: add a few lightweight output
+heads that predict the next *n* tokens at once, so each position gets a denser training
+signal — better sample efficiency, and the extra heads double as a built-in speculative
+drafter at inference (Phase 6). It's a change to the *loss*, not the block wiring, so there's
+nothing to hand-write here; read it as the first "the objective itself is a design choice"
+idea, before Phases 11–14 make that their whole subject.

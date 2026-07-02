@@ -13,30 +13,34 @@ import torch
 
 
 def verifiable_reward(generated: str, gold: str) -> float:
-    """1.0 if the extracted answer equals the gold answer, else 0.0."""
+    """1.0 if the answer extracted from `generated` equals the gold answer, else 0.0. Reuse
+    ``extract_answer`` (per the module docstring) on both sides; a failed extraction (None)
+    never matches. See docs/hand-write/phase13-rl.md."""
     raise NotImplementedError(
-        "from microlab.model.reference.rl import extract_answer; "
-        "pred = extract_answer(generated); "
-        "return 1.0 if pred is not None and pred == extract_answer(gold) else 0.0"
+        "extract the answer from each string and compare — a None extraction never counts"
     )
 
 
 def group_normalized_advantages(rewards: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-    """GRPO advantage: within a group of completions for the same prompt, A_i =
-    (r_i - mean) / (std + eps). Zero-mean, unit-scale — the group is its own baseline."""
-    raise NotImplementedError("(rewards - rewards.mean()) / (rewards.std() + eps)")
+    """GRPO advantage: within a group of completions for the same prompt, standardize the
+    rewards to zero mean and unit scale (eps guards the std) — the group is its own baseline,
+    so GRPO needs no learned critic. See docs/hand-write/phase13-rl.md."""
+    raise NotImplementedError(
+        "standardize the group's rewards to zero mean / unit scale (eps guards the std)"
+    )
 
 
 def ppo_clip_loss(
     logprobs: torch.Tensor, old_logprobs: torch.Tensor, advantages: torch.Tensor,
     clip_eps: float = 0.2,
 ) -> torch.Tensor:
-    """PPO clipped surrogate loss (to MINIMIZE): -mean(min(ratio*A, clip(ratio,1±eps)*A)),
-    where ratio = exp(logprobs - old_logprobs). Clipping removes the incentive to move the
-    policy too far from the sampling policy."""
+    """PPO clipped surrogate loss (a scalar to MINIMIZE). Form the likelihood ratio between
+    the new policy and the sampling policy on the sampled tokens, weight it by the advantages,
+    and clip the ratio into a trust region so an off-policy step can't chase the advantage
+    arbitrarily far. The clip is the whole point. (Schulman et al., PPO. See
+    docs/hand-write/phase13-rl.md.)"""
     raise NotImplementedError(
-        "ratio = torch.exp(logprobs - old_logprobs); "
-        "unclipped = ratio * advantages; "
-        "clipped = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * advantages; "
-        "return -torch.min(unclipped, clipped).mean()"
+        "build the probability ratio from the log-prob difference, form the clipped and "
+        "unclipped advantage-weighted terms, and combine them with PPO's pessimistic "
+        "surrogate (then negate and average) — the clip bounds and sign are yours to derive"
     )

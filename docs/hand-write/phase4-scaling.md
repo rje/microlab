@@ -80,3 +80,12 @@ a small width once, transfer by the table, don't re-sweep at $300/run. Then run
 across widths = the signature that transfer will work. Reading: muP paper + "Small-scale
 proxies for large-scale training instabilities" (what loss spikes look like before you
 meet one at 1B).
+
+## Muon (new)
+
+Stretch — with the Muon paper now in this phase's readings, run a **Muon-vs-AdamW ablation**
+at 10–50M params: same config, same tokens, swap only the optimizer on the hidden-layer
+weight matrices (Muon orthogonalizes the momentum update via a few Newton–Schulz steps; keep
+AdamW on the embeddings and norms). Plot validation loss vs tokens and vs wall-clock — the
+claim is a better loss-per-token at these sizes. It drops into the same sweep harness your
+`count_params` / `fit_scaling_law` feed; only the optimizer changes.

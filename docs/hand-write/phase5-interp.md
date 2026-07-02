@@ -28,6 +28,16 @@ induction scoring across checkpoints and plot max-score vs step: induction heads
 phase change (Anthropic, "In-context Learning and Induction Heads" —
 https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/).
 
+## Sparse autoencoders (new stretch)
+
+Now that `collect_residual_stream` hands you the residual vectors at every layer, train a
+tiny **sparse autoencoder** on them (per this phase's new SAE reading): one wide hidden layer
+with an L1 penalty, reconstructing each residual from a sparse, overcomplete basis. The
+learned dictionary features are far more monosemantic than raw neurons — the current front
+line of mechanistic interpretability. Grab a few thousand residual vectors from the 150M at
+one layer, fit the SAE, and eyeball the top-activating tokens per feature.
+
 ## Readings
 
-Tuned Lens; ROME (locating factual associations). Both in the console reading workspace.
+Tuned Lens; ROME (locating factual associations); the SAE reading (above). All in the console
+reading workspace.

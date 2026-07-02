@@ -11,7 +11,11 @@ Everything between a checkpoint and a served token. Four hand-writes, graded aga
    predecessors (generation is O(T²)); with it, each step is one single-token forward.
    Graded by EXACT token-match against the uncached reference + a measured speedup. This
    is the sharpest test in the curriculum: off-by-one RoPE offsets produce subtly-wrong
-   text, and exact-match catches what "looks right" misses.
+   text, and exact-match catches what "looks right" misses. The cache itself is a second
+   graded stub — **`StudentKVCache.append`**: write the new K/V at the current position,
+   return the full (0..seq_len) views, and advance `seq_len` **only on the last layer** so
+   every layer sees the same positions each step (its `__init__` is provided; the shape
+   guard rejects a multi-token step after prefill). `generate_cached` is what drives it.
 2. **`sample_next`** — temperature, top-k, top-p in the standard order. Fixed-seed graded.
 3. **`quantize_groupwise`** — symmetric absmax per group; the skeleton under GPTQ/AWQ.
 4. **`speculative_accept`** — the accept/reject rule that makes a draft model free: accept

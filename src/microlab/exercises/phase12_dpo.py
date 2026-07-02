@@ -14,10 +14,13 @@ IGNORE_INDEX = -100
 def sequence_logprob(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     """Sum of per-token log-probs of `labels` under `logits`, over the supervised
     (non-IGNORE_INDEX) response tokens. Causal shift: logits[:, :-1] predict labels[:, 1:].
-    Returns (B,)."""
+    Returns (B,). The subtlety is picking out each label's log-prob while the IGNORE_INDEX
+    positions (a negative sentinel) are still in the tensor — find an indexing + masking
+    scheme that doesn't crash on them. See docs/hand-write/phase12-dpo.md."""
     raise NotImplementedError(
-        "shift: logits[:, :-1], labels[:, 1:]; log_softmax(logits); gather at "
-        "labels.clamp(min=0); mask out IGNORE_INDEX positions; sum over the sequence dim"
+        "log-softmax the shifted logits, select each label's log-prob, zero out the "
+        "IGNORE_INDEX positions, and sum over the sequence — the indexing/masking detail is "
+        "yours to work out"
     )
 
 
@@ -26,11 +29,12 @@ def dpo_loss(
     ref_chosen_logp: torch.Tensor, ref_rejected_logp: torch.Tensor, beta: float = 0.1,
 ) -> tuple[torch.Tensor, float]:
     """DPO loss + implicit-reward accuracy. The policy is pushed to increase
-    (logp_chosen - logp_rejected) beyond the reference's, scaled by beta."""
+    (logp_chosen - logp_rejected) beyond the reference's, scaled by beta. Returns
+    (loss, accuracy). (Rafailov et al., Direct Preference Optimization. See
+    docs/hand-write/phase12-dpo.md.)"""
     raise NotImplementedError(
-        "pi_logratios = policy_chosen_logp - policy_rejected_logp; "
-        "ref_logratios = ref_chosen_logp - ref_rejected_logp; "
-        "loss = -F.logsigmoid(beta * (pi_logratios - ref_logratios)).mean(); "
-        "acc = mean(beta*(policy_chosen_logp-ref_chosen_logp) > "
-        "beta*(policy_rejected_logp-ref_rejected_logp))"
+        "form the policy and reference log-ratios (chosen minus rejected), scale beta times "
+        "their difference, and apply the same Bradley-Terry logistic loss as Phase 11; "
+        "accuracy compares the per-response implicit rewards (beta * policy-vs-reference "
+        "log-prob gap) of chosen vs rejected"
     )
