@@ -327,21 +327,24 @@ def register_content_routes(app: Flask) -> None:
 
     TENSORBOARD_UPSTREAM = os.environ.get("TENSORBOARD_URL", "http://127.0.0.1:6006")
 
-    @app.route("/tensorboard/", defaults={"subpath": ""})
-    @app.route("/tensorboard/<path:subpath>")
+    @app.route("/tensorboard/", defaults={"subpath": ""}, methods=["GET", "POST"])
+    @app.route("/tensorboard/<path:subpath>", methods=["GET", "POST"])
     @auth.login_required
     def tensorboard_proxy(subpath: str):
         # Authed reverse-proxy to a local TensorBoard (127.0.0.1:6006, --path_prefix
         # /tensorboard). TensorBoard has no auth of its own, so login_required is the ONLY
         # thing standing between the public internet and it — do not remove.
         upstream = f"{TENSORBOARD_UPSTREAM}/tensorboard/{subpath}"
+        fwd_headers = {"Accept": request.headers.get("Accept", "*/*")}
+        if request.content_type:
+            fwd_headers["Content-Type"] = request.content_type
         try:
             resp = _requests.request(
                 method=request.method,
                 url=upstream,
                 params=request.args,
                 data=request.get_data(),
-                headers={"Accept": request.headers.get("Accept", "*/*")},
+                headers=fwd_headers,
                 stream=True,
                 timeout=30,
             )
