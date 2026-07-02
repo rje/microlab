@@ -20,24 +20,8 @@ from microlab.data.shard_dataset import ShardDataset  # noqa: E402
 from microlab.evals.perplexity import evaluate_perplexity  # noqa: E402
 from microlab.infer.reference.kv_cache import generate_cached  # noqa: E402
 from microlab.infer.reference.quant import quantize_model_  # noqa: E402
+from microlab.model.reference.checkpoint import load_variant_from_run  # noqa: E402
 from microlab.model.reference.sample import generate  # noqa: E402
-from microlab.model.reference.variants import VariantConfig, VariantGPT  # noqa: E402
-
-
-def load_model(run_dir: Path) -> VariantGPT:
-    ckpts = sorted(run_dir.glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
-    if not ckpts:
-        raise FileNotFoundError(f"no ckpt_*.pt in {run_dir}")
-    ckpt = torch.load(ckpts[-1], map_location="cpu", weights_only=False)
-    cfg = ckpt["cfg"]
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp,
-    ))
-    model.load_state_dict(ckpt["model"])
-    print(f"loaded {ckpts[-1]} (step {ckpt['step']})")
-    return model.eval()
 
 
 def bench(fn, *args, n=3, **kwargs) -> float:
@@ -59,7 +43,8 @@ def main() -> None:
     ap.add_argument("--new-tokens", type=int, default=256)
     args = ap.parse_args()
 
-    model = load_model(args.run_dir).to(args.device)
+    model, step = load_variant_from_run(args.run_dir, device=args.device)
+    print(f"loaded {args.run_dir} (step {step})")
     idx = torch.zeros((1, 8), dtype=torch.long, device=args.device)
 
     tps_slow = bench(generate, model, idx, args.new_tokens, temperature=0.0)
