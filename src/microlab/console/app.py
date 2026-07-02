@@ -127,7 +127,7 @@ def create_app(project_root: str | Path | None = None) -> Flask:
 def register_content_routes(app: Flask) -> None:
     from flask import jsonify, send_file
 
-    from microlab.console import content, serve, store
+    from microlab.console import content, store
 
     root: Path = app.config["PROJECT_ROOT"]
     db_path = root / "microlab.db"
@@ -363,12 +363,15 @@ def register_content_routes(app: Flask) -> None:
         if not authed:
             # Mirror auth.login_required's /api/* branch: 401 JSON, never a login redirect.
             return jsonify({"error": "authentication required"}), 401
-        body = request.get_json(force=True, silent=True) or {}
+        body = request.get_json(silent=True) or {}
         prompt = str(body.get("prompt", ""))
         if not prompt.strip():
             return jsonify({"error": "empty prompt"}), 400
+        # Lazy import: keeps console restarts light (no torch at boot); the Playground pays
+        # the import cost on first use.
+        from microlab.console import serve
         try:
-            state = serve.get_state()
+            state = serve.get_state(root)
         except FileNotFoundError as exc:
             return jsonify({"error": f"model not servable: {exc}"}), 503
         try:

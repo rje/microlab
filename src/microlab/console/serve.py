@@ -32,14 +32,25 @@ _state: ServeState | None = None
 _state_lock = threading.Lock()
 
 
-def get_state() -> ServeState:
-    """Lazy singleton. Raises FileNotFoundError with setup instructions when the run
-    dir or tokenizer is missing — the route maps that to a 503."""
+def _anchor(root: Path, value: str) -> Path:
+    """Resolve a serving path against the project root when it's relative; an absolute path
+    (e.g. an explicit env override) is honored as-is."""
+    p = Path(value)
+    return p if p.is_absolute() else root / p
+
+
+def get_state(root: Path) -> ServeState:
+    """Lazy singleton. Relative run/tokenizer paths (env or default) resolve against
+    ``root`` — the app's PROJECT_ROOT — NOT the process CWD, so a unit test pointed at an
+    empty tmp project root gets a clean 503 even on a checkout that has real checkpoints, and
+    production serving no longer silently depends on the systemd WorkingDirectory. Absolute
+    env values are used verbatim. Raises FileNotFoundError with setup instructions when the
+    run dir or tokenizer is missing — the route maps that to a 503."""
     global _state
     with _state_lock:
         if _state is None:
-            run_dir = Path(os.environ.get("MICROLAB_SERVE_RUN", "runs/150m"))
-            tok_path = Path(os.environ.get(
+            run_dir = _anchor(root, os.environ.get("MICROLAB_SERVE_RUN", "runs/150m"))
+            tok_path = _anchor(root, os.environ.get(
                 "MICROLAB_SERVE_TOKENIZER", "data/shards/tinystories/tokenizer.json"))
             device = os.environ.get("MICROLAB_SERVE_DEVICE", "cpu")
             model, step = load_variant_from_run(run_dir, device=device)
@@ -69,6 +80,10 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
         raise ValueError(
             f"prompt ({len(prompt_ids)} tokens) + max_new_tokens ({max_new_tokens}) "
             f"exceeds block_size ({cfg.block_size})")
+    if top_k is not None and top_k < 1:
+        raise ValueError(f"top_k must be None or >= 1 (got {top_k})")
+    if top_p is not None and not 0 < top_p <= 1:
+        raise ValueError(f"top_p must be None or in (0, 1] (got {top_p})")
     gen = None if seed is None else torch.Generator().manual_seed(seed)
 
     @torch.no_grad()

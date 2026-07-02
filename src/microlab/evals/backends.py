@@ -160,7 +160,8 @@ class MicrolabBackend(ModelBackend):
 class MicrolabHTTPBackend(ModelBackend):
     """Evaluate the lab's own SERVED model over HTTP — the same harness that graded the
     Ollama baselines in Phase 0, pointed at /api/generate. Auth via the bearer token in
-    instance/api_token."""
+    instance/api_token. max_new_tokens is config-level: per-task budgets aren't honored
+    (matching MicrolabBackend)."""
 
     def __init__(self, host: str, token: str | None = None, token_file: str | None = None,
                  max_new_tokens: int = 128, temperature: float = 0.0,

@@ -1,5 +1,6 @@
-"""Hand-write exercise (Phase 6): inference engineering — the KV cache, the sampling zoo,
-groupwise quantization, and the speculative-decoding accept rule.
+"""Hand-write exercise (Phase 6): inference engineering — five hand-writes: the KV cache
+(``generate_cached``), its buffer append (``StudentKVCache.append``), the sampling zoo
+(``sample_next``), groupwise quantization, and the speculative-decoding accept rule.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase06_inference.py``
 passes. Graded against ``microlab.infer.reference``. See docs/hand-write/phase6-inference.md.

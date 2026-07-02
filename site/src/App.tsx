@@ -379,10 +379,15 @@ function PlaygroundPanel() {
   const [topK, setTopK] = useState(0); // 0 = off
   const [topP, setTopP] = useState(0); // 0 = off
   const [maxTokens, setMaxTokens] = useState(128);
+  const [seed, setSeed] = useState(""); // blank = no seed (fresh samples each run)
   const [running, setRunning] = useState(false);
   const [stats, setStats] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Kill an in-flight generation when navigating away — the server holds a single-generation
+  // lock, so a leaked stream would block the next request.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const generate = async () => {
     setRunning(true);
@@ -402,7 +407,8 @@ function PlaygroundPanel() {
           max_new_tokens: maxTokens,
           temperature,
           top_k: topK || null,
-          top_p: topP || null
+          top_p: topP || null,
+          seed: seed === "" ? null : Number(seed)
         }),
         signal: controller.signal
       });
@@ -491,6 +497,16 @@ function PlaygroundPanel() {
             step={1}
             value={maxTokens}
             onChange={(event) => setMaxTokens(Number(event.target.value))}
+          />
+        </label>
+        <label className="playground-control">
+          <span className="playground-label">Seed (blank = off)</span>
+          <input
+            type="number"
+            step={1}
+            value={seed}
+            placeholder="none"
+            onChange={(event) => setSeed(event.target.value)}
           />
         </label>
       </div>

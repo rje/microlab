@@ -61,7 +61,7 @@ same checks, now scored against the model you trained and serve:
   "name": "microlab-http-150m",
   "backend": {
     "type": "microlab_http",
-    "host": "http://127.0.0.1:5000",
+    "host": "http://127.0.0.1:8765",
     "token_file": "instance/api_token",
     "max_new_tokens": 128,
     "temperature": 0.0
