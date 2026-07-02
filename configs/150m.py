@@ -31,10 +31,16 @@ config = RunConfig(
     # same effective batch, faster wall-clock. Drop to 24/accum 20 if VRAM is tight.
     batch_size=40,
     grad_accum=12,
+    # measured ~6.4s/step at batch 40 -> log every ~1.1min. eval_interval unchanged (250
+    # steps ~26.6min): validation is real extra compute (100 forward passes), not a free
+    # logging toggle. ckpt every ~21min so a crash/restart loses at most that much;
+    # pruning disabled (ckpt_keep=0) since disk isn't a concern for this model's ~1.3GB
+    # checkpoints — keep every one.
     eval_interval=250,
     eval_iters=100,
-    ckpt_interval=500,
-    log_interval=20,
+    ckpt_interval=200,
+    ckpt_keep=0,
+    log_interval=10,
     out_dir="runs/150m",
     device="cuda",
     dtype="bfloat16",

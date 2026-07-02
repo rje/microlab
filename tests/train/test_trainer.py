@@ -57,6 +57,18 @@ def test_train_returns_stats_keys_with_tokenizer_none(tmp_path):
     assert stats["step"] == 3
 
 
+def test_checkpoint_pruning(tmp_path):
+    # Only the last `ckpt_keep` checkpoints should survive on disk.
+    torch.manual_seed(0)
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    tr = Trainer(
+        _cfg(out_dir=str(tmp_path), max_steps=6, ckpt_interval=2, ckpt_keep=2), data, data
+    )
+    tr.train()
+    ckpts = sorted(tmp_path.glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
+    assert [p.stem for p in ckpts] == ["ckpt_4", "ckpt_6"]
+
+
 def test_tensorboard_event_file_written(tmp_path):
     # With tensorboard installed, a tiny run must emit an event file into out_dir
     # and must not crash the training loop.

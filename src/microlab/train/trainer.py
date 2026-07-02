@@ -9,6 +9,7 @@ import math
 import os
 import time
 from contextlib import nullcontext
+from pathlib import Path
 
 import torch
 
@@ -173,6 +174,16 @@ class Trainer:
         }
         torch.save(ckpt, path)
 
+    def _prune_checkpoints(self) -> None:
+        keep = self.cfg.ckpt_keep
+        if keep <= 0:
+            return
+        ckpts = sorted(
+            Path(self.cfg.out_dir).glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1])
+        )
+        for stale in ckpts[:-keep]:
+            stale.unlink()
+
     def load_checkpoint(self, path: str) -> None:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(ckpt["model"])
@@ -239,6 +250,7 @@ class Trainer:
                     last_log_time, last_log_step = now, step
             if cfg.ckpt_interval > 0 and step % cfg.ckpt_interval == 0:
                 self.save_checkpoint(os.path.join(cfg.out_dir, f"ckpt_{step}.pt"))
+                self._prune_checkpoints()
         if self.val_data is not None and val_loss is None:
             val_loss = self.estimate_val()
         if writer is not None:
