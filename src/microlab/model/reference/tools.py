@@ -1,4 +1,4 @@
-"""Reference tool-use / agent tools (Phase 12). Parse a tool call from a model's text
+"""Reference tool-use / agent tools (Phase 15). Parse a tool call from a model's text
 output, validate it against a tool schema, measure schema validity, and run a minimal
 ReAct-style loop (think -> tool call -> observation -> ... -> final answer). The oracle
 the owner diffs their hand-written parser/validator against."""

@@ -70,3 +70,13 @@ a real sweep on TinyStories and fit the curve on validation loss.
 - Add a data axis: fix model size, vary token count, fit `L(D)`.
 - Estimate the compute-optimal model size for a fixed FLOPs budget from your fitted exponents
   and check it against an actual run.
+
+## muP (new)
+
+Hand-write `mup_multipliers` + `mup_attn_scale` — the zero-shot HP-transfer table from
+Tensor Programs V. This is how you'll pick the 1B run's learning rate in Phase 7: tune at
+a small width once, transfer by the table, don't re-sweep at $300/run. Then run
+`python scripts/mup_coord_check.py` and stare at the two columns: activation RMS flat
+across widths = the signature that transfer will work. Reading: muP paper + "Small-scale
+proxies for large-scale training instabilities" (what loss spikes look like before you
+meet one at 1B).

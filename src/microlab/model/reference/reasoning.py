@@ -1,4 +1,4 @@
-"""Reference reasoning + distillation tools (Phase 11). STaR bootstraps a reasoning model
+"""Reference reasoning + distillation tools (Phase 14). STaR bootstraps a reasoning model
 by KEEPING only sampled traces whose final answer is correct and fine-tuning on them;
 self-consistency takes a majority vote over sampled answers; knowledge distillation trains
 a student to match a teacher's softened output distribution."""

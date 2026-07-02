@@ -84,6 +84,30 @@ def test_tensorboard_event_file_written(tmp_path):
     assert events, "expected a TensorBoard event file in out_dir"
 
 
+def test_grad_checkpoint_and_compile_flags(tmp_path):
+    # Both flags must run a short training and still checkpoint/resume via the RAW model
+    # (torch.compile prefixes state_dict keys with _orig_mod. if you save the wrapper).
+    torch.manual_seed(0)
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    tr = Trainer(_cfg(out_dir=str(tmp_path), max_steps=3, grad_checkpoint=True), data, data)
+    stats = tr.train()
+    assert stats["step"] == 3
+    ck = str(tmp_path / "ck.pt")
+    tr.save_checkpoint(ck)
+    tr2 = Trainer(_cfg(max_steps=3), data, data)
+    tr2.load_checkpoint(ck)  # keys must match the uncompiled/unwrapped model
+
+
+@pytest.mark.gpu
+def test_compile_flag_on_cuda(tmp_path):
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    data = TensorData(torch.randint(0, 64, (8000,)))
+    tr = Trainer(_cfg(device="cuda", dtype="bfloat16", out_dir=str(tmp_path), max_steps=3,
+                      compile=True), data, data)
+    assert tr.train()["step"] == 3
+
+
 @pytest.mark.gpu
 def test_trainer_on_cuda_bf16():
     if not torch.cuda.is_available():

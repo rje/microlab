@@ -1,4 +1,4 @@
-"""Reference reward-model tools (Phase 8): a scalar reward head over the GPT, and the
+"""Reference reward-model tools (Phase 11): a scalar reward head over the GPT, and the
 Bradley-Terry pairwise preference loss used to train reward models in RLHF. The oracle
 the owner diffs their hand-written preference loss against."""
 

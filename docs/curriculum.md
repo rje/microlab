@@ -19,8 +19,11 @@ understand line by line. Every phase has the same four layers; you climb through
    stays green while your stubs are unsolved. Start with `docs/hand-write/<phase>-*.md`.
 4. **Run for real (scale)** — for the pretraining phases (1, 2, 4), the production
    infrastructure to actually train a model: a fast tokenizer, a streaming data pipeline,
-   and a checkpoint/resume Trainer. This is *build-and-verify* (no closed-form oracle for a
-   training loop) — verified by driving a real model to low validation loss.
+   and a checkpoint/resume Trainer. Later phases exercise real runs too — Phases 5–6 profile
+   and interpret the trained 150M checkpoint (interp report, inference bench), and Phase 7
+   scales the Trainer to multi-GPU for the ~1B capstone. This is *build-and-verify* (no
+   closed-form oracle for a training loop) — verified by driving a real model to low
+   validation loss.
 
 ## The phases
 
@@ -29,17 +32,20 @@ understand line by line. Every phase has the same four layers; you climb through
 | 0 | Evaluation harness | pass@k, ECE | — |
 | 1 | Data & tokenization | byte-level BPE | fast 32k BPE + FineWeb-Edu `.bin` pipeline |
 | 2 | Tiny GPT pretraining | attention, block, train step, sampling | production Trainer + 150M run |
-| 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU | — |
-| 4 | Scaling experiments | param/FLOP count, scaling-law fit | compute-optimal 1B config + capstone run |
-| 5 | Continued pretraining | forgetting metric, replay mix | (uses scale) |
-| 6 | Supervised fine-tuning | prompt loss-masking, masked CE | (uses scale) |
-| 7 | Efficient fine-tuning | LoRA adapter + merge, quantizer | (uses scale) |
-| 8 | Reward models | Bradley-Terry preference loss | — |
-| 9 | Offline preference opt. | sequence log-prob, DPO loss | — |
-| 10 | RL on verifiable tasks | verifiable reward, GRPO advantage, PPO clip | — |
-| 11 | Reasoning & distillation | STaR trace filter, distillation loss | — |
-| 12 | Tool use & agents | tool-call parse/validate, schema validity | — |
-| 13 | Final report | — | — |
+| 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU, GQA, MoE routing + load-balance loss | — |
+| 4 | Scaling experiments | param/FLOP count, scaling-law fit, muP transfer table | compute-optimal 1B config |
+| 5 | Interpretability | logit lens, induction-head score | interp report on the 150M ckpt |
+| 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench on the 150M ckpt |
+| 7 | Distributed training | per-GPU memory budget (DP/TP/PP x ZeRO) | grad-ckpt/compile drills + cloud DDP + 1B capstone |
+| 8 | Continued pretraining | forgetting metric, replay mix, RoPE position interpolation | (uses scale) |
+| 9 | Supervised fine-tuning | prompt loss-masking, masked CE | (uses scale) |
+| 10 | Efficient fine-tuning | LoRA adapter + merge, quantizer | (uses scale) |
+| 11 | Reward models | Bradley-Terry preference loss | — |
+| 12 | Offline preference opt. | sequence log-prob, DPO loss | — |
+| 13 | RL on verifiable tasks | verifiable reward, GRPO advantage, PPO clip | — |
+| 14 | Reasoning & distillation | STaR trace filter, distillation loss | — |
+| 15 | Tool use & agents | tool-call parse/validate, schema validity | — |
+| 16 | Final report | — | — |
 
 ## Doing a hand-write exercise (all on `main` — no branch switching)
 
@@ -49,7 +55,7 @@ $EDITOR src/microlab/exercises/phase02_gpt.py  # implement the stub in place
 pytest -m exercise -k phase02                  # grade against the reference oracle
 git commit -am "solve phase 2"                 # your solution is tracked
 ```
-Every exercise is a file in `src/microlab/exercises/` (numbered `phase00`…`phase12`). Its
+Every exercise is a file in `src/microlab/exercises/` (numbered `phase00`…`phase15`). Its
 test is marked `exercise` and deselected from the default guardrail, so `main` stays green
 while stubs are unsolved. Attempt first — the reference oracle in
 `src/microlab/<area>/reference/` is one folder over to diff against once you've tried. Green
@@ -66,7 +72,9 @@ code (`VariantGPT` with RoPE + RMSNorm + SwiGLU), scaled up:
 3. **Train** — `scripts/pretrain.py` runs `microlab.train.Trainer` from a config
    (`configs/150m.py`, `configs/1b.py`), resumable across interruptions.
 4. **Climb** — prove the whole pipeline at ~150M (~a day), then commit to the ~1B capstone
-   (~1–3 weeks). See `docs/superpowers/specs/2026-07-01-scale-infrastructure-design.md`.
+   (~3–4 weeks locally on the RTX 6000, or ~12–14 h on a rented 8x H100 node, venue decided
+   by the Phase 7 vendor spike). See
+   `docs/superpowers/specs/2026-07-01-scale-infrastructure-design.md`.
 
 **Honest capability note:** a from-scratch ~1B on ~20B tokens is GPT-2-XL / Pythia-1B class
 — coherent, instructable after SFT, basic reasoning after RL. It won't match modern 1–2B
@@ -75,7 +83,7 @@ understood completely.
 
 ## What's oracle-graded vs build-and-verify
 
-- **Oracle-graded** (phases 0–12 hand-writes): a closed-form or reference-differential
+- **Oracle-graded** (phases 0–15 hand-writes): a closed-form or reference-differential
   answer exists, so tests prove correctness exactly.
 - **Build-and-verify** (the scale Trainer, and — later — whether a trained model/agent is
   actually *good*): no oracle; verified by real runs (val loss, samples, task success on the

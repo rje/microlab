@@ -10,8 +10,11 @@ import pytest
 from microlab.exercises.phase04_scaling import (
     count_params,
     fit_scaling_law,
+    mup_attn_scale,
+    mup_multipliers,
     training_flops_per_token,
 )
+from microlab.model.reference import scaling as ref
 from microlab.model.reference.gpt import GPT, GPTConfig
 from microlab.model.reference.scaling import (
     training_flops_per_token as ref_flops,
@@ -42,5 +45,12 @@ def test_fit_recovers_known_power_law():
     A, alpha = fit_scaling_law(params, losses)
     assert A == pytest.approx(A_true, rel=1e-3)
     assert alpha == pytest.approx(alpha_true, rel=1e-3)
+
+
+def test_mup_multipliers_matches_reference():
+    for base, w in [(128, 128), (128, 512), (256, 1024)]:
+        assert mup_multipliers(base, w) == pytest.approx(ref.mup_multipliers(base, w))
+    assert mup_attn_scale(48) == pytest.approx(ref.mup_attn_scale(48))
+
 
 pytestmark = pytest.mark.exercise

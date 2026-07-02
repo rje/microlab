@@ -1,0 +1,65 @@
+{
+  "paperId": "eliciting-latent-predictions-from-transformers-with-the-tuned-lens",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "The plain 'logit lens' — reading a transformer's next-token prediction off each layer by pushing that layer's residual stream straight through the model's final LayerNorm and unembedding — is a biased estimator of the model's output and often breaks entirely on models other than GPT-2. The tuned lens fixes it by learning one affine probe per layer (a d_model x d_model 'translator' matrix A_l plus bias b_l) composed with the frozen unembedding, trained by KL distillation to match the model's own final-layer distribution. The result is lower-perplexity, unbiased, causally faithful per-layer predictions that hold across models from 70M to 20B parameters.",
+  "overview": "Belrose et al. treat a transformer as an iterative-inference machine: each layer applies an incremental update to a latent guess about the next token, so decoding the residual stream at every layer yields a 'prediction trajectory' that converges smoothly to the final output. Their starting point is nostalgebraist's logit lens, LogitLens(h_l) = LayerNorm[h_l] W_U, which early-exits at layer l by discarding all later residual updates and reusing the model's own final norm and unembedding. The paper's first contribution is a careful diagnosis of why this is untrustworthy: it is unreliable (it fails to elicit plausible predictions from BLOOM, GPT-Neo, and OPT-125M, often just echoing the input token for more than half the layers), it is biased (its position-averaged output puts systematically more mass on certain vocabulary items than the true final distribution — 4 to 5 bits of KL for most layers of GPT-Neo-2.7B, versus 0.0068 bits between Pythia 160M and 12B), and it suffers from representational drift (hidden-state covariance rotates across depth and rogue high-variance dimensions dominate, so the zeroed-out residual sum is a poor stand-in). The fix, the tuned lens, makes two changes: replace the discarded residuals with a learned bias b_l, and insert a learned change-of-basis A_l that maps layer l's output space into the final layer's input space, giving TunedLens_l(h_l) = LayerNorm[A_l h_l + b_l] W_U. The affine translator (A_l, b_l) is the only thing trained; the unembedding stays frozen, so each probe is a cheap d_model x d_model matrix rather than a full |V| x d_model unembedding. Translators are trained by minimizing KL(final logits || tuned-lens logits) — a distillation loss that deliberately uses the model's own output as a soft target so the probe cannot smuggle in information the model never computed. Training is cheap (initialize to the identity, run under an hour on a single 8xA40 node; the authors note Muon trains far better lenses than their original SGD run). The tuned lens is then validated as lower-perplexity, lower-bias, and lower-variance than the logit lens across every model family tested; its translators zero-shot transfer to nearby layers and to fine-tuned checkpoints; and, via a new causal-basis-extraction algorithm, the directions the lens relies on are shown to also drive the model itself (Spearman 0.89). Applications include detecting prompt-injection attacks from anomalous trajectories with near-perfect AUROC and measuring per-example difficulty via prediction depth.",
+  "sections": [
+    {
+      "title": "1. Introduction — Transformers as iterative inference",
+      "summary": "Frames each transformer layer as performing an incremental update to a latent prediction of the next token. Decoding the residual stream at every layer produces a 'prediction trajectory' that tends to converge smoothly to the final output distribution, with each successive layer usually achieving lower perplexity. The tuned lens is introduced as a refinement of the logit lens that yields reliable, interpretable trajectories."
+    },
+    {
+      "title": "2. The Logit Lens — the method",
+      "summary": "Defines the logit lens (nostalgebraist, 2020): decode a hidden state by pushing it through the model's own final LayerNorm and unembedding, LogitLens(h_l) = LayerNorm[h_l] W_U. Mechanically this is early exiting — you set every residual update after layer l to zero and pretend h_l is already the final hidden state. Works passably for GPT-2 but not for the GPT-Neo family, motivating an extension that keeps the last transformer block."
+    },
+    {
+      "title": "2. Unreliability",
+      "summary": "Beyond GPT-Neo, the logit lens fails to elicit plausible predictions from BLOOM-560M, OPT-125M, and others: for these models the top-1 logit-lens prediction is frequently just the current input token rather than any plausible continuation, in more than half the layers. The kind of information it surfaces also varies unpredictably from model to model and layer to layer, making trajectories hard to interpret."
+    },
+    {
+      "title": "2. Bias",
+      "summary": "Even when the logit lens is useful, it is a biased estimator of the model's final output: its position-averaged (marginal) distribution systematically over-weights certain vocabulary items. Bias is quantified as the KL divergence D_KL(p || q_l) between the true and logit-lens marginals — about 4 to 5 bits for most layers of GPT-Neo-2.7B, versus just 0.0068 bits between Pythia 160M's and Pythia 12B's final distributions. A predictable, direction-known bias means the trajectory cannot be read as rational belief-updating (one could 'Dutch book' it)."
+    },
+    {
+      "title": "3. Representation drift and the debiasing fix",
+      "summary": "Transformer hidden states carry a few very-high-variance 'rogue dimensions', and the covariance of hidden states rotates as depth increases, so different layers live in different bases. Because the network may be relying on the summed residuals as an implicit bias term, replacing them with zero is arbitrary and pushes h_l off-distribution. First correction: replace zero with a learnable constant b_l, giving a debiased logit lens LogitLens(h_l + b_l)."
+    },
+    {
+      "title": "3. The Tuned Lens formula",
+      "summary": "Second correction: add a learnable change-of-basis matrix A_l that maps layer l's output space into the final layer's input space, correcting for drifting covariance. This yields the tuned lens: TunedLens_l(h_l) = LogitLens(A_l h_l + b_l) = LayerNorm[A_l h_l + b_l] W_U. The affine map (A_l, b_l) is the 'translator' for layer l; composing it with the frozen unembedding gives an Alain-and-Bengio-style probe from hidden state to vocabulary distribution."
+    },
+    {
+      "title": "3. Loss function — distillation against the model's own output",
+      "summary": "Translators are trained to minimize KL between the model's true final logits and the tuned-lens logits: argmin over (A_l, b_l) of E_x[ D_KL( f_{>l}(h_l) || TunedLens_l(h_l) ) ], where f_{>l} is the rest of the transformer after layer l. Using the final-layer distribution as a soft label (rather than ground-truth next tokens) ensures the probe is not incentivized to learn information beyond what the model already computed — the Hewitt-and-Liang concern with probes trained on ground truth."
+    },
+    {
+      "title": "3. Implementation and the Muon optimizer",
+      "summary": "Translators are initialized to the identity transform and trained on a slice of the model's pretraining validation set, held out from evaluation. The original recipe used SGD with Nesterov momentum, a 2^18-token batch, gradient clipping, and weight decay 1e-3 over 250 steps. The authors later find the Muon optimizer trains dramatically better (lower-KL) lenses and note their earlier lenses were undertrained; training a full set of probes takes under an hour on a single 8xA40 node."
+    },
+    {
+      "title": "3. Results, transfer, and model stitching",
+      "summary": "The tuned lens has substantially lower perplexity, lower bias, and lower cross-model variance than the logit lens for every family tested (Pythia, GPT-NeoX-20B, BLOOM, OPT, GPT-2). Translators zero-shot transfer to nearby layers with only a modest perplexity increase (transfer penalty correlates with covariance similarity, Spearman -0.78) and transfer to fine-tuned checkpoints by reusing the fine-tuned model's unembedding with the base model's translators. Crucially, unlike traditional probing it does NOT learn a new |V| x d_model unembedding per layer — a d_model x d_model translator is far cheaper to train and reaches lower perplexity."
+    },
+    {
+      "title": "4. Measuring Causal Fidelity",
+      "summary": "Tests whether the directions the tuned lens uses are also causally important to the model. Introduces causal basis extraction (CBE), which greedily finds an orthonormal basis of residual-stream directions ordered by influence — influence being the expected KL shift when a direction is mean-ablated. Ablating these directions in the model itself produces a strongly correlated effect (Spearman 0.89 at layer 18 of Pythia 410M), and stimulus-response alignment (via Aitchison geometry) is higher for the tuned lens than the logit lens, supporting that the lens reflects real model computation."
+    },
+    {
+      "title": "5. Applications",
+      "summary": "Demonstrates four uses: eliciting secret/taboo knowledge (mixed results), extending 'Overthinking the Truth' to models where the logit lens fails (early-layer predictions are more robust to false few-shot demos), detecting prompt-injection attacks by feeding tuned-lens trajectories to outlier detectors (near-perfect AUROC on several tasks in Table 1), and estimating example difficulty via 'prediction depth' (layers until top-1 stabilizes), which correlates with iteration-learned better than the logit lens on 8 of 11 tasks."
+    },
+    {
+      "title": "6. Discussion — limitations and future work",
+      "summary": "The tuned lens requires training a translator per layer, but this is fast and pretrained lenses are released for common models. CBE is computationally intensive because it optimizes d_model directions sequentially; a suggested improvement is to optimize a whole k-dimensional subspace at once. The authors expect the approach to extend beyond language to other modalities."
+    }
+  ],
+  "readingFocus": [
+    "Anchor on the two formulas side by side: LogitLens(h_l) = LayerNorm[h_l] W_U versus TunedLens_l(h_l) = LayerNorm[A_l h_l + b_l] W_U. The entire paper is the argument that the A_l and b_l are necessary — read Sections 2 and 3 as 'here is the disease, here is the cure'.",
+    "Understand the three distinct failure modes of the logit lens (unreliability, bias, representational drift) as separate problems — bias is about the marginal distribution, drift is about the per-layer basis rotating, unreliability is the downstream symptom. Each maps to a specific fix.",
+    "The loss is a distillation loss against the model's OWN final logits, not ground-truth tokens (Eq. 9). Make sure you see why that matters: it stops the probe from reading out information the model never actually computed, which is what makes the trajectory a faithful readout rather than a separate classifier.",
+    "Note the key efficiency argument over classical linear probing: the unembedding W_U is frozen and shared, so each translator is only d_model x d_model, not |V| x d_model (|V| is 50K-250K). This is why the whole lens trains in under an hour.",
+    "Skim Section 4 (causal basis extraction) for the takeaway — the lens's important directions are also the model's important directions (Spearman 0.89) — without getting lost in the Aitchison-geometry machinery on a first pass.",
+    "For this curriculum specifically: read with your hand-written plain logit lens open. Ask at each step what your 150M model's trajectory would look like uncorrected, and treat the translator as a concrete next thing to build on top of the lens you already wrote."
+  ]
+}

@@ -1,7 +1,7 @@
-"""Hand-write exercise (Phase 3): implement the three architecture primitives —
-RMSNorm, rotary position embeddings (RoPE), and a SwiGLU MLP.
+"""Hand-write exercise (Phase 3): implement the six architecture pieces —
+RMSNorm, RoPE, SwiGLU, GQA attention, top-k routing, and the load-balance loss.
 
-Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_variants.py``
+Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase03_variants.py``
 passes. The differential tests copy the reference oracle's weights into your modules
 (or call your pure ``apply_rope`` with the same inputs) and compare outputs, so your
 math must match `microlab.model.reference.variants`. See docs/hand-write/phase3-ablations.md.
@@ -57,3 +57,45 @@ class SwiGLUMLP(nn.Module):
         raise NotImplementedError(
             "implement SwiGLU: self.w2(silu(self.w1(x)) * self.w3(x)), then dropout"
         )
+
+
+class GQAAttention(nn.Module):
+    """Grouped-query attention with RoPE. Same parameter names/shapes as the reference
+    (``q_proj``, ``kv_proj``, ``c_proj``) so weights transfer via load_state_dict."""
+
+    def __init__(self, config) -> None:
+        super().__init__()
+        assert config.n_head % config.n_kv_head == 0
+        self.n_head = config.n_head
+        self.n_kv_head = config.n_kv_head
+        self.head_dim = config.n_embd // config.n_head
+        self.n_embd = config.n_embd
+        self.q_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.kv_proj = nn.Linear(
+            config.n_embd, 2 * config.n_kv_head * self.head_dim, bias=config.bias
+        )
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        from microlab.model.reference.variants import build_rope_cache
+
+        cos, sin = build_rope_cache(config.block_size, self.head_dim)
+        self.register_buffer("rope_cos", cos, persistent=False)
+        self.register_buffer("rope_sin", sin, persistent=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError(
+            "project q (n_head heads) and kv (n_kv_head heads), split k/v with "
+            ".split(n_kv_head*head_dim, dim=2), apply RoPE to q and k, repeat_interleave "
+            "k/v by n_head//n_kv_head groups, causal SDPA, merge heads, c_proj"
+        )
+
+
+def route_topk(router_logits: torch.Tensor, k: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """Softmax over all experts, top-k per token, renormalize kept probs to sum to 1.
+    Returns (weights (N,k), indices (N,k)). Graded vs microlab.model.reference.moe."""
+    raise NotImplementedError("softmax -> topk -> renormalize")
+
+
+def load_balance_loss(router_probs: torch.Tensor, expert_indices: torch.Tensor) -> torch.Tensor:
+    """Switch aux loss: E * sum_e (fraction dispatched to e) * (mean router prob of e).
+    1.0 when routing is uniform; E when it collapses onto one expert."""
+    raise NotImplementedError("one-hot the indices; f_e over all (token, slot) pairs")

@@ -1,0 +1,45 @@
+{
+  "paperId": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer",
+  "cards": [
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#1",
+      "question": "State the muTransfer procedure (Algorithm 1) and the problem it solves.",
+      "answer": "Problem: in the standard parametrization the optimal hyperparameters (especially learning rate) drift with width, so a small model's tuned HPs are wrong for a large one and directly sweeping the large model is unaffordable. Algorithm 1 (muTransfer): (1) parametrize the target model in the Maximal Update Parametrization (muP); (2) tune HPs on a smaller proxy model (narrower and/or shallower); (3) copy the tuned HPs to the full-size target zero-shot, without ever tuning the target. muP is designed so the optimal HPs stay stable across width, making the copy valid."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#2",
+      "question": "For hidden weights, what are the muP scaling rules for initialization variance and (Adam) learning rate as a function of width m?",
+      "answer": "Hidden weights (matrix-like, mapping an infinite/width dimension to another infinite dimension) use initialization variance ~ 1/fan_in, i.e. init std ~ 1/sqrt(m), and Adam learning rate ~ 1/fan_in ~ 1/m. (Under SGD the hidden-weight LR is instead width-independent, i.e. ~ 1.) The point is that init scales down like 1/sqrt(width) and the Adam step size scales down like 1/width so that each hidden activation still updates by a width-independent (Theta(1)) amount."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#3",
+      "question": "How are output (readout) weights handled in muP, and what single rule unifies the output multiplier with 1/d attention?",
+      "answer": "Output weights map an infinite (width) dimension to a finite one (e.g. vocab logits). In the implementation-friendly form (Table 8) they carry an explicit multiplier of order 1/fan_in ~ 1/width in front of the layer (with init variance ~ 1/fan_in and Adam LR ~ 1). The unifying rule from Appendix B: a multiplier of order 1/fan_in should accompany ANY weight that maps an infinite dimension to a finite one — this single statement covers both the output-logit multiplier and the 1/d attention scaling. In SP there is no such 1/width factor, which is why output logits blow up with width."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#4",
+      "question": "What is '1/d attention' (Definition 4.1) and why does muP use it instead of the usual 1/sqrt(d) scaling?",
+      "answer": "The Transformer muP computes the attention logit as q-dot-k / d_head instead of q-dot-k / sqrt(d_head). The original 1/sqrt(d) scaling assumes q and k are uncorrelated so their dot product has variance d (CLT). But after training, q and k become correlated, so by the Law of Large Numbers their dot product scales like d, not sqrt(d). Dividing by d (rather than sqrt(d)) keeps the attention logit Theta(1) as width/d_head grows, preserving HP transfer. It is the one architectural change muP makes to the attention block."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#5",
+      "question": "What is a coordinate check and how does it verify a muP implementation?",
+      "answer": "A coordinate check plots the average coordinate size (std of the entries) of every (pre)activation vector in the network over the first few training steps, as width is swept across a large range. A correct muP implementation keeps every curve flat — each activation stays Theta(1) regardless of width. A bug (a wrong row in the muP table) shows up as some activation whose coordinate size blows up or shrinks systematically with width (as SP's logits and attention logits do after one step in Fig. 5). It is the muP analogue of gradient checking and the primary way to debug the hand-written multiplier table; the mup package ships a utility for it."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#6",
+      "question": "Per Table 1, which hyperparameters transfer under muP, which do NOT, and across which scale dimensions can you transfer?",
+      "answer": "muTransferable: optimization-related HPs (learning rate, momentum, Adam betas, LR schedule), initialization variance, and parameter multipliers. NOT muTransferable: regularization HPs — dropout and weight decay — because the right amount of regularization depends on data/model size, not just the parametrization. Transfer ACROSS: width (theoretically justified), plus empirically depth, batch size, sequence length, and training time. Transfer needs a minimum scale (width >= ~256, depth >= ~4, batch >= ~32, seqlen >= ~128, steps >= ~5000), and depth transfer is reliable only for pre-LN Transformers."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#7",
+      "question": "Why do hyperparameters fail to transfer under the standard parametrization (SP)?",
+      "answer": "In SP the per-layer updates are imbalanced with width: after even one optimizer step some hidden quantities (logits, attention logits) grow with width while others (e.g. word embeddings) barely change. So activations do not update by a consistent, width-independent amount, and the loss-vs-learning-rate curve shifts as width grows — the small model's optimal LR is too large (causing blow-up/divergence) at large width. You cannot fix this just by scaling down the global LR, because that would leave the slow-updating layers effectively untrained. muP re-scales per-layer init/LR/multipliers so all activations update at the same rate in width, which stabilizes the optimum."
+    },
+    {
+      "id": "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer#8",
+      "question": "What were the headline GPT-3 and BERT results demonstrating muTransfer's payoff?",
+      "answer": "GPT-3 6.7B: HPs were tuned on a 40M-parameter proxy (width shrunk to 256, ~168x smaller) via random search costing only ~7% of one pretraining run; the resulting muTransferred 6.7B model outperformed the originally-published 6.7B and was comparable to the twice-as-large 13B model. BERT: tuning a 13M 'BERT-prototype' let them transfer HPs to BERT-base and BERT-large simultaneously, beating the well-tuned Megatron BERT-large at roughly 22x model speedup / 220x total speedup with total tuning cost about equal to a single BERT-large pretraining. Naive (non-muP) transfer diverged in both cases."
+    }
+  ]
+}

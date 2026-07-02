@@ -1,0 +1,45 @@
+{
+  "paperId": "locating-and-editing-factual-associations-in-gpt",
+  "cards": [
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#1",
+      "question": "Describe the three runs of Causal Tracing and what the Indirect Effect measures.",
+      "answer": "Given a factual prompt, you run the network three times. (1) Clean run: pass the prompt normally and record all hidden states h_i^(l); the model predicts the correct object o. (2) Corrupted run: add noise epsilon ~ N(0; nu) to the subject tokens' embeddings so the model loses the fact and predicts wrongly. (3) Corrupted-with-restoration run: repeat the corrupted run but force one single state h_i^(l) back to its clean value. The Indirect Effect (IE) of that state is the recovery in the target probability, IE = P_{*,clean h}[o] - P_*[o] — how much restoring just that one activation rescues the fact. Averaged over many facts it gives the Average Indirect Effect (AIE) per state, a causal map of where the fact lives."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#2",
+      "question": "What two causal sites did tracing reveal in GPT-2 XL, and which one was the new discovery?",
+      "answer": "A 'late site' — attention modules at the LAST token in the final layers — which is unsurprising since that is where the prediction is assembled. And an 'early site' — strong causal states at MIDDLE layers on the LAST token of the SUBJECT — which was the new discovery. The early site is where the fact about the subject is recalled before being copied forward. Averaged over 1000 facts the total effect was 18.6%, with a large share mediated by individual mid-layer states at the last subject token."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#3",
+      "question": "What evidence pins the early site specifically on MLP (feed-forward) modules rather than attention?",
+      "answer": "Two pieces. First, decomposing the indirect effect by module type shows MLP contributions dominate the early site (AIE 6.6%) while attention there is weak (1.6%); attention instead dominates the late site. Second, a modified-graph experiment severs the MLP computation at the subject token (freezing MLPs in the corrupted state) and finds the early-site causal effect collapses, whereas severing attention does not produce the same gap. So mid-layer MLPs are causally necessary for recalling the fact, not merely correlated with it."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#4",
+      "question": "State the Localized Factual Association Hypothesis and its three dimensions of localization.",
+      "answer": "Each mid-layer MLP module acts as a key-value store: it takes an input that encodes the subject and outputs the memorized properties (the relation-object) of that subject. Middle-layer MLP outputs accumulate this recalled information at the subject's last token, and self-attention at higher layers copies that summary to the final token to drive the prediction. Facts are localized along three dimensions: (i) in MLP modules, (ii) at specific middle layers, and (iii) at the processing of the subject's LAST token."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#5",
+      "question": "Why can a transformer MLP be viewed as a linear associative memory, and how does that make it editable?",
+      "answer": "Following Geva et al. (2021), the MLP is a two-layer key-value memory: the first layer W_fc (through the nonlinearity) turns the subject into a key vector k, and the second layer W_proj retrieves an associated value. Any linear map W acts as an associative store solving WK ~ V over a set of key-value columns. Because it is linear, you can insert one new pair (k*, v*) in closed form without retraining — the associative-memory view is exactly what makes a single-shot weight edit possible."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#6",
+      "question": "Write ROME's rank-one update and explain each term, plus how k* and v* are chosen.",
+      "answer": "The update to the MLP down-projection is W_hat = W + Lambda (C^-1 k*)^T, solving 'minimize ||W_hat K - V|| such that W_hat k* = v*'. Here W is the original matrix; C = KK^T is the pre-cached uncentered covariance of keys estimated from Wikipedia text (it steers the edit away from directions used by other memories); k* is the subject key; and Lambda = (v* - W k*) / ((C^-1 k*)^T k*) scales the residual so the constraint is met. It is rank-one because it adds a single outer product. Step 1: choose k* by averaging the layer's key over ~50 random-prefix texts ending in the subject. Step 2: choose v* by optimizing a vector z that maximizes P(o*) for the fact while a KL term keeps the subject's 'essence' (predictions for 'subject is a ___') unchanged. Step 3: plug k*, v* into the update on W_proj."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#7",
+      "question": "What is the CounterFact dataset for, and what distinction do its metrics enforce?",
+      "answer": "CounterFact is 21,919 hard counterfactual edits (false facts the model initially rates as unlikely) built to distinguish a genuine belief change from superficial word regurgitation. Its metrics separate generalization from specificity: Efficacy (ES/EM) checks the edited fact itself; Paraphrase scores (PS/PM) test whether the edit survives rephrasing (generalization); Neighborhood scores (NS/NM) test whether nearby related subjects are left unchanged (specificity); plus consistency (RS) and fluency (GE). The point is that high efficacy alone is easy — the hard part is generalizing without bleeding into neighbors."
+    },
+    {
+      "id": "locating-and-editing-factual-associations-in-gpt#8",
+      "question": "What is ROME's key comparative result on CounterFact, and how does Section 3.4 close the loop with the tracing analysis?",
+      "answer": "ROME is the only method that achieves BOTH generalization and specificity at once. Fine-tuning (FT) generalizes but bleeds into neighbors (poor specificity); FT+L and hypernetworks (KE, MEND) stay specific but fail to generalize (F1/F2 failures), and Knowledge Neurons make weak edits. Section 3.4 sweeps ROME across every layer/token: rewrites succeed best at the last subject token and at middle layers, with generalization peaking around layer 18 — independently reproducing the causal-tracing map. This locate-then-intervene-then-confirm loop is the paper's methodological payoff."
+    }
+  ]
+}

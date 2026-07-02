@@ -1,4 +1,4 @@
-"""Reference DPO tools (Phase 9). `sequence_logprob` sums the response-token log-probs
+"""Reference DPO tools (Phase 12). `sequence_logprob` sums the response-token log-probs
 under a model; `dpo_loss` is the Direct Preference Optimization objective, which raises
 the policy's log-ratio on chosen vs rejected relative to a frozen reference model."""
 

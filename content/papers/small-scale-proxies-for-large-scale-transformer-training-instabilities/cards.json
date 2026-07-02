@@ -1,0 +1,45 @@
+{
+  "paperId": "small-scale-proxies-for-large-scale-transformer-training-instabilities",
+  "cards": [
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#1",
+      "question": "What is the paper's central claim about large-scale training instabilities, and why does it matter for a small lab?",
+      "answer": "Two instabilities previously seen only in very large models — attention-logit growth and output-logit divergence — can be reproduced in small Transformers (as few as ~2.4M parameters) simply by training at high learning rates, and the mitigations used at scale (qk-layernorm, z-loss) remain effective in that regime. This means instability research does not require a large resource pool: you can study, and even predict, failures on cheap proxy models."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#2",
+      "question": "Describe the attention-logit growth instability and its mitigation, including where it originates.",
+      "answer": "The pre-softmax attention logits z_ij = <q_i, k_j>/sqrt(d_h) grow large during training; the softmax then saturates and attention weights collapse toward one-hot vectors (attention entropy collapse). First reported by Dehghani et al. training ViT-22B. The mitigation is qk-layernorm: apply LayerNorm to the queries and keys before computing the logits. It tends to appear early in training, is worst in layer 0, and the authors hypothesize it stems from a quadratic dependence of the logits on parameter norms (growth in q and k norms rather than their alignment)."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#3",
+      "question": "Describe the output-logit divergence instability and the z-loss mitigation, including the formula.",
+      "answer": "The output logits y define probabilities p_i = e^{y_i}/Z with Z = sum_j e^{y_j}. The instability is a divergence of the logits from the log-probabilities, visible as the softmax normalizer log Z (and the output-logit mean) drifting strongly negative, typically late in training. Reported by Chowdhery et al. for PaLM. The mitigation is z-loss: an auxiliary penalty log^2(Z) with coefficient 1e-4 that keeps log Z close to zero. Weight decay also mitigates it for the larger models tested."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#4",
+      "question": "Define LR sensitivity and explain what it measures.",
+      "answer": "LR sensitivity = E over eta in [a,b] of ( min(loss(A(eta)), loss_0) - loss* ), where A(eta) is the model trained at learning rate eta, loss* is the best loss achieved over the LR range, and loss_0 is the loss at initialization (a cap so a diverged run doesn't dominate). It summarizes an LR-vs-loss curve as a single scalar: the expected deviation from optimal loss when sweeping the learning rate across roughly three orders of magnitude. A model that fails to train at high LR has high LR sensitivity, i.e. it is fragile."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#5",
+      "question": "How do LR-vs-loss curves and LR sensitivity change with model scale, and what does qk-layernorm do to them?",
+      "answer": "As model size grows, an instability shows up as an explosion of final loss at high learning rate, and the learning rate at which models diverge gets smaller — the stable LR window narrows and the whole curve shifts. qk-layernorm substantially lowers LR sensitivity and lets models train to low loss at high LR (a highlight: a 1.2B model trained at LR 0.3). However, both with and without qk-layernorm, LR sensitivity still increases with scale."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#6",
+      "question": "How can these instabilities be predicted before a model diverges? Give the two scaling-trend examples.",
+      "answer": "(1) Attention-logit growth: fit a quadratic to max-attention-logit vs number of parameters at each learning rate and extrapolate; empirically any run whose attention logits exceeded ~1e4 diverged. The fit predicted a 4.8B model would diverge at LR 1e-2, and training it confirmed both the divergence and the predicted logit value. (2) Gradient-RMS trend: grad RMS falls with model size and LR, approaching the default AdamW epsilon (1e-8) at large scale; since Delta = v/(sqrt(u)+epsilon), when grad RMS is on the order of epsilon the updates shrink and parameters stop learning."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#7",
+      "question": "The AdamW epsilon can become an instability at scale. Explain the mechanism and the fix.",
+      "answer": "The unscaled AdamW update is Delta = v/(sqrt(u)+epsilon), where v and u are the first and second gradient-moment EMAs. As models scale up, gradient RMS decreases until it is on the same order as the default epsilon (1e-8); then epsilon dominates the denominator, the update magnitude collapses, and affected parameters (even a whole layer) stop receiving learning signal. Fix: lower epsilon — decreasing it to 1e-15 improved loss for a 4.8B model at LR 0.3, while raising it to 1e-6 caused divergence."
+    },
+    {
+      "id": "small-scale-proxies-for-large-scale-transformer-training-instabilities#8",
+      "question": "Beyond qk-layernorm and z-loss, which interventions affect LR sensitivity, and which does the paper caution about?",
+      "answer": "Longer warm-up reduces both LR sensitivity and loss, especially for larger models (which are unstable at LR 3e-1 without it). Independent/decoupled weight decay — theta <- theta - s_t(eta*Delta - lambda*theta), rather than the default AdamW theta <- theta - s_t*eta(Delta - lambda*theta) that scales decay by eta — also reduces LR sensitivity. Scaling depth raises LR sensitivity faster than scaling width (though depth gives lower loss at the largest scale). muParam (simple) stabilizes the optimal LR across width but does not improve loss or reduce LR sensitivity here — and reducing LR sensitivity does not matter if the optimal LR does not move."
+    }
+  ]
+}

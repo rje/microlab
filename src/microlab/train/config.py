@@ -34,6 +34,8 @@ class RunConfig:
     eval_iters: int = 50
     ckpt_interval: int = 500
     ckpt_keep: int = 3  # 0 disables pruning; only the last N ckpt_*.pt files are kept
+    grad_checkpoint: bool = False  # recompute activations backward: ~30x less act memory
+    compile: bool = False          # torch.compile the model (CUDA; first step compiles)
     log_interval: int = 50
     out_dir: str = "runs/pretrain"
     device: str = "cuda"

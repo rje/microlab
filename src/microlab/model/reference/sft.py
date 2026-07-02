@@ -1,4 +1,4 @@
-"""Reference supervised fine-tuning tools (Phase 6): a chat template, SFT example building
+"""Reference supervised fine-tuning tools (Phase 9): a chat template, SFT example building
 with PROMPT LOSS MASKING (train only on response tokens), a padded collator, and masked
 cross-entropy. The oracle the owner diffs their hand-written masking against.
 

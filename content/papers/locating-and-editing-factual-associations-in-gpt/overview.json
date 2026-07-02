@@ -1,0 +1,69 @@
+{
+  "paperId": "locating-and-editing-factual-associations-in-gpt",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "Meng et al. use causal mediation analysis to LOCATE factual associations in GPT — mid-layer MLPs at the last subject token turn out to be decisive — then PROVE that location is causal with Rank-One Model Editing (ROME), a closed-form weight edit that treats the MLP's down-projection as a key-value memory and inserts a new (subject, relation, object) fact so it generalizes across paraphrases while leaving neighboring facts untouched.",
+  "overview": "The paper answers 'where does a GPT store its facts?' with a two-step method that is the template for mechanistic interpretability: locate, then intervene. First, Causal Tracing runs the network three times on a factual prompt (e.g. 'The Space Needle is in downtown ___' -> 'Seattle'): a clean run, a corrupted run where the subject tokens' embeddings are noised so the model forgets the fact, and a corrupted-with-restoration run that copies a single clean hidden state back in to see whether it alone rescues the correct answer. Averaging this indirect effect over 1000 facts reveals two causal sites — an unsurprising 'late site' (attention at the last token, last layers) and a newly discovered 'early site': MLP modules at middle layers, specifically when processing the LAST token of the subject. Severing the MLP computation kills the early-site effect, implicating feed-forward layers as the store of facts. Second, to prove this is where facts causally live (not just correlate), the authors introduce ROME: they view the MLP down-projection matrix W_proj as a linear associative memory (a key-value store), and derive a closed-form rank-one update W_hat = W + Lambda(C^-1 k*)^T that forces the layer to map a subject key k* to a new value v* while minimally disturbing other stored associations. On the zsRE benchmark and their new CounterFact dataset of 21,919 hard counterfactuals, ROME uniquely achieves BOTH generalization (the edit survives rephrasing) AND specificity (nearby subjects are unchanged), where fine-tuning, hypernetworks (KE, MEND), and Knowledge Neurons each sacrifice one or the other. The editing sweep independently confirms the tracing result: edits work best at mid-layer MLPs on the final subject token.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Frames the question — where in a GPT's weights a fact lives — and previews the two-pronged method: trace causal effects of hidden-state activations to locate the fact, then edit weights with ROME to confirm the location is causal. Uses the knowledge tuple t = (s, r, o) (subject, relation, object) and the running 'Space Needle -> Seattle' example."
+    },
+    {
+      "title": "2. Interventions on Activations for Tracing Information Flow",
+      "summary": "Sets up the transformer as a grid of hidden states h_i^(l), each layer adding attention a_i^(l) and MLP m_i^(l) contributions (Eqn. 1). Frames the grid as a causal graph and applies causal mediation analysis to find which internal states most determine the correct next token."
+    },
+    {
+      "title": "2.1 Causal Tracing of Factual Associations",
+      "summary": "Defines the three runs: clean, corrupted (subject embeddings perturbed by noise epsilon ~ N(0; nu) so the model loses the fact), and corrupted-with-restoration (one clean state h_i^(l) is patched back in). Formalizes total effect (TE = P[o] - P_*[o]) and indirect effect (IE), the recovery in P[o] attributable to restoring a single state. Averaging over many facts yields the Average Indirect Effect (AIE) per state."
+    },
+    {
+      "title": "2.2 Causal Tracing Results",
+      "summary": "On GPT-2 XL (1.5B), the AIE over 1000 facts reveals two sites. A late site (attention, last token, last layers) is expected; the discovery is an early site — strong causal states at MIDDLE layers on the LAST subject token. Decomposing by module shows MLP dominates the early site (AIE 6.6% vs 1.6% for attention), and severing MLP computation removes the early-site effect, implicating mid-layer feed-forward modules as where facts are recalled."
+    },
+    {
+      "title": "2.3 The Localized Factual Association Hypothesis",
+      "summary": "Posits the mechanism: each mid-layer MLP acts as a key-value store keyed on the subject; its outputs accumulate recalled properties at the subject's last token, and attention at higher layers copies that summary to the final token to drive the prediction. Facts are localized along three dimensions — MLP modules, specific middle layers, and the subject's last token — motivating the editing experiment."
+    },
+    {
+      "title": "3. Interventions on Weights (ROME)",
+      "summary": "Shifts from activations to weights. Following Geva et al. (2021), treats an MLP's two layers as a key-value memory: W_fc's neurons form a key, W_proj retrieves the associated value. Hypothesizes the MLP is a linear associative memory and tests it by directly editing W_proj to insert a new fact — a stronger claim than mere correlation."
+    },
+    {
+      "title": "3.1 Rank-One Model Editing (ROME)",
+      "summary": "Derives the method. A linear map W is a key-value store solving WK ~ V; inserting one new pair (k*, v*) has the closed-form rank-one solution W_hat = W + Lambda(C^-1 k*)^T, where C = KK^T is the pre-cached uncentered covariance of keys (from Wikipedia) and Lambda scales the residual. Step 1: choose k* by averaging the layer's key over texts ending in the subject. Step 2: choose v* by optimizing a vector that maximizes P(o*) while a KL term preserves the subject's 'essence'. Step 3: apply the rank-one update to W_proj."
+    },
+    {
+      "title": "3.2 Evaluating ROME: zsRE",
+      "summary": "On 10,000 zero-shot relation-extraction records, ROME reaches 99.8 efficacy and is competitive with fine-tuning and custom-trained hypernetworks (KE, MEND) despite its simplicity. Notes zsRE's specificity score is a weak signal because its unrelated facts are sampled from a huge space, whereas real bleedover hits neighboring subjects — motivating a harder dataset."
+    },
+    {
+      "title": "3.3 Evaluating ROME: CounterFact",
+      "summary": "Introduces CounterFact: 21,919 hard counterfactual edits with paraphrase prompts (for generalization), neighborhood prompts on related subjects (for specificity), plus consistency and fluency probes. Defines Efficacy (ES/EM), Paraphrase/generalization (PS/PM), Neighborhood/specificity (NS/NM), consistency (RS), and fluency (GE), designed to separate a real belief change from superficial word regurgitation."
+    },
+    {
+      "title": "3.4 Confirming Decisive States Found by Causal Tracing",
+      "summary": "Sweeps ROME across every layer-and-token position. Rewrites succeed best at the LAST subject token and at MIDDLE layers, with generalization peaking around layer 18 — an independent replication of the causal-tracing map. Editing earlier/later tokens or layers hurts generalization and/or specificity, tightly linking 'where you can edit' to 'where tracing said the fact lives'."
+    },
+    {
+      "title": "3.5-3.6 Generation and Human Evaluation",
+      "summary": "Qualitative and human results on the 'Pierre Curie's area of work is medicine' counterfactual: ROME both generalizes (describes Curie as a physician across wordings) and stays specific (leaves the unrelated Robert Millikan's field unchanged), while FT/KE/MEND fail one side. Human raters find ROME 1.8x more consistent than FT+L, at a modest 1.3x cost in fluency."
+    },
+    {
+      "title": "3.7 Limitations",
+      "summary": "ROME edits one fact at a time and is a mechanism-understanding tool, not a training method. Edits are directional (the reverse association needs its own edit), and an edited model may still confidently emit plausible-but-false facts, cautioning against using LMs as authoritative fact stores. Scaling to many simultaneous edits is left to follow-up work (MEMIT)."
+    },
+    {
+      "title": "4-6. Related Work, Conclusion, Ethics",
+      "summary": "Positions the work against probing-classifier studies (which can be dissociated from behavior) and prior editing methods (Knowledge Neurons, KE, MEND). Concludes that causal tracing plus ROME clarify how autoregressive transformers store and recall facts, and flags dual-use risks of easy fact editing (misinformation) alongside benefits (transparency, cheap error correction)."
+    }
+  ],
+  "readingFocus": [
+    "Causal Tracing is the core method to internalize: the clean / corrupted / corrupted-with-restoration triple and the Indirect Effect it measures. This is a direct, more rigorous cousin of the logit-lens and induction-head analysis you are already running — instead of reading off what a layer represents, it noise-ablates the subject and measures which single state can RESTORE the fact.",
+    "Trace the two causal sites in Figures 1-2: the expected 'late site' (attention, last token, last layers) versus the discovered 'early site' (MLP, middle layers, LAST subject token). The claim that mid-layer MLPs store facts is the headline — make sure you see how severing MLP computation (Figure 3) proves it rather than merely correlating with it.",
+    "The MLP-as-key-value-memory framing (Section 3, following Geva et al.) is the conceptual bridge: W_fc produces a key from the subject, W_proj retrieves the value. This reframes the feed-forward layers in your own 150M model as an associative memory, not just a nonlinearity.",
+    "ROME's closed-form update W_hat = W + Lambda(C^-1 k*)^T (Eqn. 2) is worth understanding term by term: why a rank-one edit, why the covariance C = KK^T pre-cached from real text, and how k* (subject selection) and v* (fact optimization) are chosen separately in Steps 1-3.",
+    "The generalization-vs-specificity axis is the evaluation lesson. CounterFact's paraphrase prompts test whether the edit is a real belief change; neighborhood prompts test whether it bled into related subjects. ROME's uniqueness is doing both at once — note exactly how FT, KE, and MEND each fail one side in Table 4.",
+    "Section 3.4 closes the loop: the ROME editing sweep independently reproduces the tracing map (mid layers, final subject token). This locate-then-intervene-then-confirm structure is the transferable methodology — the single most important thing to carry into your own interpretability work, above any specific number."
+  ]
+}

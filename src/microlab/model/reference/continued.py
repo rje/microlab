@@ -1,4 +1,4 @@
-"""Reference continued-pretraining tools (Phase 5): measure catastrophic forgetting when a
+"""Reference continued-pretraining tools (Phase 8): measure catastrophic forgetting when a
 model is trained on a new domain, and mitigate it with replay (rehearsing old-domain data).
 The oracle the owner diffs hand-written forgetting/replay against."""
 
@@ -38,6 +38,18 @@ def build_replay_mix(
     n_new = len(new_tokens)
     n_old = min(round(replay_fraction / (1.0 - replay_fraction) * n_new), len(old_tokens))
     return torch.cat([new_tokens, old_tokens[:n_old]])
+
+
+def interpolated_rope_cache(seq_len: int, head_dim: int, scale: float, base: float = 10000.0):
+    """Position-interpolated RoPE tables (Chen et al. 2023): compress positions by
+    `scale` so seq_len positions fit inside the rotation range the model was trained on.
+    scale=1 reproduces build_rope_cache exactly; scale=2 lets a 1024-trained model
+    address 2048 positions (finetune briefly after swapping the cache in)."""
+    assert head_dim % 2 == 0
+    theta = 1.0 / (base ** (torch.arange(0, head_dim, 2).float() / head_dim))
+    t = torch.arange(seq_len).float() / scale
+    freqs = torch.outer(t, theta)
+    return freqs.cos(), freqs.sin()
 
 
 def continued_pretrain(

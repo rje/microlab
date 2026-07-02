@@ -12,10 +12,11 @@ When forced to choose, optimize for deep understanding over speed. Each phase sh
 - Hardware target: one RTX 6000-class GPU with 48GB VRAM
 - Primary stack: Python, PyTorch, Hugging Face datasets/transformers/accelerate, PEFT, TRL, bitsandbytes
 - Model sizes:
-  - From scratch: start around 10M-50M parameters, then scale toward 100M-300M
+  - From scratch: start around 10M-50M parameters, then scale toward 100M-300M and a ~1B capstone
   - Full fine-tuning: small models, roughly 0.5B-3B depending on context length and optimizer
   - LoRA/QLoRA: 7B-14B comfortably, 30B as a stretch, 70B-class only as a careful experiment
 - Preferred style: small reproducible experiments, written notes, plots, evals, and postmortems
+- Cloud budget: hundreds of dollars total is acceptable for multi-GPU educational runs (Phase 7 drills ~$25-50; 1B capstone ~$300-400 if the vendor spike favors cloud); thousands is not.
 
 ## Track Design
 
@@ -109,6 +110,7 @@ Deliverables:
 
 - ablation matrix
 - plots of validation loss and throughput
+- grouped-query attention (GQA/MQA) and a tiny top-k MoE with load-balance loss
 - short notes explaining which changes mattered and why
 
 Key readings:
@@ -118,6 +120,8 @@ Key readings:
 - GLU Variants Improve Transformer
 - FlashAttention
 - Switch Transformers
+- Fast Transformer Decoding: One Write-Head is All You Need (MQA, Shazeer 2019)
+- GQA: Training Generalized Multi-Query Transformer Models (Ainslie 2023)
 
 ### Phase 4: Scaling Experiments
 
@@ -128,6 +132,7 @@ Deliverables:
 - at least three model sizes
 - token budget comparison
 - compute/time/VRAM table
+- muP hyperparameter transfer table + a coordinate check across widths
 - summary of where the server bottlenecks
 
 Key readings:
@@ -136,8 +141,70 @@ Key readings:
 - Chinchilla
 - LLaMA
 - Llama 3 Herd of Models
+- muP: Tensor Programs V (Feature Learning in Infinite-Width Neural Networks)
+- Small-scale proxies for large-scale Transformer training instabilities
 
-### Phase 5: Continued Pretraining
+### Phase 5: Interpretability
+
+Open up the trained 150M checkpoint and find real structure instead of trusting the loss
+curve. Decode every layer's residual stream with the model's own unembedding (logit lens),
+read attention patterns, and score induction heads on repeated sequences. Stretch goal:
+watch induction heads form across saved checkpoints to see in-context learning emerge.
+
+Deliverables:
+
+- logit-lens decoder over all layers
+- induction-head score on repeated-sequence probes
+- attention-pattern visualizations on the 150M checkpoint
+- short interpretability report
+
+Key readings:
+
+- Tuned Lens
+- ROME (Locating and Editing Factual Associations in GPT)
+- In-context Learning and Induction Heads (transformer-circuits.pub)
+
+### Phase 6: Inference Engineering
+
+Build everything between a checkpoint and a served token. Implement a KV cache and prove
+generation is memory-bound, measure the KV-cache shrink that motivates GQA, quantize to
+int8/int4 and pay the perplexity cost, and add speculative decoding with a draft model to
+make decoding faster for free.
+
+Deliverables:
+
+- KV-cached generate (graded by exact token-match against uncached generation)
+- sampling zoo (temperature, top-k, top-p, typical)
+- groupwise int8/int4 quantizer + perplexity table
+- speculative-decoding accept-rate benchmark on the 150M checkpoint
+
+Key readings:
+
+- PagedAttention (vLLM)
+- Fast Inference from Transformers via Speculative Decoding
+- GPTQ
+
+### Phase 7: Distributed Training
+
+Learn the parallelism vocabulary of every frontier lab - DP/TP/PP, ZeRO, FSDP - and feel it
+on rented multi-GPU hardware. Hand-write the per-GPU memory budget, prove it against
+nvidia-smi on a rented 4x A100 node (~$25-50), measure DDP scaling efficiency on the real
+150M training script, and open with a vendor-affordability spike that decides whether the
+1B capstone trains in the cloud (~12-14h on 8x H100) or locally (~3-4 weeks).
+
+Deliverables:
+
+- per-GPU memory budget (DP/TP/PP x ZeRO) validated against nvidia-smi
+- DDP scaling-efficiency measurement on the 150M training script
+- gradient-checkpointing and torch.compile drills
+- vendor-affordability spike + the 1B capstone run
+
+Key readings:
+
+- Megatron-LM
+- ZeRO
+
+### Phase 8: Continued Pretraining
 
 Take an open base model and continue next-token training on a domain corpus. Compare it against the base model and watch for catastrophic forgetting.
 
@@ -147,6 +214,7 @@ Deliverables:
 - continued-pretraining run
 - base-vs-adapted evals
 - forgetting analysis
+- long-context extension via RoPE position interpolation
 
 Key readings:
 
@@ -154,8 +222,9 @@ Key readings:
 - OPT
 - Llama 3 Herd of Models
 - DeepSeek-V3
+- Extending Context Window of Large Language Models via Position Interpolation (Chen 2023)
 
-### Phase 6: Supervised Fine-Tuning
+### Phase 9: Supervised Fine-Tuning
 
 Create instruction/response data and train a chat model. Use this phase to understand chat templates, prompt formats, synthetic data quality, and response style control.
 
@@ -173,7 +242,7 @@ Key readings:
 - Self-Instruct
 - InstructGPT
 
-### Phase 7: Efficient Fine-Tuning
+### Phase 10: Efficient Fine-Tuning
 
 Use LoRA and QLoRA to scale from small fine-tuning to 7B-30B-class models on one GPU. Compare rank, target modules, quantization, learning rate, and sequence length.
 
@@ -189,7 +258,7 @@ Key readings:
 - LoRA
 - QLoRA
 
-### Phase 8: Preference Data and Reward Models
+### Phase 11: Preference Data and Reward Models
 
 Generate multiple completions per prompt and build chosen/rejected pairs. Train a small reward model and inspect where it fails.
 
@@ -206,7 +275,7 @@ Key readings:
 - InstructGPT
 - Constitutional AI
 
-### Phase 9: Offline Preference Optimization
+### Phase 12: Offline Preference Optimization
 
 Train with DPO, ORPO, and/or KTO. Compare against SFT using the same prompts and eval suite. Focus on how preference optimization changes helpfulness, verbosity, refusal behavior, and style.
 
@@ -223,7 +292,7 @@ Key readings:
 - ORPO
 - KTO
 
-### Phase 10: RL on Verifiable Tasks
+### Phase 13: RL on Verifiable Tasks
 
 Use tasks with automatic rewards: math answers, code tests, JSON schema validity, tool-call correctness, or small games. Start with a small model and keep the reward simple.
 
@@ -243,7 +312,7 @@ Key readings:
 - Training Verifiers to Solve Math Word Problems
 - Let's Verify Step by Step
 
-### Phase 11: Reasoning and Distillation
+### Phase 14: Reasoning and Distillation
 
 Use a stronger teacher model or a larger local model to generate solutions, traces, or rejected candidates. Distill into a smaller model, then test whether the student actually improves.
 
@@ -261,7 +330,7 @@ Key readings:
 - DeepSeek-R1
 - s1: Simple Test-Time Scaling
 
-### Phase 12: Tool Use and Agentic Behavior
+### Phase 15: Tool Use and Agentic Behavior
 
 Train or fine-tune a model to emit structured tool calls. Use exact schema validation and environment feedback. This is one of the easiest places to measure real behavioral improvement.
 
@@ -279,7 +348,7 @@ Key readings:
 - Gorilla
 - ToolLLM
 
-### Phase 13: Final Report
+### Phase 16: Final Report
 
 Write a capstone report that ties the work together. Include what improved, what failed, what was compute-bound, and which methods were worth the complexity.
 
@@ -338,3 +407,10 @@ microlab/
 1. Build the paper library and skim the foundations/data papers.
 2. Implement the evaluation harness with a baseline open model.
 3. Build the data/tokenizer pipeline and train the first tiny GPT.
+
+## Explicitly Out of Scope
+
+Decided exclusions, not omissions: multimodality (would double the curriculum),
+RAG/retrieval systems (application-layer, not model-building), and deep safety work
+(red-teaming, jailbreak evaluation) beyond the Constitutional AI reading. Revisit after
+Phase 16 if interest survives contact with the 1B capstone.

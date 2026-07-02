@@ -87,6 +87,10 @@ class Trainer:
             )
         )
         self.model.to(self.device)
+        self.raw_model = self.model  # state_dict source of truth (survives torch.compile)
+        self.raw_model.grad_checkpoint = cfg.grad_checkpoint
+        if cfg.compile:
+            self.model = torch.compile(self.model)
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=cfg.lr,
@@ -162,7 +166,7 @@ class Trainer:
         if parent:
             os.makedirs(parent, exist_ok=True)
         ckpt = {
-            "model": self.model.state_dict(),
+            "model": self.raw_model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "step": self.step,
             "torch_rng_state": torch.get_rng_state(),
@@ -186,7 +190,7 @@ class Trainer:
 
     def load_checkpoint(self, path: str) -> None:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.model.load_state_dict(ckpt["model"])
+        self.raw_model.load_state_dict(ckpt["model"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
         self.step = ckpt["step"]
         # RNG state tensors must live on CPU for set_rng_state / generator.set_state.
@@ -203,10 +207,10 @@ class Trainer:
         training trajectory. Restores train() mode that generate() flips to eval()."""
         ids = self.tokenizer.encode(SAMPLE_PROMPT) or [0]
         idx = torch.tensor([ids], dtype=torch.long, device=self.device)
-        was_training = self.model.training
-        out = generate(self.model, idx, SAMPLE_TOKENS, temperature=0.0)
+        was_training = self.raw_model.training
+        out = generate(self.raw_model, idx, SAMPLE_TOKENS, temperature=0.0)
         if was_training:
-            self.model.train()
+            self.raw_model.train()
         writer.add_text("samples", self.tokenizer.decode(out[0].tolist()), step)
 
     def train(self) -> dict:

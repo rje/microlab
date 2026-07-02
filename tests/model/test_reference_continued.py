@@ -6,9 +6,11 @@ from microlab.model.reference.continued import (
     continued_pretrain,
     evaluate_on_corpora,
     forgetting_score,
+    interpolated_rope_cache,
 )
 from microlab.model.reference.gpt import GPT, GPTConfig
 from microlab.model.reference.train import TrainConfig
+from microlab.model.reference.variants import build_rope_cache
 
 
 def test_forgetting_score_sign():
@@ -66,3 +68,27 @@ def test_continued_pretrain_reports_forgetting_on_cuda():
     assert set(res["forgetting"]) == {"old", "new"}
     assert all(isinstance(v, float) for v in res["forgetting"].values())
     assert res["train"]["device"] == "cuda"
+
+
+# Position-interpolation oracle: scaled positions must land exactly on the original
+# cache's rows at integer-aligned points.
+def test_scale_one_is_identity():
+    a_cos, a_sin = build_rope_cache(64, 8)
+    b_cos, b_sin = interpolated_rope_cache(64, 8, scale=1.0)
+    assert torch.allclose(a_cos, b_cos, atol=1e-6) and torch.allclose(a_sin, b_sin, atol=1e-6)
+
+
+def test_scale_two_hits_original_positions_at_even_rows():
+    base_cos, base_sin = build_rope_cache(32, 8)
+    int_cos, int_sin = interpolated_rope_cache(64, 8, scale=2.0)
+    assert torch.allclose(int_cos[::2], base_cos, atol=1e-5)
+    assert torch.allclose(int_sin[::2], base_sin, atol=1e-5)
+
+
+def test_interpolated_frequencies_stay_in_trained_range():
+    cos, _ = interpolated_rope_cache(128, 8, scale=4.0)
+    base_cos, _ = build_rope_cache(32, 8)
+    assert cos.shape[0] == 128
+    # scale=4 -> interpolated row 124 sits at position 124/4 == 31, the last trained row;
+    # its rotation angles equal the last row of the 32-length base cache exactly.
+    assert torch.allclose(cos[124], base_cos[31], atol=1e-5)

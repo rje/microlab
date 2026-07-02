@@ -1,6 +1,6 @@
 """Hand-write exercise (Phase 2): implement the core transformer pieces.
 
-Fill in the four ``NotImplementedError`` bodies so ``tests/model/test_student.py``
+Fill in the four ``NotImplementedError`` bodies so ``tests/exercises/test_phase02_gpt.py``
 passes. The tests diff your work against the reference oracle in
 ``microlab.model.reference`` by copying the reference's weights into your modules and
 comparing outputs — so your math must match, not merely "look right". The submodule

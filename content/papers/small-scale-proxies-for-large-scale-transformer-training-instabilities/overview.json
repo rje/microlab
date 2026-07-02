@@ -1,0 +1,65 @@
+{
+  "paperId": "small-scale-proxies-for-large-scale-transformer-training-instabilities",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "implement",
+  "tldr": "Two training instabilities that famously appeared only in huge models — attention-logit growth and output-logit divergence — are reproduced in tiny Transformers by pushing the learning rate high, and the same mitigations (qk-layernorm, z-loss) work. Using LR-vs-loss curves and a scalar 'LR sensitivity', the authors show how the stable learning-rate window shrinks with scale and even predict divergence before it happens from activation- and gradient-norm scaling trends.",
+  "overview": "Wortsman et al. (Google DeepMind, 2023) attack a resourcing problem: the training instabilities that derail billion-parameter runs are expensive to study because they seem to require billion-parameter models. The paper's central claim is that these instabilities are reproducible at small scale if you train at high learning rates, which turns instability research into something a small lab can do. They reproduce two previously-documented failure modes in decoder-only Transformers with as few as ~2.4M parameters: (1) attention-logit growth, where the pre-softmax attention logits z_ij = <q_i,k_j>/sqrt(d_h) blow up, saturating the softmax and collapsing attention to near one-hot (first reported by Dehghani et al. when training ViT-22B), mitigated by qk-layernorm; and (2) output-logit divergence, where the softmax normalizer log Z drifts strongly negative late in training (reported by Chowdhery et al. for PaLM), mitigated by an auxiliary z-loss = log^2(Z). The connective tissue is a measurement tool: LR sensitivity, the expected deviation of final loss from optimal as the learning rate is swept across roughly three orders of magnitude. Plotting final eval loss against learning rate for a ladder of model sizes shows instabilities as an explosion of loss at high LR, and shows the stable LR window narrowing as N grows. qk-layernorm and z-loss both flatten these curves and let a 1.2B model train at LR 0.3. The authors then survey how other interventions (warm-up, decoupled/independent weight decay, muParam, width-vs-depth scaling) reshape the curves, and finally show instabilities can be predicted before they emerge: a quadratic fit to max-attention-logit-vs-scale correctly forecast that a 4.8B model would diverge at LR 1e-2, and gradient-RMS scaling trends flag that the default AdamW epsilon (1e-8) becomes too large at scale, silently shrinking updates.",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Large Transformer runs report instabilities absent at small scale with the same hyperparameters, and reproducing them has been prohibitively expensive. The authors reproduce and study two known instabilities (attention-logit growth, output-logit divergence) in small models trained at high learning rate, show that scale-tested mitigations still work there, and introduce LR-vs-loss curves and LR sensitivity as the core diagnostic. Their focus is on instabilities that cause slow divergence, not fast recoverable loss spikes."
+    },
+    {
+      "title": "2.1 Experimental set-up",
+      "summary": "Decoder-only GPT-2-style Transformers in Flax/JAX on TPU in bfloat16, trained autoregressively on C4 with a 32101-token SentencePiece (T5) vocabulary. Pre-normalization, per-head qk-layernorm by default, no biases, RoPE positional embeddings, GeLU, MLP hidden dim 4d, 1/sqrt(d) attention scaling, no weight tying between first and last layers. AdamW with beta1=0.9, beta2=0.95, epsilon=1e-8, global-norm gradient clipping at 1. Default warm-up 5e3 steps, total 1e5 steps, linear warm-up then cosine decay to min LR 1e-5. Independent weight decay 1e-4 and auxiliary z-loss coefficient 1e-4 by default. Batch size 256, sequence length 512."
+    },
+    {
+      "title": "2.2 LR-vs-loss curves and LR sensitivity",
+      "summary": "For each model size, sweep the learning rate and plot final validation loss; an instability shows up as an explosion of loss at high LR. To summarize a whole curve as one number, define LR sensitivity = E over eta in [a,b] of ( min(loss(A(eta)), loss_0) - loss* ), where loss* is the best loss achieved over the range and loss_0 is the loss at initialization. It measures expected deviation from optimal when sweeping LR across ~3 orders of magnitude; a model that fails to train at high LR has high LR sensitivity."
+    },
+    {
+      "title": "2.3 Scaling trends for model characteristics",
+      "summary": "Beyond loss, the authors track scaling trends of internal quantities such as activation and gradient norms across model sizes and learning rates. This contrasts with prior scaling work that related only model scale to loss, and it is what later enables predicting instabilities before they cause divergence."
+    },
+    {
+      "title": "3.1.1 Attention-logit growth",
+      "summary": "In self-attention the logits z_ij = <q_i,k_j>/sqrt(d_h) can grow large during training; the softmax then saturates and attention weights collapse toward one-hot vectors (attention entropy collapse). Dehghani et al. hit this training ViT-22B and fixed it with qk-layernorm (LayerNorm applied to queries and keys before the logits). This paper reproduces the same instability in small models at high LR, where qk-layernorm is equally effective; the max attention logit is reported for layer 0, which typically has the largest values. They hypothesize the growth comes from a quadratic dependence of the logits on parameter norms, driven by growth in the q and k norms rather than their alignment."
+    },
+    {
+      "title": "3.1.2 Output-logit divergence",
+      "summary": "The output logits y produce class probabilities p_i = e^{y_i}/Z with Z = sum_j e^{y_j}; this instability is a divergence of the logits from the log-probabilities, showing up as the softmax normalizer log Z (and the output-logit mean) drifting strongly negative, typically late in training. Chowdhery et al.'s mitigation (PaLM) is z-loss, an auxiliary penalty log^2(Z) with coefficient 1e-4 that keeps log Z near zero. Reproduced at small scale, z-loss resolves it; weight decay also mitigates it for the larger models tested."
+    },
+    {
+      "title": "3.2.1 Warm-up",
+      "summary": "Longer warm-up reduces both LR sensitivity and final loss, an effect most pronounced for larger models, which are not stable at LR 3e-1 without a long warm-up. Total steps are held fixed at 1e5 and all models use qk-layernorm in this experiment."
+    },
+    {
+      "title": "3.2.2 Independent weight decay",
+      "summary": "Parameterizing weight decay independently of learning rate reduces LR sensitivity. The distinction: Loshchilov & Hutter's decoupled update is theta <- theta - s_t(eta*Delta - lambda*theta), whereas default AdamW in PyTorch/Optax applies theta <- theta - s_t*eta(Delta - lambda*theta), letting eta scale the decay term too. The paper uses independent decay by default."
+    },
+    {
+      "title": "3.2.3 Width vs. depth, and 3.2.4 muParam",
+      "summary": "Scaling depth increases LR sensitivity faster than scaling width, though at the largest scale tested depth scaling yields lower loss; joint width+depth scaling is best at the largest scale and extrapolates more reliably. muParam (simple) succeeds in stabilizing the optimal LR across width, but in these experiments does not improve loss or reduce LR sensitivity — and reducing LR sensitivity is not important in practice if the optimal LR itself does not move."
+    },
+    {
+      "title": "3.3 Predicting attention-logit growth from scaling",
+      "summary": "At each learning rate, fit a quadratic to max-attention-logit versus number of parameters and extrapolate. Empirically, every run whose attention logits exceeded ~1e4 diverged. The fit predicted a not-yet-trained 4.8B model would cross that threshold at LR 1e-2; training it confirmed the divergence, and the fit closely predicted the actual max-attention-logit value. A companion experiment enforcing a target max logit kappa shows loss deteriorating around kappa=1e3 and, by kappa=1e4, dropping below a zero-layer bigram baseline."
+    },
+    {
+      "title": "3.4 Searching for new instabilities (gradient RMS vs AdamW epsilon)",
+      "summary": "Gradient RMS decreases with both model size and learning rate, and at the largest scale/LR it approaches the default AdamW epsilon of 1e-8. Since the unscaled update is Delta = v/(sqrt(u)+epsilon), when grad RMS is on the order of epsilon the updates shrink and parameters stop receiving learning signal (a layer can effectively collapse). Lowering epsilon to 1e-15 improved loss for a 4.8B model at LR 0.3; raising it to 1e-6 caused divergence. This is a new, predicted-from-scaling instability with the default hyperparameters."
+    },
+    {
+      "title": "4. Related work & 5. Conclusion",
+      "summary": "The paper situates its slow-divergence instabilities against the edge-of-stability literature (progressive sharpening vs self-stabilization, adaptive edge of stability, the role of beta2 in fast loss spikes) which explains recoverable spikes rather than the divergences studied here. Conclusion: as compute for the largest models grows, being able to study and predict stability using small Transformers opens instability research to labs without large resource pools."
+    }
+  ],
+  "readingFocus": [
+    "The two instabilities are diagnosed by symptom, not by loss alone. Learn what each looks like in your telemetry: attention-logit growth = max attention logit (watch layer 0) climbing toward ~1e4 and softmax entropy collapsing early; output-logit divergence = log Z / output-logit mean drifting strongly negative late in training. Log both during your 1B run.",
+    "Understand qk-layernorm and z-loss as concrete, cheap code changes you can add before the big run: LayerNorm on q and k prior to the QK^T logits, and an auxiliary log^2(Z) loss at coefficient 1e-4. Both are the reason a 1.2B model trains stably at LR 0.3 in this paper.",
+    "Internalize LR sensitivity and the LR-vs-loss curve: the useful mental model is that the stable learning-rate window narrows as scale grows, so an LR that was safe at 150M can diverge at 1B. Do a small LR sweep on a proxy before committing the large run.",
+    "The prediction results are the most curriculum-relevant payoff: max-attention-logit-vs-scale and gradient-RMS-vs-scale are quantities you can extrapolate from your smaller runs to forecast whether the 1B run will be stable, rather than discovering divergence after burning the compute.",
+    "Note the AdamW epsilon trap: the default 1e-8 can become too large relative to gradient RMS at scale, silently shrinking updates. Know that this is a knob (lower epsilon) and that it, warm-up length, and independent/decoupled weight decay are your first-line stability levers.",
+    "Keep the scope in mind: this paper targets slow divergence, not fast recoverable loss spikes. For the latter, the edge-of-stability / beta2 discussion in Section 4 is the pointer to follow."
+  ]
+}

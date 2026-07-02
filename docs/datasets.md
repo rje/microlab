@@ -10,14 +10,14 @@ All corpora are license-clean (public domain or permissive). Downloaded corpora 
 | Rung | Dataset | License | Use | How to get |
 |---|---|---|---|---|
 | bring-up | **TinyShakespeare** (~1 MB) | public domain | first pretraining run, bring-up | `curl -L -o data/corpora/tinyshakespeare.txt https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt` |
-| domain shift | **Sherlock Holmes** (~600 KB) | public domain (Gutenberg) | continued-pretraining / forgetting (Phase 5) | `curl -L -o data/corpora/sherlock.txt https://www.gutenberg.org/cache/epub/1661/pg1661.txt` |
-| instructions | **Databricks Dolly-15k** | CC-BY-SA 3.0 | SFT (Phase 6) | `curl -L -o data/corpora/dolly15k.jsonl https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl` |
+| domain shift | **Sherlock Holmes** (~600 KB) | public domain (Gutenberg) | continued-pretraining / forgetting (Phase 8) | `curl -L -o data/corpora/sherlock.txt https://www.gutenberg.org/cache/epub/1661/pg1661.txt` |
+| instructions | **Databricks Dolly-15k** | CC-BY-SA 3.0 | SFT (Phase 9) | `curl -L -o data/corpora/dolly15k.jsonl https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl` |
 | fluency | **TinyStories** | permissive (HF) | small-model fluency | `load_hf_text("roneneldan/TinyStories")` |
 | real pretraining | **FineWeb-Edu** | ODC-BY | the ~150M / ~1B pretraining corpus | HF `datasets` streaming (see `scripts/prepare_data.py`) |
 | standard LM | **WikiText-103** | CC-BY-SA | perplexity baselines | `load_hf_text("wikitext", name="wikitext-103-raw-v1")` |
 
-Later phases (8–12) use small task datasets: preference pairs (UltraFeedback / HH-RLHF),
-**GSM8K** (~8.5k verifiable math problems, Phase 10), and reasoning traces you generate.
+Later phases (11–15) use small task datasets: preference pairs (UltraFeedback / HH-RLHF),
+**GSM8K** (~8.5k verifiable math problems, Phase 13), and reasoning traces you generate.
 
 ## Which rung for which goal
 

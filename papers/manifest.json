@@ -448,5 +448,113 @@
     "source_url": "https://arxiv.org/abs/2304.01373",
     "pdf_url": "https://arxiv.org/pdf/2304.01373",
     "filename": "2023-biderman-pythia.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Fast Transformer Decoding: One Write-Head is All You Need",
+    "authors": "Shazeer",
+    "year": 2019,
+    "source_url": "https://arxiv.org/abs/1911.02150",
+    "pdf_url": "https://arxiv.org/pdf/1911.02150",
+    "filename": "2019-shazeer-fast-transformer-decoding-one-write-head-is-all-you-need.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints",
+    "authors": "Ainslie et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.13245",
+    "pdf_url": "https://arxiv.org/pdf/2305.13245",
+    "filename": "2023-ainslie-gqa-training-generalized-multi-query-transformer-models.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Extending Context Window of Large Language Models via Positional Interpolation",
+    "authors": "Chen et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2306.15595",
+    "pdf_url": "https://arxiv.org/pdf/2306.15595",
+    "filename": "2023-chen-extending-context-window-via-positional-interpolation.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer",
+    "authors": "Yang et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2203.03466",
+    "pdf_url": "https://arxiv.org/pdf/2203.03466",
+    "filename": "2022-yang-tensor-programs-v-zero-shot-hyperparameter-transfer.pdf"
+  },
+  {
+    "topic": "foundations",
+    "title": "Small-scale proxies for large-scale Transformer training instabilities",
+    "authors": "Wortsman et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2309.14322",
+    "pdf_url": "https://arxiv.org/pdf/2309.14322",
+    "filename": "2023-wortsman-small-scale-proxies-for-training-instabilities.pdf"
+  },
+  {
+    "topic": "interpretability",
+    "title": "Eliciting Latent Predictions from Transformers with the Tuned Lens",
+    "authors": "Belrose et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2303.08112",
+    "pdf_url": "https://arxiv.org/pdf/2303.08112",
+    "filename": "2023-belrose-eliciting-latent-predictions-with-the-tuned-lens.pdf"
+  },
+  {
+    "topic": "interpretability",
+    "title": "Locating and Editing Factual Associations in GPT",
+    "authors": "Meng et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2202.05262",
+    "pdf_url": "https://arxiv.org/pdf/2202.05262",
+    "filename": "2022-meng-locating-and-editing-factual-associations-in-gpt.pdf"
+  },
+  {
+    "topic": "inference",
+    "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention",
+    "authors": "Kwon et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2309.06180",
+    "pdf_url": "https://arxiv.org/pdf/2309.06180",
+    "filename": "2023-kwon-efficient-memory-management-with-pagedattention.pdf"
+  },
+  {
+    "topic": "inference",
+    "title": "Fast Inference from Transformers via Speculative Decoding",
+    "authors": "Leviathan et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2211.17192",
+    "pdf_url": "https://arxiv.org/pdf/2211.17192",
+    "filename": "2022-leviathan-fast-inference-via-speculative-decoding.pdf"
+  },
+  {
+    "topic": "inference",
+    "title": "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers",
+    "authors": "Frantar et al.",
+    "year": 2022,
+    "source_url": "https://arxiv.org/abs/2210.17323",
+    "pdf_url": "https://arxiv.org/pdf/2210.17323",
+    "filename": "2022-frantar-gptq-accurate-post-training-quantization.pdf"
+  },
+  {
+    "topic": "systems",
+    "title": "Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism",
+    "authors": "Shoeybi et al.",
+    "year": 2019,
+    "source_url": "https://arxiv.org/abs/1909.08053",
+    "pdf_url": "https://arxiv.org/pdf/1909.08053",
+    "filename": "2019-shoeybi-megatron-lm-model-parallelism.pdf"
+  },
+  {
+    "topic": "systems",
+    "title": "ZeRO: Memory Optimizations Toward Training Trillion Parameter Models",
+    "authors": "Rajbhandari et al.",
+    "year": 2019,
+    "source_url": "https://arxiv.org/abs/1910.02054",
+    "pdf_url": "https://arxiv.org/pdf/1910.02054",
+    "filename": "2019-rajbhandari-zero-memory-optimizations.pdf"
   }
 ]

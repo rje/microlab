@@ -1,4 +1,4 @@
-"""Reference LoRA / QLoRA tools (Phase 7). LoRALinear wraps a FROZEN base linear with a
+"""Reference LoRA / QLoRA tools (Phase 10). LoRALinear wraps a FROZEN base linear with a
 low-rank update y = base(x) + scaling * (x A^T B^T); with B initialized to zero the adapter
 is a no-op at init (equals the base), and its merged weights reproduce the adapted layer.
 `quantize_dequantize` is a from-scratch absmax quantizer for the QLoRA idea (quantize the

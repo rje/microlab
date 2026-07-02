@@ -107,35 +107,76 @@
     "id": "phase-3",
     "title": "Phase 3: Architecture Ablations",
     "status": "planned",
-    "goal": "Change one architectural decision at a time and measure loss, throughput, and behavior.",
-    "summary": "This phase turns transformer implementation details into concrete tradeoffs.",
+    "goal": "Change one architectural decision at a time — norms, positions, MLPs, attention head topology (GQA), and MoE routing — and measure loss, throughput, and behavior.",
+    "summary": "This phase turns transformer implementation details — including grouped-query attention (GQA) and mixture-of-experts (MoE) routing with load balancing — into concrete tradeoffs.",
     "tasks": [],
     "readingPaperIds": [
       "roformer-enhanced-transformer-with-rotary-position-embedding",
       "root-mean-square-layer-normalization",
       "glu-variants-improve-transformer",
       "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness",
-      "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity"
+      "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity",
+      "fast-transformer-decoding-one-write-head-is-all-you-need",
+      "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints"
     ]
   },
   {
     "id": "phase-4",
     "title": "Phase 4: Scaling Experiments",
     "status": "planned",
-    "goal": "Train a small family of models to see scaling behavior on one GPU.",
-    "summary": "This phase builds intuition about parameter count, token budget, throughput, and bottlenecks.",
+    "goal": "Train a small family of models to see scaling behavior on one GPU, and use muP to transfer tuned hyperparameters across widths.",
+    "summary": "This phase builds intuition about parameter count, token budget, throughput, bottlenecks, and muP (maximal-update parametrization) hyperparameter transfer, closing with a compute-optimal 1B config.",
     "tasks": [],
     "readingPaperIds": [
       "scaling-laws-for-neural-language-models",
       "training-compute-optimal-large-language-models",
       "llama-open-and-efficient-foundation-language-models",
       "the-llama-3-herd-of-models",
-      "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling"
+      "pythia-a-suite-for-analyzing-large-language-models-across-training-and-scaling",
+      "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer",
+      "small-scale-proxies-for-large-scale-transformer-training-instabilities"
     ]
   },
   {
     "id": "phase-5",
-    "title": "Phase 5: Continued Pretraining",
+    "title": "Phase 5: Interpretability",
+    "status": "planned",
+    "goal": "Open up the trained 150M model and find real structure: logit lens, attention patterns, induction heads.",
+    "summary": "This phase turns 'I built it' into 'I can see what it learned' — decoding every layer's residual stream with the model's own unembedding, scoring induction heads on repeated sequences, and (stretch) watching induction heads form across saved checkpoints. Web reading: Anthropic's In-context Learning and Induction Heads (transformer-circuits.pub).",
+    "tasks": [],
+    "readingPaperIds": [
+      "eliciting-latent-predictions-from-transformers-with-the-tuned-lens",
+      "locating-and-editing-factual-associations-in-gpt"
+    ]
+  },
+  {
+    "id": "phase-6",
+    "title": "Phase 6: Inference Engineering",
+    "status": "planned",
+    "goal": "Build everything between a checkpoint and a served token: KV cache, sampling, quantization, speculative decoding.",
+    "summary": "This phase makes inference constraints concrete — why generation is memory-bound, why GQA exists (measure the 4x KV-cache shrink), what int8/int4 cost in perplexity, and how a draft model makes decoding faster for free. The KV-cache exercise is graded by exact token-match against uncached generation.",
+    "tasks": [],
+    "readingPaperIds": [
+      "efficient-memory-management-for-large-language-model-serving-with-pagedattention",
+      "fast-inference-from-transformers-via-speculative-decoding",
+      "gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers"
+    ]
+  },
+  {
+    "id": "phase-7",
+    "title": "Phase 7: Distributed Training",
+    "status": "planned",
+    "goal": "Learn the parallelism vocabulary of every frontier lab — DP/TP/PP, ZeRO, FSDP — and feel it on rented multi-GPU hardware. Ends with the 1B capstone.",
+    "summary": "This phase hand-writes the per-GPU memory budget, proves it against nvidia-smi on a rented 4x A100 node (~$25-50), measures DDP scaling efficiency on the real 150M training script, and opens with a vendor-affordability research spike that decides whether the 1B capstone trains in the cloud (~12-14h on 8x H100) or locally (~3-4 weeks).",
+    "tasks": [],
+    "readingPaperIds": [
+      "megatron-lm-training-multi-billion-parameter-language-models-using-model-parallelism",
+      "zero-memory-optimizations-toward-training-trillion-parameter-models"
+    ]
+  },
+  {
+    "id": "phase-8",
+    "title": "Phase 8: Continued Pretraining",
     "status": "planned",
     "goal": "Continue training an open base model on a domain corpus and measure adaptation versus forgetting.",
     "summary": "This phase connects from-scratch understanding to practical lab workflows.",
@@ -144,12 +185,13 @@
       "llama-open-and-efficient-foundation-language-models",
       "opt-open-pre-trained-transformer-language-models",
       "the-llama-3-herd-of-models",
-      "deepseek-v3-technical-report"
+      "deepseek-v3-technical-report",
+      "extending-context-window-of-large-language-models-via-positional-interpolation"
     ]
   },
   {
-    "id": "phase-6",
-    "title": "Phase 6: Supervised Fine-Tuning",
+    "id": "phase-9",
+    "title": "Phase 9: Supervised Fine-Tuning",
     "status": "planned",
     "goal": "Create instruction data and train a chat-style model.",
     "summary": "This phase focuses on chat templates, instruction data quality, and before/after behavior.",
@@ -162,8 +204,8 @@
     ]
   },
   {
-    "id": "phase-7",
-    "title": "Phase 7: Efficient Fine-Tuning",
+    "id": "phase-10",
+    "title": "Phase 10: Efficient Fine-Tuning",
     "status": "planned",
     "goal": "Use LoRA and QLoRA to adapt larger models on the RTX 6000.",
     "summary": "This phase makes memory, quantization, adapter rank, and target modules concrete.",
@@ -174,8 +216,8 @@
     ]
   },
   {
-    "id": "phase-8",
-    "title": "Phase 8: Preference Data and Reward Models",
+    "id": "phase-11",
+    "title": "Phase 11: Preference Data and Reward Models",
     "status": "planned",
     "goal": "Build preference pairs, train a reward model, and inspect its failures.",
     "summary": "This phase shows where reward modeling helps and where it can mislead.",
@@ -187,8 +229,8 @@
     ]
   },
   {
-    "id": "phase-9",
-    "title": "Phase 9: Offline Preference Optimization",
+    "id": "phase-12",
+    "title": "Phase 12: Offline Preference Optimization",
     "status": "planned",
     "goal": "Train with DPO-style methods and compare against SFT on the same evals.",
     "summary": "This phase studies how preference optimization changes helpfulness, verbosity, and style.",
@@ -200,8 +242,8 @@
     ]
   },
   {
-    "id": "phase-10",
-    "title": "Phase 10: RL on Verifiable Tasks",
+    "id": "phase-13",
+    "title": "Phase 13: RL on Verifiable Tasks",
     "status": "planned",
     "goal": "Run reinforcement learning on tasks with automatic, checkable rewards.",
     "summary": "This phase builds a verifiable-task environment and studies reward curves, pass rates, and reward hacking on math, code, and schema-validity tasks.",
@@ -215,8 +257,8 @@
     ]
   },
   {
-    "id": "phase-11",
-    "title": "Phase 11: Reasoning and Distillation",
+    "id": "phase-14",
+    "title": "Phase 14: Reasoning and Distillation",
     "status": "planned",
     "goal": "Generate teacher reasoning traces and distill them into a smaller student, then test whether it actually improves.",
     "summary": "This phase explores trace generation, filtering, and distillation, and asks whether the student genuinely gains reasoning ability.",
@@ -229,8 +271,8 @@
     ]
   },
   {
-    "id": "phase-12",
-    "title": "Phase 12: Tool Use and Agentic Behavior",
+    "id": "phase-15",
+    "title": "Phase 15: Tool Use and Agentic Behavior",
     "status": "planned",
     "goal": "Train a model to emit validated tool calls and measure schema validity and task success.",
     "summary": "This phase makes structured tool-calling and environment feedback concrete and easy to measure for real behavioral improvement.",
@@ -243,8 +285,8 @@
     ]
   },
   {
-    "id": "phase-13",
-    "title": "Phase 13: Final Report",
+    "id": "phase-16",
+    "title": "Phase 16: Final Report",
     "status": "planned",
     "goal": "Write a capstone that ties together what improved, what failed, and which methods were worth the complexity.",
     "summary": "This phase consolidates the final model card, eval tables, reading notes index, and recommended next experiments.",
