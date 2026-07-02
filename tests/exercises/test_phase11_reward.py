@@ -41,4 +41,13 @@ def test_reward_accuracy_known_value():
     r = torch.tensor([0.0, 3.0, -2.0])
     assert reward_accuracy(c, r) == pytest.approx(2 / 3)
 
+
+def test_reward_accuracy_ties_match_reference():
+    # every pair is a tie; grade the student's tie convention against the oracle's, which
+    # counts strict wins only, so ties are not wins -> 0.0.
+    c = torch.tensor([1.0, -2.0, 0.5])
+    r = torch.tensor([1.0, -2.0, 0.5])
+    assert reward_accuracy(c, r) == pytest.approx(ref_acc(c, r))
+    assert ref_acc(c, r) == pytest.approx(0.0)
+
 pytestmark = pytest.mark.exercise

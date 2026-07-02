@@ -51,6 +51,43 @@ def test_quantize_groupwise_matches_reference():
         assert torch.allclose(quantize_groupwise(w, bits=bits), ref_q(w, bits=bits), atol=1e-6)
 
 
+def test_student_kv_cache_matches_reference():
+    from microlab.exercises.phase06_inference import StudentKVCache
+    from microlab.infer.reference.kv_cache import KVCache
+    torch.manual_seed(0)
+    n_layer, batch, n_kv, cap, hd = 3, 2, 4, 16, 8
+    stu = StudentKVCache(n_layer, batch, n_kv, cap, hd)
+    ref = KVCache(n_layer, batch, n_kv, cap, hd)
+    # prefill (t=4), then two single-token steps — every layer each step
+    for t in (4, 1, 1):
+        k = torch.randn(batch, n_kv, t, hd)
+        v = torch.randn(batch, n_kv, t, hd)
+        for layer in range(n_layer):
+            sk, sv = stu.append(layer, k, v)
+            rk, rv = ref.append(layer, k, v)
+            assert torch.equal(sk, rk) and torch.equal(sv, rv)  # returned views
+        assert stu.seq_len == ref.seq_len  # advances once per step, after the last layer
+    for layer in range(n_layer):  # full buffer contents match
+        assert torch.equal(stu.k[layer], ref.k[layer])
+        assert torch.equal(stu.v[layer], ref.v[layer])
+
+
+def test_student_kv_cache_shape_guard_raises():
+    from microlab.exercises.phase06_inference import StudentKVCache
+    from microlab.infer.reference.kv_cache import KVCache
+    stu = StudentKVCache(1, 1, 2, 8, 4)
+    ref = KVCache(1, 1, 2, 8, 4)
+    k = torch.randn(1, 2, 2, 4)
+    v = torch.randn(1, 2, 2, 4)
+    stu.append(0, k, v)  # prefill (t=2) is allowed while seq_len == 0
+    ref.append(0, k, v)
+    # after prefill a multi-token append must raise (single-token steps only) — same as ref
+    with pytest.raises(AssertionError):
+        ref.append(0, k, v)
+    with pytest.raises(AssertionError):
+        stu.append(0, k, v)
+
+
 def test_speculative_accept_matches_reference():
     from microlab.exercises.phase06_inference import speculative_accept
     from microlab.infer.reference.speculative import speculative_accept as ref_acc

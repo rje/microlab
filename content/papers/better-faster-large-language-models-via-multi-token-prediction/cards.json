@@ -1,0 +1,45 @@
+{
+  "paperId": "better-faster-large-language-models-via-multi-token-prediction",
+  "cards": [
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#1",
+      "question": "How does the multi-token prediction (MTP) objective generalize the standard next-token cross-entropy loss, and what independence assumption makes it tractable?",
+      "answer": "Standard training minimizes L1 = -sum_t log P(x_{t+1} | x_{t:1}). MTP predicts the next n tokens at each position: L_n = -sum_t log P(x_{t+n:t+1} | x_{t:1}). Assuming the n future tokens are conditionally independent given a shared latent representation z_{t:1} of the context, the joint factorizes into a sum of n per-head cross-entropies: L_n = -sum_t sum_{i=1..n} log P(x_{t+i} | z_{t:1}). The i=1 term is exactly the ordinary next-token loss."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#2",
+      "question": "Describe the MTP architecture. Which components are shared, and which are duplicated per predicted token?",
+      "answer": "A single shared transformer trunk f_s maps the context to a latent z_{t:1}. On top sit n independent output heads f_{h_i}, each typically one or more transformer layers, and a single shared unembedding matrix f_u. The prediction for the i-th future token is P(x_{t+i} | x_{t:1}) = softmax(f_u(f_{h_i}(f_s(x_{t:1})))). The trunk and unembedding are shared; only the n heads are duplicated. Head i=1 is the standard next-token head."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#3",
+      "question": "Why does a naive MTP implementation blow up GPU memory, and what trick keeps peak memory at O(V + d)?",
+      "answer": "Because vocabulary size V greatly exceeds latent dimension d, the logit and gradient tensors of shape (n, V) dominate memory; materializing all n heads' logits at once caps batch size, giving O(nV + d) peak memory. The fix is to run each head sequentially: forward head i, backpropagate its loss into a detached copy of the trunk output z (accumulating the trunk gradient), then free that head's logits before moving to head i+1, and finally backprop the accumulated gradient through the trunk. This yields O(V + d) peak memory at no runtime cost, so MTP has no overhead versus a parameter-matched next-token baseline."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#4",
+      "question": "How are the auxiliary heads used at inference, and how does that connect MTP to speculative decoding?",
+      "answer": "The simplest inference mode discards heads 2..n and decodes autoregressively with only the next-token head — identical to a vanilla model. But the extra heads can instead draft the next several tokens in parallel, which the next-token head then verifies: this is self-speculative decoding (blockwise parallel decoding, Stern et al. 2018, or Medusa-style tree attention, Cai et al. 2024). It needs no separate draft model. A 7B 4-token model gets a 3.0x speedup on code (2.5 of 3 drafted tokens accepted on average); an 8-byte model reaches 6.4x."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#5",
+      "question": "MTP does not help uniformly. How do its benefits depend on model scale, task type, and the number of heads n?",
+      "answer": "Benefits grow with scale: MTP is worse than the next-token baseline for small models (e.g. 0.3-0.6B) but overtakes it at larger sizes, with 13B models solving ~12% more HumanEval and ~17% more MBPP problems. Gains concentrate on generative/coding and reasoning tasks, not on multiple-choice or likelihood benchmarks (which can slightly regress). The optimal n depends on data and tokenization: n=4 is best for 7B code models with a 32k vocab, while byte-level models prefer ~8 bytes."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#6",
+      "question": "What two explanations do the authors give for why multi-token prediction improves generative and reasoning capability?",
+      "answer": "First, lookahead reinforces 'choice points': tokens that constrain the continuation get implicitly up-weighted through their correlated successors, with n-token prediction assigning weight n(n+1)/2 to choice points versus n to inconsequential tokens. Second, an information-theoretic argument: decomposing the entropies of the next token X and second token Y and discarding H(Y|X), 2-token prediction increases the weight on the mutual information I(X;Y) by a factor of 2. Both reduce the distribution mismatch between teacher-forced training and autoregressive generation, which next-token teacher forcing exacerbates by rewarding only short-term prediction."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#7",
+      "question": "Why is multi-byte prediction a particularly striking demonstration of MTP's effect?",
+      "answer": "Byte-level tokenization is the extreme case where next-token prediction latches most tightly onto local patterns. An 8-byte prediction model trained on 314B bytes solves 67% more MBPP (pass@1) and 20% more HumanEval problems than a next-byte model, approaching token-based performance despite training on 1.7x less data. This shows MTP pushes models to learn longer-range, global structure rather than just the next local continuation, and it makes efficient byte-level training more viable."
+    },
+    {
+      "id": "better-faster-large-language-models-via-multi-token-prediction#8",
+      "question": "In the Microlab curriculum, why is this paper framed as the first objective-level departure from the loss you hand-wrote, and where does it lead next?",
+      "answer": "In Phase 2 you implement standard next-token cross-entropy for a tiny GPT. MTP is the first change to the objective itself rather than to the architecture or data: add n-1 extra heads predicting tokens t+2..t+n as an auxiliary loss on the same trunk. It offers better sample efficiency (especially on code) essentially for free, and the same heads become a built-in draft model — a direct bridge to Phase 6 speculative decoding. DeepSeek-V3 adopted a single-extra-head (MTP-1) variant in production pretraining, showing the idea scales beyond a lab exercise."
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "paperId": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains",
+  "cards": [
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#1",
+      "question": "What three capabilities does tau-bench test that prior tool-use and agent benchmarks ignore?",
+      "answer": "(1) Interacting with both an LM-simulated user and programmatic APIs over a long horizon to incrementally gather information and resolve intents; (2) accurately following a domain-specific policy document of rules the agent must self-enforce; and (3) maintaining consistency and reliability across many i.i.d. trials of the same task. Prior benchmarks (e.g. ToolBench, BFCL) give the agent all required information in a single up-front instruction with no human-in-the-loop and no rule-following requirement."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#2",
+      "question": "How does tau-bench score an episode, and what makes this evaluation objective despite the dialogue being stochastic and open-ended?",
+      "answer": "The reward r = r_action x r_output in {0,1}. r_action is 1 only if the final database state exactly matches the unique, manually annotated ground-truth outcome; r_output is 1 only if the agent's messages to the user contained all required information (checked as substrings). Because each task instruction is written so that only one database outcome is valid under the domain policy, the conversation can vary freely while the end state stays verifiable — replacing subjective human judgment with an objective database-state comparison. Note r=1 is necessary but not always sufficient (an agent could reach the right state while skipping a required user confirmation)."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#3",
+      "question": "Define pass^k and contrast it with pass@k, including both formulas.",
+      "answer": "For a task run n times with c successes: pass^k = E_task[C(c,k)/C(n,k)] is the probability that ALL k i.i.d. trials succeed (reliability/consistency), and pass@k = 1 - E_task[C(n-c,k)/C(n,k)] is the probability that AT LEAST ONE of k trials succeeds (discovery). pass@k increases with k and suits verifiable tasks like code with unit tests; pass^k decreases with k and is the right metric for user-facing agents that get only one shot per interaction. By default pass^1 = pass@1 = E[r], the average reward."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#4",
+      "question": "What is the headline empirical finding about agent reliability, using gpt-4o on tau-retail as the example?",
+      "answer": "gpt-4o with function calling is the best agent yet still solves under 50% of tasks at pass^1 (61.2 retail, 35.2 airline, 48.2 average). Its consistency collapses as k grows: an average task-success rate above 60% on retail drops below 25% at pass^8. An agent that looks acceptable on a single lucky rollout is in fact unreliable when the same task is attempted repeatedly — the paper's core argument that agentic evaluation must measure consistency, not one trial."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#5",
+      "question": "What are the three environment components an agent must handle simultaneously in tau-bench, and how does the POMDP formulation frame them?",
+      "answer": "Each task is a POMDP (S, A, O, T, R, U) with state S = S_db x S_user, actions A = A_db + A_user, and observations O = O_db + O_user. The three components are: (1) JSON databases readable/writable only through deterministic Python API tools; (2) a Markdown domain policy document of rules the agent must obey (some enforced by the API, some not); and (3) an LM-simulated user (gpt-4-0613) with a hidden task instruction, who cannot see the agent's tool calls and ends the episode by emitting '###STOP###'. The agent never observes the ground-truth task annotation."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#6",
+      "question": "What are the three main failure modes found by analyzing failed gpt-4o trajectories on tau-retail?",
+      "answer": "From 36 failed trajectories: (1) Wrong argument or information (~55% of failures) — the agent calls the right tool with wrong arguments (e.g. hallucinating user/product/order/item IDs) or conveys incorrect info such as a wrong total price that derails the request; (2) Incorrect decision-making (~25%) — the agent misunderstands or ignores a domain rule and makes the wrong type of tool call; (3) Partial resolution of compound requests (~19%) — with many required database writes the agent omits explicit or implicit sub-requests. These point to weaknesses in numerical/common-sense reasoning, rule-following, and long-horizon consistency."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#7",
+      "question": "What does the domain-policy ablation reveal about whether agents actually use the rules they are given?",
+      "answer": "Removing the domain policy from the system prompt drops gpt-4o's tau-airline pass^1 from 33.2 to 10.8 (-22.4) but its tau-retail score only from 61.2 to 56.8 (-4.4), showing the agent genuinely relies on the policy when rules are complex and ad-hoc (airline) far more than when they are simple and commonsense (retail). gpt-3.5-turbo's scores barely change in either domain, suggesting it never really leveraged the policy documents — successful runs came from intuitive tool use, not rule-following."
+    },
+    {
+      "id": "tau-bench-a-benchmark-for-tool-agent-user-interaction-in-real-world-domains#8",
+      "question": "Why does tau-bench favor a small set of high-quality tasks, and what does the pass^k cost/design trade-off look like in practice?",
+      "answer": "Because pass^k requires running each task many times to estimate reliability, a small but carefully annotated task set (115 retail, 50 airline tasks) yields richer signal than a large noisy one — quality over quantity. Each task is validated in construction by running over 40 gpt-4-turbo trials until the instruction yields a single unambiguous outcome. Running one trial per retail task with a gpt-4o agent and gpt-4 user simulator costs roughly $200 (about $0.38 agent + $0.23 user per task), with ~95.9% of the agent's cost being the long input prompt (domain policy + function definitions) re-sent every turn."
+    }
+  ]
+}

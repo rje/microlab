@@ -22,26 +22,11 @@ from microlab.interp.reference.lens import (  # noqa: E402
     logit_lens,
     repeated_token_sequence,
 )
-from microlab.model.reference.variants import VariantGPT  # noqa: E402
+from microlab.model.reference.checkpoint import (  # noqa: E402
+    latest_checkpoint,
+    load_variant_from_run,
+)
 from microlab.tokenizer.fast import FastTokenizer  # noqa: E402
-
-
-def load_model(run_dir: Path) -> VariantGPT:
-    ckpts = sorted(run_dir.glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
-    if not ckpts:
-        raise FileNotFoundError(f"no ckpt_*.pt in {run_dir}")
-    ckpt = torch.load(ckpts[-1], map_location="cpu", weights_only=False)
-    cfg = ckpt["cfg"]
-    from microlab.model.reference.variants import VariantConfig
-
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp,
-    ))
-    model.load_state_dict(ckpt["model"])
-    print(f"loaded {ckpts[-1]} (step {ckpt['step']})")
-    return model.eval()
 
 
 def main() -> None:
@@ -53,7 +38,8 @@ def main() -> None:
     args = ap.parse_args()
 
     tok = FastTokenizer.load(str(Path(args.data_dir) / "tokenizer.json"))
-    model = load_model(args.run_dir)
+    model, step = load_variant_from_run(args.run_dir)
+    print(f"loaded {latest_checkpoint(args.run_dir)} (step {step})")
     args.out.mkdir(parents=True, exist_ok=True)
 
     ids = torch.tensor([tok.encode(args.prompt)], dtype=torch.long)

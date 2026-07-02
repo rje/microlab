@@ -1,0 +1,77 @@
+{
+  "paperId": "muon-is-scalable-for-llm-training",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "Muon replaces AdamW's per-element preconditioning with orthogonalized momentum — each matrix update is pushed toward an orthogonal matrix via a cheap Newton-Schulz iteration. This report (Moonshot's 'Moonlight') identifies the two fixes needed to make Muon work past nanoGPT-speedrun scale — decoupled weight decay and matching Muon's per-parameter update RMS to AdamW's — and shows via scaling laws that Muon reaches AdamW-equal loss at roughly 52% of the training FLOPs (~2x compute efficiency), then validates it by training a 3B-activated/16B-total MoE on 5.7T tokens.",
+  "overview": "Liu et al. (Moonshot AI) take Muon (Jordan et al. 2024) — an optimizer for matrix-shaped weights that orthogonalizes the momentum matrix before applying it — and answer whether it scales beyond the small language models where it first shone. Vanilla Muon works better than AdamW at small scale but degrades when scaled to more parameters and tokens: without weight decay the weight and activation RMS drift out of bf16's high-precision range, and Muon's theoretical update RMS varies with matrix shape as sqrt(1/max(A,B)), so updates are too small for wide matrices and too large for thin ones. The authors fix both: add standard decoupled (AdamW-style) weight decay, and rescale each matrix's update so its RMS lands in AdamW's typical 0.2-0.4 band — which lets Muon reuse AdamW's tuned learning rate and weight decay directly, with no per-parameter tuning. They also build a ZeRO-1-style Distributed Muon (extra gradient-gather plus Newton-Schulz on the full matrix) that uses half of AdamW's optimizer memory. Scaling-law experiments on dense Llama-architecture models from 399M to 1.5B fit Muon at 2.506*C^-0.052 vs AdamW at 2.608*C^-0.054, meaning Muon matches AdamW's compute-optimal loss at ~52% of the FLOPs. They then pretrain Moonlight, a DeepSeek-V3-Small-style MoE (2.24B activated / 15.29B total, excl. embeddings) on 5.7T tokens, and show it advances the performance-vs-FLOPs Pareto frontier against Llama3.2-3B, Qwen2.5-3B and DeepSeek-V2-Lite. An SVD-entropy analysis argues Muon updates the weight spectrum in more diverse directions than AdamW, most strongly in MoE router weights.",
+  "sections": [
+    {
+      "title": "Abstract & Figure 1",
+      "summary": "States the two scaling techniques (weight decay; per-parameter update-scale adjustment) that let Muon train out-of-the-box without hyper-parameter tuning, the ~2x compute-efficiency claim vs AdamW at compute-optimal training, and the Moonlight 3B/16B MoE artifact trained on 5.7T tokens. Figure 1a shows Muon reaching AdamW's loss at 0.519x FLOPs; 1b places Moonlight on the MMLU-vs-FLOPs Pareto frontier."
+    },
+    {
+      "title": "1. Introduction",
+      "summary": "AdamW is the default LLM optimizer; Muon (matrix orthogonalization via Newton-Schulz) showed promise at small scale but left three questions open: how to scale to billions of params / trillions of tokens, how to approximate orthogonalization in a distributed setting, and whether it generalizes across pretraining and SFT. Lists the three contributions: scaling analysis (weight decay is crucial), an efficient ZeRO-1 distributed implementation, and scaling-law validation."
+    },
+    {
+      "title": "2.1 Background — the Muon optimizer",
+      "summary": "Muon's update: M_t = mu*M_{t-1} + grad(L); O_t = Newton-Schulz(M_t); W_t = W_{t-1} - eta_t*O_t. Newton-Schulz approximately computes (M_t M_t^T)^{-1/2} M_t = U V^T, i.e. it orthogonalizes the momentum matrix (drops the singular values, keeps the singular vectors). Intuition: orthogonalized updates are 'isomorphic' across directions, preventing the weight from learning along only a few dominant directions. Practice uses Nesterov-style momentum feeding mu*M_t + grad into Newton-Schulz."
+    },
+    {
+      "title": "2.1 Newton-Schulz iteration & steepest descent view",
+      "summary": "The orthogonalization is done iteratively: X_0 = M_t/||M_t||_F, then X_k = a*X + b*(XX^T)X + c*(XX^T)^2*X with the quintic f(x)=ax+bx^3+cx^5 tuned to a fixed point near 1 (a=3.4445, b=-4.7750, c=2.0315). Under Bernstein et al.'s 'steepest descent under a norm constraint' framing, Muon is steepest descent under the spectral (induced operator) norm, whereas Adam approximates a Max-of-Max norm — the authors argue a spectral-norm constraint on weight matrices is the more principled choice."
+    },
+    {
+      "title": "2.2 Scaling up — Weight Decay",
+      "summary": "The first fix. Vanilla Muon omits weight decay; at larger scale the weight and layer-output RMS grow unbounded, exceeding bf16's high-precision range and hurting quality. Adding decoupled AdamW-style decay gives W_t = W_{t-1} - eta_t*(O_t + lambda*W_{t-1}). On an 800M/100B-token (~5x compute-optimal) run, vanilla Muon converges faster early but Muon+weight-decay wins in the over-train regime, beating both vanilla Muon and AdamW (Figure 2)."
+    },
+    {
+      "title": "2.2 Scaling up — Consistent update RMS (Lemma 1)",
+      "summary": "The second fix. Lemma 1: a full-rank Muon update of shape [A,B] has theoretical RMS sqrt(1/max(A,B)), so update magnitude depends on matrix shape — too small when max(A,B) is large (dense MLP), too large when it is small (per-head GQA/MLA), each hurting training. Multiply each matrix's update by sqrt(max(A,B)) to cancel this. Then match AdamW's update RMS (empirically 0.2-0.4) by scaling to 0.2: W_t = W_{t-1} - eta_t*(0.2*O_t*sqrt(max(A,B)) + lambda*W_{t-1}), which lets Muon reuse AdamW's tuned eta and lambda directly. Other hyper-params: N=5 Newton-Schulz steps, momentum mu=0.95. AdamW still handles non-matrix params (RMSNorm gains, LM head, embeddings)."
+    },
+    {
+      "title": "2.3 Distributed Muon & Algorithm 1",
+      "summary": "Vanilla ZeRO-1 partitions optimizer state element-wise, but Muon needs the full gradient matrix to orthogonalize. Distributed Muon adds two ops to ZeRO-1 AdamW: a DP-gather of partitioned gradients into the full matrix, and a full Newton-Schulz update whose non-local partition is then discarded. It uses one momentum buffer vs AdamW's two (half the optimizer memory), runs Newton-Schulz in bf16, and has communication cost (1, 1.25)x of Distributed AdamW; the extra latency is negligible (1-3% of the forward-backward pass)."
+    },
+    {
+      "title": "3.1 Consistent Update RMS experiments",
+      "summary": "Compares three ways to control update RMS on an 800M model (evaluated after 4B tokens on a modified [H,4H] MLP): Baseline (0.2*O*sqrt(H)), Update Norm (0.2*O/RMS(O)), and Adjusted LR (0.2*O*sqrt(max(A,B))). Table 1 shows both Update Norm and Adjusted LR beat Baseline, with Adjusted LR chosen for future runs because it is the cheapest; the RMS inconsistency worsens as the disparity between a matrix's two dimensions grows."
+    },
+    {
+      "title": "3.2 Scaling Law of Muon",
+      "summary": "The headline evidence. Dense Llama-arch models (399M-1.5B) are fit under compute-optimal training after a careful AdamW hyper-parameter grid search; Muon simply reuses the AdamW-optimal hyper-parameters (thanks to the RMS matching). Fitted curves: Muon LM loss = 2.506*C^-0.052 vs AdamW 2.608*C^-0.054 (Table 3, Figure 3). Muon needs only ~52% of AdamW's training FLOPs to reach equal loss — the ~2x efficiency claim."
+    },
+    {
+      "title": "3.3 Pretraining Moonlight",
+      "summary": "Trains Moonlight, a DeepSeek-V3-Small-style MoE (2.24B activated / 15.29B total excl. embeddings; 3B/16B incl. embeddings) with Muon on 5.7T tokens at 8K context, in three stages (warmup to 4.2e-4; cosine decay to 4.2e-5 with batch 2048->4096; a final cooldown to 0 on high-quality math/code/reasoning data), weight decay 0.1. At 1.2T tokens Moonlight (Muon) beats Moonlight-A (identical arch/data with AdamW) and DeepSeek-V3-Small, excelling especially on math and code (Table 4). Fully trained, it advances the Pareto frontier vs Llama3.2-3B, Qwen2.5-3B and DeepSeek-V2-Lite (Table 5)."
+    },
+    {
+      "title": "3.4 Dynamics of the Singular Spectrum",
+      "summary": "Uses SVD entropy H(sigma) of weight matrices as a proxy for update diversity. Across checkpoints and matrix groups, Muon-trained matrices show higher SVD entropy than AdamW (>90% of matrices), supporting the intuition that orthogonalized updates explore more diverse directions. The gap is largest for MoE router weights, suggesting mixture-of-expert models benefit most from Muon."
+    },
+    {
+      "title": "3.5 Supervised Fine-Tuning with Muon",
+      "summary": "Muon's benefits persist through SFT only when pretraining and SFT use the same optimizer: a Muon-pretrained + Muon-finetuned model wins (Table 6), but when the SFT optimizer differs from the pretraining optimizer the advantage disappears. Applying Muon-SFT to an AdamW-pretrained Qwen2.5-7B (Table 7) is merely on par with Adam-SFT — so Muon pays off mainly in pretraining, and pretrain/SFT optimizers should match."
+    },
+    {
+      "title": "4-5 Discussion & Conclusion",
+      "summary": "Open directions: bring all parameters (not just matrices) into the Muon framework, extend Muon from spectral norm to general Schatten norms, and understand the pretrain-vs-finetune optimizer mismatch. Conclusion: Muon plus weight decay and update-RMS matching can replace AdamW as the default LLM optimizer, demonstrated by the open-sourced Moonlight model, distributed implementation, and intermediate checkpoints."
+    },
+    {
+      "title": "Appendix A — Update RMS proof & experiments",
+      "summary": "Proves Lemma 1: for U[:, :r]V[:r, :] the RMS is sqrt(r/mn), giving sqrt(1/n) for a full-rank square update. Table 8 sweeps Muon's controlled update RMS over {0.05,0.1,0.2,0.4,0.8}; 0.2 and 0.4 match AdamW and clearly beat the extremes, justifying the choice to control Muon's update RMS to 0.2."
+    },
+    {
+      "title": "Appendices B-F — baseline scaling law, architecture, stability, spectra",
+      "summary": "B fits AdamW-optimal N(C), D(C), eta(C), B(C) power laws for a fair baseline. C notes the Moonlight architecture tweaks (no multi-token prediction, a modified aux-free expert-bias update, gate-scaling factor 2.446). D reports very stable training (no loss/grad-norm spikes; AdamW controls the max attention logit somewhat better but large logits stay sparse; decaying the RMSNorm gamma is crucial for stability). E/F give comparisons to larger models and per-matrix singular-value distributions confirming Muon's flatter (higher-entropy) spectra."
+    }
+  ],
+  "readingFocus": [
+    "The Muon update rule and what Newton-Schulz actually does: it approximates (M M^T)^{-1/2} M = U V^T, i.e. it keeps the momentum matrix's singular vectors but flattens its singular values to ~1. Understand this orthogonalization before anything else — it is the whole optimizer.",
+    "The two scaling fixes are the point of the paper: (1) decoupled weight decay to keep weight/activation RMS inside bf16 range, and (2) rescaling each update by 0.2*sqrt(max(A,B)) so its RMS matches AdamW's — trace why Lemma 1 (RMS = sqrt(1/max(A,B))) makes shape-dependent scaling necessary.",
+    "Why the RMS matching matters practically: it lets Muon reuse AdamW's tuned learning rate and weight decay with zero per-parameter tuning, which is what makes a fair Muon-vs-AdamW comparison (and a drop-in swap in your own Trainer) possible.",
+    "The scaling-law result (2.506*C^-0.052 vs 2.608*C^-0.054, ~52% FLOPs to match AdamW) is the central claim — note it was measured on dense Llama-arch models under compute-optimal training with a properly grid-searched AdamW baseline, not just a single loss curve.",
+    "Muon only optimizes matrix (2D) parameters; embeddings, the LM head, and RMSNorm gains stay on AdamW. Keep this hybrid split in mind — it is exactly how you would wire Muon into an existing AdamW Trainer.",
+    "Distributed Muon needs the full gradient matrix for Newton-Schulz, so it cannot use vanilla element-wise ZeRO-1 — but it still uses half of AdamW's optimizer memory (one momentum buffer). This is the practical cost model for adopting it at scale."
+  ]
+}

@@ -37,6 +37,20 @@ def _load_or_create_secret_key(instance_path: Path) -> str:
     return key
 
 
+def load_or_create_api_token(instance_path: Path) -> str:
+    """Bearer token for programmatic clients (the eval harness) that can't do the login
+    redirect. Same 0600 instance-dir pattern as the Flask secret key."""
+    token_file = instance_path / "api_token"
+    if token_file.exists():
+        return token_file.read_text(encoding="utf-8").strip()
+    instance_path.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_hex(32)
+    fd = os.open(token_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(token)
+    return token
+
+
 def create_app(project_root: str | Path | None = None) -> Flask:
     root = Path(project_root or PROJECT_ROOT).resolve()
     instance_path = root / "instance"
@@ -44,6 +58,7 @@ def create_app(project_root: str | Path | None = None) -> Flask:
     app.config.update(
         PROJECT_ROOT=root,
         SECRET_KEY=_load_or_create_secret_key(instance_path),
+        API_TOKEN=load_or_create_api_token(instance_path),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Strict",
         SESSION_COOKIE_SECURE=bool(int(os.environ.get("MICROLAB_HTTPS", "0"))),
@@ -324,6 +339,54 @@ def register_content_routes(app: Flask) -> None:
         except (ValueError, TypeError) as exc:
             return jsonify({"error": str(exc)}), 400
         return jsonify({"ok": True, "next": result})
+
+    @app.route("/api/generate", methods=["POST"])
+    def api_generate():
+        # Session auth OR bearer token (for the eval harness). Programmatic clients can't
+        # do the login redirect dance; the token lives in instance/api_token.
+        authed = bool(session.get("authed"))
+        header = request.headers.get("Authorization", "")
+        if not authed and header.startswith("Bearer "):
+            provided = header.removeprefix("Bearer ").strip()
+            # compare_digest(str, str) raises TypeError on non-ASCII input, and the bearer
+            # value comes straight from the client — compare bytes so a malformed token is
+            # a 401, never a 500. (str.encode() can't raise for header-decoded text; the
+            # except is belt-and-braces.)
+            try:
+                ok = secrets.compare_digest(provided.encode(), app.config["API_TOKEN"].encode())
+            except UnicodeEncodeError:
+                ok = False
+            if ok:
+                authed = True
+            else:
+                return jsonify({"error": "bad token"}), 401
+        if not authed:
+            # Mirror auth.login_required's /api/* branch: 401 JSON, never a login redirect.
+            return jsonify({"error": "authentication required"}), 401
+        body = request.get_json(silent=True) or {}
+        prompt = str(body.get("prompt", ""))
+        if not prompt.strip():
+            return jsonify({"error": "empty prompt"}), 400
+        # Lazy import: keeps console restarts light (no torch at boot); the Playground pays
+        # the import cost on first use.
+        from microlab.console import serve
+        try:
+            state = serve.get_state(root)
+        except FileNotFoundError as exc:
+            return jsonify({"error": f"model not servable: {exc}"}), 503
+        try:
+            stream = serve.stream_generate(
+                state, prompt,
+                max_new_tokens=int(body.get("max_new_tokens", 128)),
+                temperature=float(body.get("temperature", 0.8)),
+                top_k=int(body["top_k"]) if body.get("top_k") else None,
+                top_p=float(body["top_p"]) if body.get("top_p") else None,
+                seed=int(body["seed"]) if body.get("seed") is not None else None,
+            )
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        headers = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+        return app.response_class(stream, mimetype="text/plain", headers=headers)
 
     TENSORBOARD_UPSTREAM = os.environ.get("TENSORBOARD_URL", "http://127.0.0.1:6006")
 

@@ -1,0 +1,45 @@
+{
+  "paperId": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model",
+  "cards": [
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#1",
+      "question": "What is SmolLM2's central thesis about training small (~1.7B) language models, and how does its training scale reflect that thesis?",
+      "answer": "The thesis is that at small scale, data curation dominates architecture: a small model's limited capacity must be spent on core knowledge, so the mixture and quality of pretraining data have an outsized effect. SmolLM2 is a stock 1.7B Llama2-architecture model deliberately over-trained on ~11 trillion tokens (about two epochs over the corpus) — trading Chinchilla-optimality for a cheaper-to-serve model whose strength comes almost entirely from a carefully curated, staged data mixture."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#2",
+      "question": "State the four guiding principles behind SmolLM2's multi-stage pretraining.",
+      "answer": "(1) Performance-driven interventions: monitor evaluation metrics on key benchmarks during training and adapt the dataset mixture to fix observed capability bottlenecks. (2) Upsample high-quality math and code during the annealing (LR-decay) phase, reserving datasets like FineMath and parts of Stack-Edu for the final stages to maximize their impact. (3) Strategically introduce medium-sized datasets (OpenWebMath, InfiMM-WebMath, Stack-Edu) mid-training so they aren't diluted by much larger datasets if added too early. (4) Avoid excessive data repetition, staying close to the recommended ~4-5 epoch threshold for most datasets."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#3",
+      "question": "Describe the Warmup-Stable-Decay (WSD) learning-rate schedule SmolLM2 uses and why it pairs naturally with staged data mixing / annealing.",
+      "answer": "WSD has three phases: a short warmup (2,000 steps) up to a peak LR (5e-4), a long stable phase holding that peak, and a final decay phase where the LR drops linearly to zero over the last ~10% of training. Unlike cosine decay it doesn't require committing to a fixed training length up front. The decay phase is the natural home for annealing/midtraining: as the LR falls, the highest-quality specialized data (FineMath-4+, InfiMM-WebMath-3+, expanded Stack-Edu) is upsampled so the model's final, most consolidated updates are dominated by the best data."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#4",
+      "question": "Walk through the role of the four SmolLM2 pretraining stages and how the mixture is rebalanced across them.",
+      "answer": "Stage 1 (0-6T, stable): web-heavy foundation — 60/40 FineWeb-Edu/DCLM web plus StarCoderData code (~10%), no math (datasets too small). Stage 2 (6-8T, stable): add OpenWebMath at 5% and raise code share (75% web / 20% code / 5% math) to address coding/math gaps. Stage 3 (8-10T, stable): add text-only InfiMM-WebMath (math ~10%), shift web to 40/60 FineWeb-Edu/DCLM, and replace StarCoderData with the filtered Stack-Edu plus Jupyter notebooks. Stage 4 (10-11T, decay/anneal): LR decays to zero while upsampling the highest-quality math (FineMath-4+, InfiMM-WebMath-3+; math ~14%) and expanding Stack-Edu to 24%. Each rebalance is a reaction to a monitored capability bottleneck, not a preset schedule."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#5",
+      "question": "How did SmolLM2 compare English web datasets FineWeb-Edu and DCLM, and what mixture did they settle on and why?",
+      "answer": "Trained under identical 350B-token ablations, FineWeb-Edu (1.3T tokens, classifier-scored 'educational') scored higher on knowledge benchmarks (MMLU, ARC, OpenBookQA) while DCLM (3.8T tokens, fastText classifier trained on OpenHermes 2.5 + ELI5) scored higher on HellaSwag and CommonSenseQA because it captures more diverse, conversational text. A 60/40 FineWeb-Edu/DCLM blend nearly matches FineWeb-Edu on the knowledge tasks while recovering DCLM's gains on the conversational ones, so it was chosen as the web backbone (combined ~5.1T tokens of English)."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#6",
+      "question": "What is the classifier-based educational filtering pattern SmolLM2 reuses to build FineWeb-Edu, FineMath, and Stack-Edu?",
+      "answer": "A strong LLM (e.g. Llama-3-70B / Llama-3.1-70B-Instruct) annotates a small sample of documents with an educational-quality score (a 3-point scale for FineMath, a 0-5 scale for Stack-Edu). A cheap classifier is then trained on those annotations and run over the entire corpus to score and filter every document by quality threshold. This scales an expensive LLM judgment to trillions of tokens. FineMath re-extracts Common Crawl math via Resiliparse and filters with this method; Stack-Edu trains 15 per-language StarEncoder classifiers on StarCoder2Data. The pattern is the core Phase 1 data-quality lever."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#7",
+      "question": "Why did SmolLM2 build the new FineMath and Stack-Edu datasets rather than use existing ones, and what was the measured payoff for FineMath?",
+      "answer": "Existing math datasets (OpenWebMath at 12B tokens, InfiMM-WebMath at 40B) were too small and had too little step-by-step reasoning, leaving math performance lagging proprietary small models even after annealing. Existing code data wasn't filtered for educational quality. So the authors built FineMath (up to 54B tokens; FineMath4+ = 10B tokens scored 4-5, FineMath3+ = 34B scored 3-5) and Stack-Edu (~125B tokens, 15 languages, educationally filtered). FineMath4+ delivered a 2x improvement on GSM8K and a 6x improvement on MATH over InfiMM-WebMath in annealing ablations. The datasets were deduplicated (MinHash LSH) and decontaminated against GSM8K/MATH/MMLU via 13-gram matching."
+    },
+    {
+      "id": "smollm2-when-smol-goes-big-data-centric-training-of-a-small-language-model#8",
+      "question": "How does the training recipe for SmolLM2's 135M and 360M models differ from the 1.7B model, and what does that difference teach about scale?",
+      "answer": "The 1.7B model uses multi-stage manual rebalancing across four stages. The smaller 135M (2T tokens) and 360M (4T tokens) models instead abandon multi-stage mixing in favor of a single-stage approach on consistently high-quality data from the start (DCLM filtered by the FineWeb-Edu classifier with score-0 removed and scores 1-2 downsampled, plus Stack-Edu, InfiMM-WebMath, FineMath, and Cosmopedia). They also use Grouped Query Attention and a WSD schedule with 20% decay. The lesson: staged rebalancing pays off when a model is large enough to eventually exploit specialized data, but at small enough scale, feeding uniformly high-quality data throughout works better."
+    }
+  ]
+}

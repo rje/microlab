@@ -15,6 +15,9 @@ The canonical machine-readable list is `manifest.json`.
 - [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](architecture/2022-dao-flashattention.pdf) (2022) - [source](https://arxiv.org/abs/2205.14135)
 - [Extending Context Window of Large Language Models via Positional Interpolation](architecture/2023-chen-extending-context-window-via-positional-interpolation.pdf) (2023) - [source](https://arxiv.org/abs/2306.15595)
 - [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](architecture/2023-ainslie-gqa-training-generalized-multi-query-transformer-models.pdf) (2023) - [source](https://arxiv.org/abs/2305.13245)
+- [YaRN: Efficient Context Window Extension of Large Language Models](architecture/2023-peng-yarn.pdf) (2023) - [source](https://arxiv.org/abs/2309.00071)
+- [Better & Faster Large Language Models via Multi-token Prediction](architecture/2024-gloeckle-multi-token-prediction.pdf) (2024) - [source](https://arxiv.org/abs/2404.19737)
+- [Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention](architecture/2025-yuan-native-sparse-attention.pdf) (2025) - [source](https://arxiv.org/abs/2502.11089)
 
 ### efficient-finetuning
 
@@ -27,7 +30,9 @@ The canonical machine-readable list is `manifest.json`.
 - [Evaluating Large Language Models Trained on Code](evaluation/2021-chen-evaluating-large-language-models-trained-on-code.pdf) (2021) - [source](https://arxiv.org/abs/2107.03374)
 - [Beyond the Imitation Game: Quantifying and extrapolating the capabilities of language models](evaluation/2022-big-bench-authors-beyond-the-imitation-game.pdf) (2022) - [source](https://arxiv.org/abs/2206.04615)
 - [Holistic Evaluation of Language Models](evaluation/2022-liang-holistic-evaluation-of-language-models.pdf) (2022) - [source](https://arxiv.org/abs/2211.09110)
+- [SWE-bench: Can Language Models Resolve Real-World GitHub Issues?](evaluation/2023-jimenez-swe-bench.pdf) (2023) - [source](https://arxiv.org/abs/2310.06770)
 - [Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference](evaluation/2024-chiang-chatbot-arena.pdf) (2024) - [source](https://arxiv.org/abs/2403.04132)
+- [tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains](evaluation/2024-yao-tau-bench.pdf) (2024) - [source](https://arxiv.org/abs/2406.12045)
 
 ### foundations
 
@@ -37,13 +42,17 @@ The canonical machine-readable list is `manifest.json`.
 - [Scaling Laws for Neural Language Models](foundations/2020-kaplan-scaling-laws-for-neural-language-models.pdf) (2020) - [source](https://arxiv.org/abs/2001.08361)
 - [Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer](foundations/2022-yang-tensor-programs-v-zero-shot-hyperparameter-transfer.pdf) (2022) - [source](https://arxiv.org/abs/2203.03466)
 - [Training Compute-Optimal Large Language Models](foundations/2022-hoffmann-training-compute-optimal-large-language-models.pdf) (2022) - [source](https://arxiv.org/abs/2203.15556)
+- [Scaling Data-Constrained Language Models](foundations/2023-muennighoff-scaling-data-constrained-language-models.pdf) (2023) - [source](https://arxiv.org/abs/2305.16264)
 - [Small-scale proxies for large-scale Transformer training instabilities](foundations/2023-wortsman-small-scale-proxies-for-training-instabilities.pdf) (2023) - [source](https://arxiv.org/abs/2309.14322)
+- [Muon is Scalable for LLM Training](foundations/2025-liu-muon-is-scalable-for-llm-training.pdf) (2025) - [source](https://arxiv.org/abs/2502.16982)
 
 ### inference
 
 - [Fast Inference from Transformers via Speculative Decoding](inference/2022-leviathan-fast-inference-via-speculative-decoding.pdf) (2022) - [source](https://arxiv.org/abs/2211.17192)
 - [GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers](inference/2022-frantar-gptq-accurate-post-training-quantization.pdf) (2022) - [source](https://arxiv.org/abs/2210.17323)
 - [Efficient Memory Management for Large Language Model Serving with PagedAttention](inference/2023-kwon-efficient-memory-management-with-pagedattention.pdf) (2023) - [source](https://arxiv.org/abs/2309.06180)
+- [Efficient Streaming Language Models with Attention Sinks](inference/2023-xiao-streaming-llm-attention-sinks.pdf) (2023) - [source](https://arxiv.org/abs/2309.17453)
+- [EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty](inference/2024-li-eagle.pdf) (2024) - [source](https://arxiv.org/abs/2401.15077)
 
 ### instruction-tuning
 
@@ -56,6 +65,7 @@ The canonical machine-readable list is `manifest.json`.
 
 - [Locating and Editing Factual Associations in GPT](interpretability/2022-meng-locating-and-editing-factual-associations-in-gpt.pdf) (2022) - [source](https://arxiv.org/abs/2202.05262)
 - [Eliciting Latent Predictions from Transformers with the Tuned Lens](interpretability/2023-belrose-eliciting-latent-predictions-with-the-tuned-lens.pdf) (2023) - [source](https://arxiv.org/abs/2303.08112)
+- [Sparse Autoencoders Find Highly Interpretable Features in Language Models](interpretability/2023-cunningham-sparse-autoencoders-find-interpretable-features.pdf) (2023) - [source](https://arxiv.org/abs/2309.08600)
 
 ### modern-llm-recipes
 
@@ -65,6 +75,8 @@ The canonical machine-readable list is `manifest.json`.
 - [Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling](modern-llm-recipes/2023-biderman-pythia.pdf) (2023) - [source](https://arxiv.org/abs/2304.01373)
 - [DeepSeek-V3 Technical Report](modern-llm-recipes/2024-deepseek-ai-deepseek-v3-technical-report.pdf) (2024) - [source](https://arxiv.org/abs/2412.19437)
 - [The Llama 3 Herd of Models](modern-llm-recipes/2024-dubey-the-llama-3-herd-of-models.pdf) (2024) - [source](https://arxiv.org/abs/2407.21783)
+- [Tulu 3: Pushing Frontiers in Open Language Model Post-Training](modern-llm-recipes/2024-lambert-tulu-3.pdf) (2024) - [source](https://arxiv.org/abs/2411.15124)
+- [2 OLMo 2 Furious](modern-llm-recipes/2025-olmo-team-2-olmo-2-furious.pdf) (2025) - [source](https://arxiv.org/abs/2501.00656)
 
 ### preferences-rlhf
 
@@ -98,6 +110,7 @@ The canonical machine-readable list is `manifest.json`.
 - [Deduplicating Training Data Makes Language Models Better](tokenizers-data/2021-lee-deduplicating-training-data-makes-language-models-better.pdf) (2021) - [source](https://arxiv.org/abs/2107.06499)
 - [DataComp-LM: In search of the next generation of training sets for language models](tokenizers-data/2024-li-datacomp-lm.pdf) (2024) - [source](https://arxiv.org/abs/2406.11794)
 - [The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale](tokenizers-data/2024-penedo-the-fineweb-datasets.pdf) (2024) - [source](https://arxiv.org/abs/2406.17557)
+- [SmolLM2: When Smol Goes Big -- Data-Centric Training of a Small Language Model](tokenizers-data/2025-allal-smollm2.pdf) (2025) - [source](https://arxiv.org/abs/2502.02737)
 
 ### tool-use
 

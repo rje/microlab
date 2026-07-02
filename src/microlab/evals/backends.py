@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -156,6 +157,39 @@ class MicrolabBackend(ModelBackend):
         return ModelOutput(task_id=task.id, text=completion, latency_seconds=time.time() - t0)
 
 
+class MicrolabHTTPBackend(ModelBackend):
+    """Evaluate the lab's own SERVED model over HTTP — the same harness that graded the
+    Ollama baselines in Phase 0, pointed at /api/generate. Auth via the bearer token in
+    instance/api_token. max_new_tokens is config-level: per-task budgets aren't honored
+    (matching MicrolabBackend)."""
+
+    def __init__(self, host: str, token: str | None = None, token_file: str | None = None,
+                 max_new_tokens: int = 128, temperature: float = 0.0,
+                 timeout_seconds: int = 120):
+        self.host = host.rstrip("/")
+        if token is None:
+            if token_file is None:
+                raise ValueError("provide token or token_file")
+            token = Path(token_file).read_text(encoding="utf-8").strip()
+        self.token = token
+        self.max_new_tokens = max_new_tokens
+        self.temperature = temperature
+        self.timeout_seconds = timeout_seconds
+
+    def generate(self, task: EvalTask) -> ModelOutput:
+        start = time.perf_counter()
+        response = requests.post(
+            f"{self.host}/api/generate",
+            json={"prompt": task.prompt, "max_new_tokens": self.max_new_tokens,
+                  "temperature": self.temperature, "seed": 0},
+            headers={"Authorization": f"Bearer {self.token}"},
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        return ModelOutput(task_id=task.id, text=response.text.strip(),
+                           latency_seconds=time.perf_counter() - start)
+
+
 def create_backend(config: dict[str, Any]) -> ModelBackend:
     backend_type = config.get("type")
     if backend_type == "fixture":
@@ -173,5 +207,14 @@ def create_backend(config: dict[str, Any]) -> ModelBackend:
             device_map=str(config.get("device_map", "auto")),
             torch_dtype=str(config.get("torch_dtype", "auto")),
             trust_remote_code=bool(config.get("trust_remote_code", False)),
+        )
+    if backend_type == "microlab_http":
+        return MicrolabHTTPBackend(
+            host=str(config["host"]),
+            token=config.get("token"),
+            token_file=config.get("token_file"),
+            max_new_tokens=int(config.get("max_new_tokens", 128)),
+            temperature=float(config.get("temperature", 0.0)),
+            timeout_seconds=int(config.get("timeout_seconds", 120)),
         )
     raise ValueError(f"unsupported backend type: {backend_type}")

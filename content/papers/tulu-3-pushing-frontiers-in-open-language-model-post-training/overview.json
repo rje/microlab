@@ -1,0 +1,65 @@
+{
+  "paperId": "tulu-3-pushing-frontiers-in-open-language-model-post-training",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "Tülu 3 is the fully-open post-training recipe — data curation, SFT, DPO, and a new Reinforcement Learning with Verifiable Rewards (RLVR) stage — that takes Llama 3.1 base models to state-of-the-art among open-weight models, matching or beating GPT-4o-mini and Claude 3.5 Haiku at 8B/70B while releasing every dataset, hyperparameter, and line of training code.",
+  "overview": "Lambert et al. (Allen Institute for AI) close the gap between open and proprietary post-training by releasing not just model weights but the complete recipe: datasets, curation and decontamination tooling, training code (open-instruct), an evaluation suite (OLMES), and a detailed report. Tülu 3 builds on Llama 3.1 base models (8B, 70B, 405B) through a four-stage pipeline — prompt curation, supervised finetuning (SFT), preference tuning with length-normalized Direct Preference Optimization (DPO), and a novel final stage called Reinforcement Learning with Verifiable Rewards (RLVR). RLVR replaces the learned reward model of classic RLHF with a deterministic verifier that pays a fixed reward only when a completion is provably correct (exact-match on GSM8K/MATH answers, constraint checkers on instruction-following), and optimizes that signal with PPO. The resulting Tülu 3 8B (avg 65.1) and 70B (avg 76.2) surpass the instruct versions of Llama 3.1, Qwen 2.5, and Mistral in their size classes and rival closed models like GPT-4o-mini and Claude 3.5 Haiku; the 405B model competes with DeepSeek V3 and GPT-4o. The paper is unusually candid about what did not work (online DPO, rejection sampling, adding reward-model scores to RLVR), making it a practical playbook rather than a results announcement.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Post-training (instruction tuning, RLHF, other finetuning) has become a crucial frontier step, but open recipes lag closed ones because training data and recipes are the least-transparent part of the pipeline. Tülu 3 releases everything — data, code, recipe, evals, and intermediate checkpoints — so others can take an open base model and finetune to high performance on any task."
+    },
+    {
+      "title": "2. Tülu 3 Overview",
+      "summary": "The recipe is a four-stage pipeline on top of a pretrained base: Stage 1 data curation (source + synthesize + decontaminate prompts across core skills), Stage 2 SFT, Stage 3 DPO on on-policy + off-policy preference data, Stage 4 RLVR on verifiable tasks. Core skills targeted: knowledge recall, reasoning, math, coding, instruction following, chat, and safety. Tülu 3 Eval splits into a development suite (used for decisions) and a held-out unseen suite (used only at the end to measure overfitting to the dev set)."
+    },
+    {
+      "title": "3. Tülu 3 Data & Decontamination",
+      "summary": "Millions of prompts are curated from public datasets (WildChat, Open Assistant, No Robots, FLAN v2, a decontaminated UltraFeedback subset) chosen for diversity and clear provenance, plus persona-driven synthetic prompts to fill skill gaps. All prompts are decontaminated against the evaluation suite with an n-gram matching tool; the authors find non-trivial contamination in several popular open datasets."
+    },
+    {
+      "title": "4. Supervised Finetuning (SFT)",
+      "summary": "SFT is run on a carefully-mixed multi-skill dataset for 2 epochs, effective batch size 128, max sequence length 4096; 8B uses LR 5e-6 (32 GPUs, ~6h) and 70B uses LR 2e-6 (64 GPUs, ~50h) on 8xH100 nodes. A key fix: use sum loss instead of mean loss to avoid a Transformers loss-aggregation bug where averaging over padding tokens interacts badly with gradient accumulation / distributed training, weighting tokens inconsistently. Base model quality and skill-specific continued-pretraining data both matter (e.g., Qwen 2.5 Math 7B reaches MATH 56.4 on the same mix)."
+    },
+    {
+      "title": "5. Preference Finetuning (DPO)",
+      "summary": "The team surveys the policy-optimization landscape (PPO vs. direct-alignment methods) and settles on length-normalized DPO (Eq. 6: DPO with per-response log-prob normalization by |y|) for its simplicity and speed over PPO, and its resistance to length bias over vanilla DPO/SimPO. Preference data (354,192 instances for 8B) is built by a scaled UltraFeedback pipeline: sample four responses per prompt from a pool of 22 models (mixing on-policy Tülu SFT generations with off-policy models), then use GPT-4o as an LLM-judge scoring 1-5 on helpfulness, instruction-following, honesty, and truthfulness; highest mean = chosen, a random lower = rejected."
+    },
+    {
+      "title": "5.3-5.4 Preference Data Findings & Infrastructure",
+      "summary": "Scaling the number of unique prompts improves downstream DPO, but duplicating prompts (more pairs, same prompts) does not — invest in unique prompts and proper mixing. Including on-policy generations (from the SFT model being tuned) beats a purely off-policy mix. To scale DPO, they cache the reference policy's log-probs and run separate forward passes for chosen vs. rejected completions, cutting peak GPU memory (~61% down to ~42%)."
+    },
+    {
+      "title": "6. Reinforcement Learning with Verifiable Rewards (RLVR)",
+      "summary": "RLVR is the headline contribution: the policy receives a reward only when its generation is verifiably correct. Objective (Eq. 7) maximizes E[v(x,y) - β·KL(π_θ‖π_ref)] where v(x,y)=α if correct else 0, with α=10 (set from pilots, not tuned), optimized by PPO. It is a simplified, generalist form of bootstrapping methods and execution-feedback RL — no learned reward model, just a deterministic verifier used as a binary signal across math and instruction following."
+    },
+    {
+      "title": "6.1 RLVR Data",
+      "summary": "~29,946 prompts each paired with a binary verifier: GSM8K train (7,473, exact-match on extracted answer), MATH train (7,500, exact-match with flex evaluation logic), and IF-verifiable (14,973, prompt-specific constraint checkers from the IFEval taxonomy). Verification is domain-specific — the verifier extracts the answer or checks the constraint, then returns correct/incorrect."
+    },
+    {
+      "title": "6.2 RLVR Recipe & Key Findings",
+      "summary": "Effective PPO details adapted from Huang et al.: initialize the value model from a general reward model, disable dropout (so rollout and training log-probs match, giving a ratio of 1 in the first epoch so the PPO clip behaves — dropout would otherwise cause huge ratios and zero gradient), train on the SFT prompt set shuffling between epochs (~13 epochs for GSM8K), apply a -10 penalty for responses that don't end in EOS, and whiten/normalize advantages. Findings: RLVR reliably lifts the targeted domain; value-init from a general RM beats value-init from the DPO model; verifiable rewards alone beat adding RM scores (which inject noise); starting from a stronger DPO checkpoint gives better test performance; and overoptimization appears as β shrinks — more KL drift buys lower average scores."
+    },
+    {
+      "title": "6.3 RLVR Infrastructure",
+      "summary": "PPO here juggles three models — policy, reference policy, value — under ZeRO Stage 3, with dedicated GPUs running vLLM PagedAttention for fast rollouts (via Ray) and asynchronous RL that overlaps inference and learner compute. To stay reproducible under async staleness, the policy always trains on the second-latest batch of inference data. Costs: 8B RM ~9h/8 GPUs, 8B RL ~65h/8 GPUs, 70B RL ~60h/48 GPUs, 405B RL ~46h/256 GPUs."
+    },
+    {
+      "title": "6.4 Final Results",
+      "summary": "RLVR delivers non-trivial 8B gains (avg 64.4 DPO to 64.8; some runs hit GSM8K 89.4 and IFEval 84.8, though pushing one metric can drag the average). At 70B, gains are more modest (GSM8K near saturation at 93.5) and the final run stays at very low KL (<1) thanks to a lower learning rate. Across sizes, each stage — SFT, DPO, RLVR — measurably contributes to the final scores."
+    },
+    {
+      "title": "8. Discussion: Scaling to 405B & the Unfruitful",
+      "summary": "405B post-training runs on 32 nodes (256 GPUs): vLLM 16-way tensor-parallel inference on 16 GPUs, 240 GPUs for training, RLVR on MATH-only (GSM8K was saturated, IF data didn't help) for just 75 steps — MATH still improved by 5+ points and hadn't plateaued. GRPO is flagged as a promising value-model-free alternative. Negative results: online DPO gave little or no gain, and rejection sampling gave minimal gains for its compute cost and needs strong judges."
+    }
+  ],
+  "readingFocus": [
+    "The RLVR objective (Eq. 7) and verifier v(x,y)=α-if-correct-else-0 with α=10 is the single most curriculum-relevant primitive — it is exactly the verifiable_reward your Phase 13 exercises implement, wrapped in PPO with a KL penalty to a frozen reference.",
+    "The four-stage arc (curate → SFT → DPO → RLVR) mirrors the learner's own Phase 9 through Phase 13 path; read it as the reference playbook for the post-training half of the lab rather than a single technique.",
+    "The RLVR PPO implementation details (disable dropout so the first-epoch ratio is 1, -10 non-EOS penalty, advantage whitening, value-init from a general RM) are the stability tricks that make PPO-clip actually train — trace why dropout would break the clipped surrogate.",
+    "Length-normalized DPO (Eq. 6) and why the team chose it over PPO for the preference stage — understand the simplicity/speed vs. capability trade-off before implementing your own preference loss.",
+    "The SFT sum-loss vs. mean-loss fix: a subtle padding/gradient-accumulation aggregation bug that silently changes per-token vs. per-example weighting — a concrete example of a bug to throw an error on, not paper over.",
+    "The overoptimization finding (lower β → more KL drift → higher targeted score but lower average) is the practitioner's warning that verifiable rewards can be gamed — watch KL divergence as a health signal during RLVR."
+  ]
+}

@@ -1,5 +1,6 @@
-"""Hand-write exercise (Phase 6): inference engineering — the KV cache, the sampling zoo,
-groupwise quantization, and the speculative-decoding accept rule.
+"""Hand-write exercise (Phase 6): inference engineering — five hand-writes: the KV cache
+(``generate_cached``), its buffer append (``StudentKVCache.append``), the sampling zoo
+(``sample_next``), groupwise quantization, and the speculative-decoding accept rule.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/exercises/test_phase06_inference.py``
 passes. Graded against ``microlab.infer.reference``. See docs/hand-write/phase6-inference.md.
@@ -45,3 +46,39 @@ def speculative_accept(draft_tokens: torch.Tensor, draft_probs: torch.Tensor,
     rejection return (i, token resampled from normalize(max(0, p_t - p_d))); if all K
     accepted return (K, None)."""
     raise NotImplementedError()
+
+
+class StudentKVCache:
+    """Preallocated per-layer K/V buffers for cached decoding — mirror
+    ``microlab.infer.reference.kv_cache.KVCache``. The ``__init__`` (buffer setup) is
+    provided; you implement ``append``. Graded against the reference cache. See
+    docs/hand-write/phase6-inference.md.
+    """
+
+    def __init__(self, n_layer: int, batch_size: int, n_kv_head: int, capacity: int,
+                 head_dim: int, dtype=torch.float32, device="cpu") -> None:
+        self.n_layer = n_layer
+        self.capacity = capacity
+        self.seq_len = 0
+        shape = (batch_size, n_kv_head, capacity, head_dim)
+        self.k = [torch.zeros(shape, dtype=dtype, device=device) for _ in range(n_layer)]
+        self.v = [torch.zeros(shape, dtype=dtype, device=device) for _ in range(n_layer)]
+
+    def append(self, layer: int, k: torch.Tensor, v: torch.Tensor):
+        """Write this layer's new keys/values into its buffer and return the full views.
+        Contract (graded against the reference):
+        - k, v arrive shaped (B, n_kv_head, t, head_dim); write them at the current position,
+          i.e. positions [seq_len, seq_len + t).
+        - Return the full views k_all, v_all spanning positions [0, seq_len + t) for THIS
+          layer.
+        - Advance seq_len by t ONLY on the last layer (layer == n_layer - 1): every layer must
+          see the same positions within a decoding step, so the counter moves once per step,
+          after the final layer.
+        - Shape guard: after prefill, each step is a single token — allow t > 1 only when
+          seq_len == 0 (the prefill), else raise AssertionError. Guard capacity overflow too.
+        See docs/hand-write/phase6-inference.md.
+        """
+        raise NotImplementedError(
+            "write k/v into this layer's buffer at the current position, return the full "
+            "views, and advance seq_len only on the final layer — see the contract above"
+        )

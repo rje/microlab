@@ -13,8 +13,12 @@ def memory_budget(n_params: int, n_layer: int, n_embd: int, block_size: int,
                   micro_batch: int, dp: int = 1, tp: int = 1, pp: int = 1,
                   zero_stage: int = 0, grad_checkpoint: bool = False,
                   dtype_bytes: int = 2) -> dict[str, float]:
-    """Keys: params, grads, optimizer, activations, total (bytes per GPU).
-    Model state / (tp*pp); ZeRO shards optimizer(>=1), grads(>=2), params(>=3) over dp.
-    AdamW fp32 master = 12 bytes/param. Activations: (n_layer/pp) * micro_batch *
-    block_size * n_embd * dtype_bytes * (1 if ckpt else 34) / tp."""
-    raise NotImplementedError()
+    """Per-GPU training memory budget. Returns a dict with keys ``params``, ``grads``,
+    ``optimizer``, ``activations``, ``total`` (bytes per GPU). Derive the byte-accounting —
+    the model-state bytes, the ZeRO sharding tiers, the AdamW fp32 master-copy cost, and the
+    activation term with/without gradient checkpointing — from
+    docs/hand-write/phase7-distributed.md. Graded against the reference across a 7B config
+    matrix."""
+    raise NotImplementedError(
+        "derive the per-GPU memory budget — see docs/hand-write/phase7-distributed.md"
+    )

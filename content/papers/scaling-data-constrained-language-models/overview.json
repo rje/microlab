@@ -1,0 +1,57 @@
+{
+  "paperId": "scaling-data-constrained-language-models",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "Muennighoff et al. extend the Chinchilla scaling law to the data-constrained regime, showing empirically (400+ runs, up to 8.7B parameters and 900B tokens) that repeating data for up to ~4 epochs is almost as good as fresh data, that returns then decay to zero by roughly 16 epochs, and that when data is scarce you should train a smaller model for more epochs than Chinchilla prescribes.",
+  "overview": "As Chinchilla-style scaling pushes token budgets past the amount of high-quality text on the internet (projected exhaustion for English around 2024), the authors ask what happens when you must repeat data instead of collecting more. They train more than 400 GPT-2-architecture models on C4 subsets, sweeping unique-data budgets (100M / 400M / 1.5B tokens), parameter counts (10M-8.7B), and epoch counts (up to ~1500), and fit a modified Chinchilla loss law in which repeated tokens contribute exponentially decaying 'effective data' D' and excess parameters contribute exponentially decaying 'effective parameters' N'. The headline result: up to ~4 epochs of repetition costs almost nothing (the 8.7B/4-epoch model lands within 0.5% of its single-epoch twin), meaningful gains persist to about 16 epochs (the fitted half-life R*_D is roughly 15 repetitions), and beyond that added compute is nearly worthless. Because excess parameters decay faster than repeated data (R*_N is roughly 5, well below R*_D), the compute-optimal move under a data budget is to scale epochs faster than parameters — a 27%-smaller-than-Chinchilla model beats the Chinchilla-optimal config at 9.3e21 FLOPs. The paper closes with complementary ways to stretch scarce data: mixing in code (up to ~50%) gives roughly 2x effective tokens with no natural-language penalty, while perplexity filtering helps only on noisy corpora.",
+  "sections": [
+    {
+      "title": "1. Introduction",
+      "summary": "Chinchilla says compute-optimal training scales parameters and tokens roughly equally, but extrapolating that trend (e.g. a 530B model would need ~11T tokens) collides with the finite supply of internet text — estimated to run out for high-quality English around 2024. The paper asks what to do when unique data is limited and whether training multiple epochs on repeated data still scales."
+    },
+    {
+      "title": "2. Background",
+      "summary": "Recaps Chinchilla's framing: minimize held-out loss L(N,D) subject to a compute budget with FLOPs(N,D) approximately 6ND, using the parametric fit L(N,D) = A/N^alpha + B/D^beta + E fit via fixed-parameter, fixed-FLOP, and parametric-fit protocols. Chinchilla finds alpha approximately equal to beta, so N and D should be scaled in equal proportion — but that law assumes every token is unique (D = U, a single epoch)."
+    },
+    {
+      "title": "3. Method: Data-Constrained Scaling Laws",
+      "summary": "Splits total tokens D into unique tokens U_D and repetitions R_D = D/U_D - 1 (epochs minus one), and symmetrically splits parameters N into base parameters U_N and excess repeats R_N, then minimizes loss under a data budget U_D <= D_C. This generalizes the single-epoch Chinchilla constraint (R_D = 0) to the multi-epoch, data-constrained regime."
+    },
+    {
+      "title": "3.1 Parametric Fit",
+      "summary": "Replaces D and N in the Chinchilla formula with 'effective data' D' = U_D + U_D*R*_D*(1 - e^(-R_D/R*_D)) and 'effective parameters' N' = U_N + U_N*R*_N*(1 - e^(-R_N/R*_N)). Each repetition is worth an exponentially decaying fraction of a fresh token; the learned constants R*_D and R*_N are the half-lives (in repetitions) of repeated data and excess parameters. As R_D grows, D' plateaus at U_D*(1 + R*_D), so no amount of repetition beats a single epoch on that many fresh tokens."
+    },
+    {
+      "title": "4. Experimental Setup",
+      "summary": "Trains transformer LMs with the GPT-2 architecture and tokenizer on subsets of C4, up to 8.7B parameters and 900B total tokens, with cosine learning-rate schedules decaying 10x per run and deliberately no early stopping (to observe overfitting). Data constraints are nested so that more-epoch runs use a subset of the data in fewer-epoch runs; loss is reported on a held-out test set."
+    },
+    {
+      "title": "5. Results: Resource Allocation for Data-Constrained Scaling",
+      "summary": "Fixing the unique-data budget (100M, 400M, or 1.5B tokens) and sweeping parameters against epochs, IsoLoss contours show that the lowest loss is reached by training well beyond the single-epoch compute-optimal size — more epochs and more parameters both help (a >50% loss reduction over the single-epoch optimum at 100M tokens), and additional compute should go mostly to epochs rather than parameters, because excess parameters decay faster in value than repeated data."
+    },
+    {
+      "title": "6. Results: Resource Return for Data-Constrained Scaling",
+      "summary": "Fixing FLOP budgets and varying how much data is unique, repeated data is worth predictably less, but for a few epochs the gap is negligible: the 8.7B model trained 4 epochs (44B unique) ends within 0.5% of the single-epoch model (178B unique). The fitted R*_D is about 15, so meaningful return persists to roughly 16 epochs and then collapses; at R_D = R*_D a repeated token is worth on average 1 - 1/e (about 0.63) of a fresh one."
+    },
+    {
+      "title": "7. Results: Complementary Strategies for Obtaining Additional Data",
+      "summary": "When repetition is exhausted, two ways to stretch data: (a) code augmentation — mixing in Python from The Stack up to 50% of the budget shows no natural-language degradation and roughly doubles effective tokens, with some reasoning/generation tasks (bAbI, WebNLG) improving; (b) filtering — perplexity filtering helps on noisy corpora, but deduplication gave no downstream benefit on their already-clean C4 benchmark. Recommendation: reserve aggressive filtering for noisy data."
+    },
+    {
+      "title": "8. Related Work / 9. Conclusion",
+      "summary": "Positions the work against Kaplan and Chinchilla scaling and against Galactica (trained 4.25 epochs but never compared to an equal single-epoch baseline). Concludes that multi-epoch training keeps scaling laws valid with diminishing returns, that data-constrained laws favor smaller models trained longer, and that code augmentation can roughly double the usable data horizon."
+    },
+    {
+      "title": "Appendix A / B: Derivation and C4 coefficients",
+      "summary": "Appendix A derives D' from a geometric series of exponentially decaying repetition values (delta = fraction of a token's information learned per pass), yielding R*_D fit to 15.39 and R*_N to 5.31. Appendix B fits the C4 base constants (A=521, B=1488, E=1.87, alpha=beta=0.353) and gives the closed-form loss L(U_D, R_N, R_D) with U_N = 0.051*U_D used throughout the paper."
+    }
+  ],
+  "readingFocus": [
+    "The effective-data equation D' = U_D + U_D*R*_D*(1 - e^(-R_D/R*_D)) is the whole paper in one line — understand why it reduces to D for R_D=0 and plateaus at U_D*(1 + R*_D) as repetitions grow, so you can reason about your own multi-epoch runs.",
+    "R*_D (about 15) is the half-life of repeated data and R*_N (about 5) the half-life of excess parameters; because R*_D > R*_N, the key planning rule is to scale epochs faster than parameters when data-constrained — the opposite of naively applying Chinchilla to repeated data.",
+    "The '~4 epochs is nearly free, ~16 epochs is the cliff' finding (Figure 5, Section 6) is the practical number to memorize for Phase 4 data planning: it tells you the marginal value of each extra epoch on a fixed corpus.",
+    "Note that FLOPs approximately 6ND and the Chinchilla law L(N,D)=A/N^alpha + B/D^beta + E are the baseline this paper modifies — make sure the single-epoch Chinchilla picture is solid first, since this is the delta on top of it.",
+    "The complementary strategies (Section 7) matter for the capstone: code mixing buys roughly 2x effective tokens with no NL penalty, and filtering only pays off on noisy data — cheaper than collecting more unique text.",
+    "Watch the caveat that the parametric fit assumes excess epochs/parameters plateau but never hurt, whereas the empirical curves (and double descent in Appendix D) show loss can rise again past ~16-40 epochs — the model predicts diminishing returns, not the eventual damage."
+  ]
+}

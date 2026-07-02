@@ -31,6 +31,11 @@ def build_replay_mix(
 
 
 def interpolated_rope_cache(seq_len: int, head_dim: int, scale: float, base: float = 10000.0):
-    """Position interpolation: build_rope_cache but with positions t/scale. Returns
-    (cos, sin) of shape (seq_len, head_dim//2). Graded vs the reference."""
-    raise NotImplementedError("theta as in build_rope_cache; t = arange(seq_len)/scale")
+    """Position interpolation (Chen et al.): the same RoPE cache as ``build_rope_cache``, but
+    with the position axis compressed by ``scale`` so a longer sequence fits inside the
+    rotation range the model was trained on. Returns (cos, sin) of shape (seq_len,
+    head_dim//2). Graded vs the reference. See docs/hand-write/phase8-continued.md."""
+    raise NotImplementedError(
+        "reuse the RoPE angle construction, but shrink the position axis by `scale` before "
+        "forming the cos/sin tables"
+    )

@@ -8,14 +8,37 @@ import pytest
 
 from microlab.exercises.phase15_tools import (
     parse_tool_call,
+    run_tool_loop,
     schema_validity_rate,
     validate_tool_call,
 )
 from microlab.model.reference.tools import parse_tool_call as ref_parse
+from microlab.model.reference.tools import run_tool_loop as ref_loop
 from microlab.model.reference.tools import schema_validity_rate as ref_rate
 from microlab.model.reference.tools import validate_tool_call as ref_validate
 
 SCHEMA = {"calc": {"required": ["expr"]}}
+
+
+class _ScriptedModel:
+    """A fake model callable that replays a fixed sequence of outputs, ignoring context."""
+
+    def __init__(self, outputs):
+        self._outputs = list(outputs)
+        self._i = 0
+
+    def __call__(self, context: str) -> str:
+        out = self._outputs[self._i]
+        self._i += 1
+        return out
+
+
+# a valid tool call, then an invalid one (unknown tool), then a final answer
+_SCRIPT = [
+    '<tool>{"name": "calc", "arguments": {"expr": "2+2"}}</tool>',
+    '<tool>{"name": "nope", "arguments": {}}</tool>',
+    "<answer>4</answer>",
+]
 
 
 def test_parse_tool_call_known_values():
@@ -64,5 +87,16 @@ def test_schema_validity_rate_matches_reference():
     ]
     assert schema_validity_rate(outs, SCHEMA) == ref_rate(outs, SCHEMA)
     assert schema_validity_rate(outs, SCHEMA) == pytest.approx(1 / 3)
+
+
+def test_run_tool_loop_matches_reference():
+    # drive BOTH loops with the same scripted model + tool registry; the fresh model per loop
+    # replays the same outputs, so the full result dict must match the oracle exactly.
+    tools = {"calc": lambda args: "4"}
+    stu = run_tool_loop(_ScriptedModel(_SCRIPT), tools, SCHEMA, "solve 2+2", max_steps=5)
+    ref = ref_loop(_ScriptedModel(_SCRIPT), tools, SCHEMA, "solve 2+2", max_steps=5)
+    assert stu == ref
+    # and it terminates on the final answer after all three steps (not at max_steps)
+    assert stu == {"answer": "4", "steps": 3, "transcript": _SCRIPT}
 
 pytestmark = pytest.mark.exercise

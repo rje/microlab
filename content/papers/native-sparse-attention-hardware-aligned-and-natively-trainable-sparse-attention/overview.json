@@ -1,0 +1,69 @@
+{
+  "paperId": "native-sparse-attention-hardware-aligned-and-natively-trainable-sparse-attention",
+  "generatedAt": "2026-07-02",
+  "depthSuggestion": "understand",
+  "tldr": "NSA is DeepSeek's natively-trainable sparse attention: it routes each query through three learned branches — coarse compressed tokens, top-n selected fine-grained blocks, and a sliding window — combined by a learned gate, so sparsity is optimized end-to-end during pretraining rather than bolted on at inference. Paired with a GQA-aware Triton kernel, NSA matches or beats Full Attention on a 27B model while delivering up to 11.6x decode, 9.0x forward, and 6.0x backward speedups at 64k context.",
+  "overview": "Yuan et al. (DeepSeek-AI) attack the compute wall of long-context attention: at 64k tokens, softmax attention accounts for 70-80% of decode latency, and it is the FLOPs of attention — not just the KV-cache footprint that GQA already shrinks — that dominate. NSA (Natively trainable Sparse Attention) replaces the full key/value set K,V for each query q_t with a compact, dynamically-built set of remapped pairs drawn from three parallel branches: (1) token compression aggregates contiguous blocks (length l=32, stride d=16) into coarse block-level keys/values via a learnable MLP with intra-block positional encoding; (2) blockwise token selection reuses the compression attention scores to rank selection blocks (size l'=64) and keeps the top-n (n=16, including one fixed initial block and two local blocks); (3) a sliding window (w=512) carries recent local context in its own branch. A per-branch gate g_t^c (an MLP + sigmoid on the input) mixes the three outputs. The design deliberately answers two failure modes of prior sparse attention: the 'illusion of efficient inference' (methods that reduce theoretical FLOPs but not wall-clock latency, or that clash with GQA/MQA shared KV), and the 'myth of trainable sparsity' (post-hoc pruning degrades models because top-20% attention covers only ~70% of total scores, and discrete selection ops like k-means/SimHash break gradient flow). NSA's second contribution is a hardware-aligned Triton kernel: it loads all query heads of a GQA group together, fetches their shared sparse KV blocks contiguously into SRAM, and schedules query/output loops on Triton's grid — achieving FlashAttention-level, Tensor-Core-friendly arithmetic intensity for the selection branch. Trained from scratch on a 27B-total / 3B-active MoE+GQA backbone over 270B tokens (8k context, then YaRN-extended to 32k), NSA reaches 0.456 average across nine general benchmarks vs 0.443 for Full Attention, wins 7 of 9 metrics, achieves perfect 64k needle-in-a-haystack retrieval, tops LongBench (0.469 vs 0.437), and after R1-distilled SFT beats Full Attention on AIME (0.121 vs 0.046 at 8k). It is the practitioner's answer to 'what shrinks attention COMPUTE at long context once GQA has handled the cache.'",
+  "sections": [
+    {
+      "title": "Abstract & 1. Introduction",
+      "summary": "Long-context modeling is bottlenecked by attention: theoretical estimates put attention at 70-80% of latency when decoding 64k tokens. NSA integrates algorithmic sparsity with hardware-aligned kernels to get real speedups AND end-to-end trainability, so a model pretrained with NSA matches or exceeds Full Attention across general, long-context, and reasoning benchmarks while accelerating decode, forward, and backward passes."
+    },
+    {
+      "title": "2.1 The Illusion of Efficient Inference",
+      "summary": "Two reasons sparse attention often fails to deliver wall-clock gains. Phase-restricted sparsity: H2O sparsifies decoding but pays heavy prefill cost; MInference sparsifies only prefill — so at least one phase stays as expensive as Full Attention. Incompatibility with GQA/MQA: per-head selection (e.g. Quest) still forces loading the UNION of all heads' selected KV within a group, so KV-cache memory access stays high even when computation drops."
+    },
+    {
+      "title": "2.2 The Myth of Trainable Sparsity",
+      "summary": "Why sparsity must be trained in, not bolted on. Performance degradation: applying sparsity post-hoc pushes models off their pretrained optimization path — top-20% attention covers only ~70% of total attention scores, so retrieval heads are fragile to pruning. Plus training needs sparse ops too (long-doc pretraining, long-context SFT, RL). Non-trainable components (ClusterKV's k-means, MagicPIG's SimHash) break the computational graph; token-granular selection (HashAttention) causes non-contiguous KV loads that defeat FlashAttention."
+    },
+    {
+      "title": "3.1 Background: Attention & Arithmetic Intensity",
+      "summary": "Standard causal attention o_t = Attn(q_t, k_{:t}, v_{:t}) with weights exp(q_t^T k_i / sqrt(d_k)). Arithmetic intensity = compute ops / memory accesses; each GPU has a critical threshold above which work is compute-bound (FLOPs-limited) and below which it is memory-bound (bandwidth-limited). Training and prefilling are compute-bound (batched matmuls, high intensity); autoregressive decode is memory-bound (one token per pass, must load the whole KV cache). This split sets different optimization goals per phase."
+    },
+    {
+      "title": "3.2 Overall Framework",
+      "summary": "For each query q_t, replace k_{:t}, v_{:t} with more compact, information-dense remapped pairs K~_t, V~_t built dynamically from the context. NSA uses three mapping strategies C = {cmp, slc, win}; the output is o*_t = sum over c of g_t^c * Attn(q_t, K~_t^c, V~_t^c), where g_t^c in [0,1] is a gate from an MLP+sigmoid on input features. Total remapped size N_t is kept << t to maintain a high sparsity ratio."
+    },
+    {
+      "title": "3.3.1 Token Compression",
+      "summary": "Aggregate contiguous blocks of keys/values into block-level representations via a learnable MLP phi with intra-block positional encoding. Block length l, sliding stride d (usually d < l to mitigate information fragmentation) yield floor((t-l)/d) compressed keys per query. Compressed tokens capture coarse, higher-level semantics cheaply and provide the scores that drive selection."
+    },
+    {
+      "title": "3.3.2 Token Selection (Blockwise)",
+      "summary": "Compressed keys lose fine detail, so NSA also keeps whole fine-grained blocks. Blockwise (not token-wise) selection is chosen for GPU efficiency (coalesced/contiguous loads, Tensor Cores) and because attention scores are empirically spatially continuous. Importance scores come for FREE from the compression branch: p_t^cmp = Softmax(q_t^T K~_t^cmp); when selection and compression block schemes differ they are remapped (Eq. 9). For GQA/MQA, importance is SUMMED across heads in a group (Eq. 10) so all heads select the same blocks, minimizing KV loads. Keep top-n blocks (Eq. 11-12)."
+    },
+    {
+      "title": "3.3.3 Sliding Window",
+      "summary": "Local patterns learn fast and can dominate, shortcutting the compression/selection branches from ever learning their jobs. NSA isolates recent tokens (window w) in a dedicated branch with its OWN independent keys/values, so the gate can lean on local context without gradient interference contaminating the long-range branches. This stabilizes learning at minimal overhead."
+    },
+    {
+      "title": "3.4 Kernel Design",
+      "summary": "A Triton kernel gives selection FlashAttention-level speed on GQA/MQA backbones. Compression and window branches reuse FlashAttention-2. For selection, the key trick is a group-centric query grouping: (1) Group-Centric Data Loading loads all heads' queries in a GQA group plus their shared sparse KV block indices; (2) Shared KV Fetching loads contiguous KV blocks once for the whole group; (3) Outer Loop on Grid puts query/output loops on Triton's scheduler since inner-loop length (~ selected block count) is near-constant. Result: near-optimal arithmetic intensity, no redundant KV transfers."
+    },
+    {
+      "title": "4.1-4.2 Pretraining Setup & Baselines",
+      "summary": "Backbone: 27B total / 3B active, GQA + DeepSeekMoE (72 routed + 2 shared experts, top-6; first layer is a SwiGLU MLP), 30 layers, hidden 2560, GQA groups=4, 64 heads, d_q=d_k=192, d_v=128. NSA config: l=32, d=16, l'=64, n=16 (with 1 initial + 2 local fixed blocks), w=512. Pretrained on 270B tokens of 8k text, then continued + SFT on 32k with YaRN. Baselines: Full Attention plus inference-stage sparse methods H2O, InfLLM, Quest, Exact-Top (all fixed to equal 2560-token budget)."
+    },
+    {
+      "title": "4.3 Performance Comparison",
+      "summary": "General: NSA avg 0.456 vs Full Attention 0.443, winning 7 of 9 metrics with notable reasoning gains (DROP +0.042, GSM8K +0.034) — sparse pretraining may filter noise from irrelevant attention. Long-context: perfect retrieval at all positions in 64k needle-in-a-haystack; LongBench avg 0.469 (+0.032 over Full Attn, +0.046 over Exact-Top), big wins on multi-hop QA (HPQ +0.087, 2Wiki +0.051) and code (LCC +0.069). Reasoning: after R1 knowledge-distillation SFT, NSA-R beats Full Attention-R on AIME (0.121 vs 0.046 at 8k; 0.146 vs 0.092 at 16k)."
+    },
+    {
+      "title": "5. Efficiency Analysis",
+      "summary": "On 8x A100 vs Triton FlashAttention-2. Training/prefill (compute-bound): forward speedup grows with length to 9.0x, backward to 6.0x at 64k. Decode (memory-bound): NSA loads only ~floor((s-l)/d) compression + n*l' selected + w window tokens; memory access at 64k drops from 65536 to 5632 tokens, giving ~11.6x expected speedup. Both advantages widen as sequence length grows."
+    },
+    {
+      "title": "6. Discussion & 7. Related Works",
+      "summary": "Alternative strategies NSA rejected: key-clustering (ClusterKV) adds dynamic-clustering overhead and MoE load imbalance; auxiliary-loss and heuristic parameter-free blockwise selection both underperform NSA in loss (Fig. 7). Visualization (Fig. 8) shows Full-Attention scores cluster blockwise — the empirical basis for blockwise selection. Related work splits into fixed sparse patterns (StreamingLLM, Longformer), dynamic token pruning (H2O, SnapKV), and query-aware selection (Quest, InfLLM, SeerAttention); NSA differs by learning sparsity natively across training, prefill, AND decode."
+    }
+  ],
+  "readingFocus": [
+    "Fix the framing first: after GQA/MQA shrink the KV-cache MEMORY, NSA is the piece that shrinks attention COMPUTE at long context. Keep the compute-bound (train/prefill) vs memory-bound (decode) distinction from Section 3.1 in mind throughout — it explains every design choice.",
+    "The three branches and the gate (Eq. 5) are the whole architecture: compression (coarse, cheap, and the source of selection scores), selection (fine-grained top-n blocks), sliding window (local). Understand why each exists and why the window gets its OWN keys/values to avoid shortcutting.",
+    "Blockwise (not token-wise) selection is the load-bearing hardware decision — it enables contiguous KV loads and Tensor-Core use. Trace how compression attention scores are reused to rank blocks for free, and how GQA groups SUM importance so all heads pick the same blocks (Eq. 8-12).",
+    "The kernel section (3.4) is the 'hardware-aligned' half of the title: group-centric loading + shared KV fetching + grid scheduling. This is where theoretical sparsity becomes real wall-clock speedup — the thing prior methods (Section 2.1) failed to achieve.",
+    "Note WHY native training matters (Section 2.2): post-hoc top-20% attention covers only ~70% of scores, and non-differentiable selection ops break gradients. This is the practitioner's argument for training sparsity in rather than bolting it on.",
+    "Anchor the numbers: config (l=32, d=16, l'=64, n=16, w=512), speedups (11.6x decode / 9.0x fwd / 6.0x bwd at 64k), and quality (matches/beats Full Attention). These are the reference points for the DeepSeek V4 production lineage."
+  ]
+}

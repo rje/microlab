@@ -14,20 +14,25 @@ import torch
 def filter_correct_traces(
     traces: list[str], gold: str, extract_fn: Callable[[str], str | None]
 ) -> list[str]:
-    """STaR filter: keep only traces whose extracted answer matches `gold`. These become
-    the fine-tuning set (the model learns from its own successful reasoning)."""
+    """STaR filter: keep only traces whose extracted answer matches `gold` (drop ones that
+    fail to parse). These become the fine-tuning set — the model learns from its own
+    successful reasoning. See docs/hand-write/phase14-reasoning.md."""
     raise NotImplementedError(
-        "[t for t in traces if extract_fn(t) is not None and extract_fn(t) == gold]"
+        "keep the traces whose extracted answer matches gold; a None extraction never matches"
     )
 
 
 def distillation_loss(
     student_logits: torch.Tensor, teacher_logits: torch.Tensor, temperature: float = 2.0
 ) -> torch.Tensor:
-    """KL(teacher || student) on temperature-softened distributions, scaled by T^2 (so
-    gradient magnitude is stable across temperatures). Zero when student == teacher."""
+    """Knowledge distillation (Hinton et al.): pull the student's distribution toward a
+    frozen teacher's by matching temperature-softened softmaxes. Two design points ARE the
+    lesson — which direction the KL runs (which side is the fixed target vs the log-prob
+    argument ``F.kl_div`` expects) and the temperature correction that keeps the gradient
+    magnitude comparable across temperatures. Zero when student == teacher; returns a scalar.
+    See docs/hand-write/phase14-reasoning.md."""
     raise NotImplementedError(
-        "s = F.log_softmax(student_logits / temperature, dim=-1); "
-        "t = F.softmax(teacher_logits / temperature, dim=-1); "
-        "return F.kl_div(s, t, reduction='batchmean') * (temperature * temperature)"
+        "soften both logits by the temperature, take the KL between them (mind the direction "
+        "and F.kl_div's log-prob/prob argument order), and correct for the temperature so the "
+        "gradient magnitude doesn't shrink as T grows"
     )

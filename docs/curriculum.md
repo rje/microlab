@@ -35,7 +35,7 @@ understand line by line. Every phase has the same four layers; you climb through
 | 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU, GQA, MoE routing + load-balance loss | — |
 | 4 | Scaling experiments | param/FLOP count, scaling-law fit, muP transfer table | compute-optimal 1B config |
 | 5 | Interpretability | logit lens, induction-head score | interp report on the 150M ckpt |
-| 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench on the 150M ckpt |
+| 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench + authed streaming Playground (console serves the 150M) |
 | 7 | Distributed training | per-GPU memory budget (DP/TP/PP x ZeRO) | grad-ckpt/compile drills + cloud DDP + 1B capstone |
 | 8 | Continued pretraining | forgetting metric, replay mix, RoPE position interpolation | (uses scale) |
 | 9 | Supervised fine-tuning | prompt loss-masking, masked CE | (uses scale) |

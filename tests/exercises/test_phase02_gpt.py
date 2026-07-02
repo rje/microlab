@@ -76,4 +76,17 @@ def test_generate_matches_reference_greedy():
     ref = ref_generate(model, idx, max_new_tokens=10, temperature=0.0)
     assert torch.equal(mine, ref)
 
+
+def test_generate_matches_reference_sampled_seeded():
+    # the sampled path is stochastic; seed the global RNG identically before each call so the
+    # multinomial draws line up, then assert token-for-token parity with the reference.
+    torch.manual_seed(0)
+    model = GPT(_cfg())
+    idx = torch.zeros((1, 1), dtype=torch.long)
+    torch.manual_seed(1234)
+    mine = generate(model, idx.clone(), max_new_tokens=10, temperature=1.0, top_k=5)
+    torch.manual_seed(1234)
+    ref = ref_generate(model, idx.clone(), max_new_tokens=10, temperature=1.0, top_k=5)
+    assert torch.equal(mine, ref)
+
 pytestmark = pytest.mark.exercise

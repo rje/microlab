@@ -1,0 +1,45 @@
+{
+  "paperId": "muon-is-scalable-for-llm-training",
+  "cards": [
+    {
+      "id": "muon-is-scalable-for-llm-training#1",
+      "question": "Write Muon's update rule and explain what the Newton-Schulz step computes.",
+      "answer": "M_t = mu*M_{t-1} + grad(L)(W_{t-1}); O_t = NewtonSchulz(M_t); W_t = W_{t-1} - eta_t*O_t. Newton-Schulz approximately computes (M_t M_t^T)^{-1/2} M_t, which equals U V^T for the SVD M_t = U*Sigma*V^T. It therefore orthogonalizes the momentum matrix: keeps its singular vectors but flattens all singular values to ~1. Intuitively this makes the update 'isomorphic' across directions, preventing the weight from learning along only a few dominant directions."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#2",
+      "question": "How is the orthogonalization done in practice, and why is an iterative Newton-Schulz method used instead of an explicit SVD?",
+      "answer": "Set X_0 = M_t/||M_t||_F, then iterate X_k = a*X_{k-1} + b*(X_{k-1}X_{k-1}^T)X_{k-1} + c*(X_{k-1}X_{k-1}^T)^2*X_{k-1}, using the quintic f(x)=ax+bx^3+cx^5 with coefficients (a=3.4445, b=-4.7750, c=2.0315) tuned so f has a fixed point near 1. The paper uses N=5 steps. It is used instead of an explicit SVD because it is only matrix-multiplies (GPU-friendly, runnable in bf16) and far cheaper, while converging the singular values toward 1."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#3",
+      "question": "Why does vanilla Muon (no weight decay) degrade at larger scale, and what is the fix?",
+      "answer": "Without weight decay the weight matrices and layer-output RMS keep growing during long training, eventually exceeding bf16's high-precision range, which hurts final quality. The fix is standard decoupled (AdamW-style) weight decay added to the update: W_t = W_{t-1} - eta_t*(O_t + lambda*W_{t-1}). In an ~5x-compute-optimal over-train run (800M params, 100B tokens), Muon with weight decay beats both vanilla Muon and AdamW even though vanilla Muon converges faster early."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#4",
+      "question": "State Lemma 1 on Muon's update RMS and explain why shape-dependent RMS is a scaling problem.",
+      "answer": "Lemma 1: a full-rank Muon update of shape [A,B] has theoretical RMS = sqrt(1/max(A,B)). So update magnitude depends on matrix shape. When max(A,B) is large (e.g. a dense MLP matrix), the update is too small and limits representational capacity; when max(A,B) is small (e.g. treating each GQA/MLA KV head as a separate parameter), the update is too large and causes training instability. Both extremes lead to suboptimal performance, which is why the update must be rescaled per matrix."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#5",
+      "question": "How does Moonlight match Muon's update RMS to AdamW's, and why does that matter operationally?",
+      "answer": "AdamW's update RMS empirically sits around 0.2-0.4. Multiplying each matrix update by sqrt(max(A,B)) cancels the Lemma-1 shape dependence, then scaling to 0.2 gives the 'Adjusted LR' rule W_t = W_{t-1} - eta_t*(0.2*O_t*sqrt(max(A,B)) + lambda*W_{t-1}). It matters because with matched RMS, Muon can directly reuse the learning rate and weight decay already tuned for AdamW, so it works out-of-the-box with no per-parameter tuning and enables a fair, drop-in comparison."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#6",
+      "question": "What do the scaling-law experiments conclude about Muon vs AdamW, and how was the comparison kept fair?",
+      "answer": "On dense Llama-architecture models (399M-1.5B) under compute-optimal training, the fitted loss curves are Muon = 2.506*C^-0.052 and AdamW = 2.608*C^-0.054, so Muon reaches AdamW-equal loss at roughly 52% (0.519x) of the training FLOPs — about 2x compute efficiency. Fairness came from first grid-searching AdamW-optimal hyper-parameters (model size, tokens, LR, batch), then having Muon reuse those same hyper-parameters (possible because of the RMS matching), rather than tuning Muon separately."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#7",
+      "question": "Which parameters does Muon optimize, how is Distributed Muon built, and what is its memory/communication cost?",
+      "answer": "Muon only optimizes matrix (2D) weights; non-matrix parameters — embeddings, the LM head, and RMSNorm gains — stay on AdamW. Because Newton-Schulz needs the full gradient matrix, vanilla element-wise ZeRO-1 does not apply; Distributed Muon adds two ops to ZeRO-1 AdamW: a DP-gather of partitioned gradients into the full matrix, then a full Newton-Schulz update whose non-local partition is discarded. It stores one momentum buffer vs AdamW's two (half the optimizer memory), runs Newton-Schulz in bf16, and has communication cost (1, 1.25)x of Distributed AdamW with negligible added latency (~1-3% of the forward-backward pass)."
+    },
+    {
+      "id": "muon-is-scalable-for-llm-training#8",
+      "question": "What does the SVD-entropy analysis show, and what did the SFT experiments reveal about optimizer choice?",
+      "answer": "SVD entropy H(sigma) of weight matrices is used as a proxy for update diversity: Muon-trained matrices have higher SVD entropy than AdamW for over 90% of matrices, supporting that orthogonalized updates explore more diverse directions — with the largest gap in MoE router weights, implying mixtures of experts benefit most. For SFT, Muon's advantage persists only when pretraining and fine-tuning use the same optimizer; applying Muon-SFT to an AdamW-pretrained model (e.g. Qwen2.5-7B) is merely on par with Adam-SFT, so Muon pays off mainly in pretraining and the pretrain/SFT optimizers should match."
+    }
+  ]
+}
