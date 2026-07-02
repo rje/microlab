@@ -36,7 +36,7 @@ whole point of the phase: change one thing, measure.
 /home/rje/anaconda3/bin/conda run -n microlab pytest tests/exercises/test_phase03_variants.py -v
 ```
 
-Three pieces in `student_variants.py`:
+Four pieces in `student_variants.py`:
 
 1. **`RMSNorm.forward`** — `x / sqrt(mean(x², last dim) + eps) * weight`. No mean
    subtraction, no bias (that's the whole difference from LayerNorm). Graded vs the
@@ -49,6 +49,14 @@ Three pieces in `student_variants.py`:
 3. **`SwiGLUMLP.forward`** — `w2(silu(w1 x) * w3 x)` then dropout. The gated GLU variant;
    the `silu(w1 x)` branch gates the `w3 x` branch. Graded vs the reference (weights copied
    in, so the hidden-dim formula already matches).
+4. **`GQAAttention.forward`** — grouped-query attention: `n_head` query heads share
+   `n_kv_head` K/V heads. Project q normally; project kv at `2*n_kv_head*head_dim` and
+   `.split(n_kv_head*head_dim, dim=2)`; RoPE on q,k; `repeat_interleave` k,v by
+   `n_head//n_kv_head`; causal SDPA. `n_kv_head=1` is MQA (Shazeer 2019), `=n_head` is
+   plain MHA. **Why it exists won't fully land until Phase 6**: the KV *cache* shrinks by
+   `n_head/n_kv_head`, and at inference time the cache — not compute — is the bottleneck.
+   Ablate it now (add `n_kv_head` to your ablation matrix: loss barely moves); measure the
+   cache payoff when you build inference.
 
 ## 3. Why these three (the papers)
 

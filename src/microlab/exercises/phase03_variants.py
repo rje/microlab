@@ -1,5 +1,5 @@
-"""Hand-write exercise (Phase 3): implement the three architecture primitives —
-RMSNorm, rotary position embeddings (RoPE), and a SwiGLU MLP.
+"""Hand-write exercise (Phase 3): implement the four architecture primitives —
+RMSNorm, rotary position embeddings (RoPE), a SwiGLU MLP, and grouped-query attention.
 
 Fill in the ``NotImplementedError`` bodies so ``tests/model/test_student_variants.py``
 passes. The differential tests copy the reference oracle's weights into your modules
@@ -56,4 +56,34 @@ class SwiGLUMLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError(
             "implement SwiGLU: self.w2(silu(self.w1(x)) * self.w3(x)), then dropout"
+        )
+
+
+class GQAAttention(nn.Module):
+    """Grouped-query attention with RoPE. Same parameter names/shapes as the reference
+    (``q_proj``, ``kv_proj``, ``c_proj``) so weights transfer via load_state_dict."""
+
+    def __init__(self, config) -> None:
+        super().__init__()
+        assert config.n_head % config.n_kv_head == 0
+        self.n_head = config.n_head
+        self.n_kv_head = config.n_kv_head
+        self.head_dim = config.n_embd // config.n_head
+        self.n_embd = config.n_embd
+        self.q_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.kv_proj = nn.Linear(
+            config.n_embd, 2 * config.n_kv_head * self.head_dim, bias=config.bias
+        )
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        from microlab.model.reference.variants import build_rope_cache
+
+        cos, sin = build_rope_cache(config.block_size, self.head_dim)
+        self.register_buffer("rope_cos", cos, persistent=False)
+        self.register_buffer("rope_sin", sin, persistent=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError(
+            "project q (n_head heads) and kv (n_kv_head heads), split k/v with "
+            ".split(n_kv_head*head_dim, dim=2), apply RoPE to q and k, repeat_interleave "
+            "k/v by n_head//n_kv_head groups, causal SDPA, merge heads, c_proj"
         )

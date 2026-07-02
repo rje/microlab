@@ -80,6 +80,48 @@ class RoPECausalSelfAttention(nn.Module):
         return self.c_proj(y)
 
 
+class GQAAttention(nn.Module):
+    """Grouped-query attention with RoPE: n_head query heads share n_kv_head K/V heads
+    (n_kv_head == 1 is multi-query attention). Halves-to-quarters the KV projection —
+    and, later, the KV cache — at near-zero quality cost (Ainslie et al., 2023)."""
+
+    def __init__(self, config: VariantConfig) -> None:
+        super().__init__()
+        assert config.pos == "rope", "GQAAttention is built for the RoPE block"
+        assert config.n_embd % config.n_head == 0
+        assert config.n_head % config.n_kv_head == 0
+        self.n_head = config.n_head
+        self.n_kv_head = config.n_kv_head
+        self.head_dim = config.n_embd // config.n_head
+        self.n_embd = config.n_embd
+        self.dropout = config.dropout
+        self.q_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.kv_proj = nn.Linear(
+            config.n_embd, 2 * config.n_kv_head * self.head_dim, bias=config.bias
+        )
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        cos, sin = build_rope_cache(config.block_size, self.head_dim)
+        self.register_buffer("rope_cos", cos, persistent=False)
+        self.register_buffer("rope_sin", sin, persistent=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, T, C = x.shape
+        q = self.q_proj(x).view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        k, v = self.kv_proj(x).split(self.n_kv_head * self.head_dim, dim=2)
+        k = k.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
+        q = apply_rope(q, self.rope_cos.to(q.dtype), self.rope_sin.to(q.dtype))
+        k = apply_rope(k, self.rope_cos.to(k.dtype), self.rope_sin.to(k.dtype))
+        groups = self.n_head // self.n_kv_head
+        k = k.repeat_interleave(groups, dim=1)
+        v = v.repeat_interleave(groups, dim=1)
+        y = F.scaled_dot_product_attention(
+            q, k, v, is_causal=True, dropout_p=self.dropout if self.training else 0.0
+        )
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        return self.c_proj(y)
+
+
 class SwiGLUMLP(nn.Module):
     """SwiGLU feed-forward (GLU variant): w2(silu(w1 x) * w3 x). Hidden dim ~ 8/3 * n_embd
     (rounded to a multiple of 8) so param count is comparable to the 4x GELU MLP."""
@@ -102,6 +144,9 @@ class VariantConfig(GPTConfig):
     norm: str = "layer"   # "layer" | "rms"
     pos: str = "learned"  # "learned" | "rope"
     mlp: str = "gelu"     # "gelu" | "swiglu"
+    # None -> classic multi-head attention (fused c_attn), bit-identical to before this
+    # field existed. Set to a divisor of n_head for grouped-query attention (1 == MQA).
+    n_kv_head: int | None = None
 
 
 def _make_norm(kind: str, dim: int) -> nn.Module:
@@ -112,9 +157,12 @@ class VariantBlock(nn.Module):
     def __init__(self, config: VariantConfig) -> None:
         super().__init__()
         self.ln_1 = _make_norm(config.norm, config.n_embd)
-        self.attn = (
-            RoPECausalSelfAttention(config) if config.pos == "rope" else CausalSelfAttention(config)
-        )
+        if getattr(config, "n_kv_head", None) is not None:
+            self.attn = GQAAttention(config)
+        elif config.pos == "rope":
+            self.attn = RoPECausalSelfAttention(config)
+        else:
+            self.attn = CausalSelfAttention(config)
         self.ln_2 = _make_norm(config.norm, config.n_embd)
         self.mlp = SwiGLUMLP(config) if config.mlp == "swiglu" else MLP(config)
 
