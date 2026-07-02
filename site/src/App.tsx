@@ -222,7 +222,7 @@ export function App({ initialState }: AppProps) {
           onSelectTraining={() => setView("training")}
         />
         {view === "training" ? (
-          <main className="workspace">
+          <main className="workspace workspace-full">
             <TrainingPanel />
           </main>
         ) : (
@@ -345,7 +345,7 @@ function TrainingPanel() {
       <iframe
         title="TensorBoard"
         src="/tensorboard/"
-        style={{ width: "100%", height: "80vh", border: 0 }}
+        style={{ width: "100%", border: 0, height: "calc(100vh - 96px)" }}
       />
     </section>
   );

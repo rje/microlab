@@ -184,10 +184,16 @@ svg {
   gap: 18px;
 }
 
+/* Training view spans the workspace + the (unused) right-rail column so the embedded
+   TensorBoard fills the width instead of leaving the right side empty. */
+.workspace-full {
+  grid-column: 2 / -1;
+}
+
 .training-panel {
-  display: grid;
-  align-content: start;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .phase-header {
@@ -783,6 +789,10 @@ svg {
     grid-template-columns: 1fr;
     gap: 14px;
     padding: 12px;
+  }
+
+  .workspace-full {
+    grid-column: 1 / -1;
   }
 
   .phase-rail {
