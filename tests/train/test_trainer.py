@@ -47,6 +47,31 @@ def test_resume_equivalence_cpu(tmp_path):
         assert torch.allclose(pa, pc, atol=1e-5)
 
 
+def test_train_returns_stats_keys_with_tokenizer_none(tmp_path):
+    # TB logging is side-effect only: tokenizer=None must keep the stats contract intact.
+    torch.manual_seed(0)
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    tr = Trainer(_cfg(out_dir=str(tmp_path), max_steps=3), data, data, tokenizer=None)
+    stats = tr.train()
+    assert set(stats) == {"final_loss", "history", "val_loss", "step"}
+    assert stats["step"] == 3
+
+
+def test_tensorboard_event_file_written(tmp_path):
+    # With tensorboard installed, a tiny run must emit an event file into out_dir
+    # and must not crash the training loop.
+    torch.manual_seed(0)
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    tr = Trainer(
+        _cfg(out_dir=str(tmp_path), max_steps=3, log_interval=1, eval_interval=2),
+        data,
+        data,
+    )
+    tr.train()
+    events = list(tmp_path.glob("events.out.tfevents.*"))
+    assert events, "expected a TensorBoard event file in out_dir"
+
+
 @pytest.mark.gpu
 def test_trainer_on_cuda_bf16():
     if not torch.cuda.is_available():

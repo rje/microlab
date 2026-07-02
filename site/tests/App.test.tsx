@@ -162,6 +162,14 @@ describe("App", () => {
     });
   });
 
+  it("shows the TensorBoard iframe when the Training tab is selected", () => {
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("button", { name: /training/i }));
+    const frame = screen.getByTitle("TensorBoard");
+    expect(frame).toBeInTheDocument();
+    expect(frame).toHaveAttribute("src", "/tensorboard/");
+  });
+
   it("renders the AI overview in the summary tab when present", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (String(url).includes("/overview")) {

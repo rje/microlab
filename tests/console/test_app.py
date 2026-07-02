@@ -420,3 +420,26 @@ def test_highlight_unknown_paper_404(client):
         json={"page": 1, "rects": [], "text": "x"},
         headers={"X-CSRF-Token": csrf},
     ).status_code == 404
+
+
+def test_tensorboard_proxy_requires_auth(client):
+    # TensorBoard has no auth of its own; the proxy MUST gate unauthenticated access.
+    # Non-/api paths redirect to login (matches the SPA catch-all behavior).
+    resp = client.get("/tensorboard/")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
+
+
+def test_tensorboard_proxy_503_when_not_running(auth_client, monkeypatch):
+    # Authed, but no TensorBoard upstream: return the helpful 503 page, not a 500.
+    import requests
+
+    from microlab.console import app as app_module
+
+    def _raise(*args, **kwargs):
+        raise requests.exceptions.RequestException("connection refused")
+
+    monkeypatch.setattr(app_module._requests, "request", _raise)
+    resp = auth_client.get("/tensorboard/")
+    assert resp.status_code == 503
+    assert b"TensorBoard isn't running" in resp.data

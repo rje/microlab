@@ -118,6 +118,7 @@ export function App({ initialState }: AppProps) {
   const [markdownLoadingPath, setMarkdownLoadingPath] = useState<string | null>(null);
   const [activePaperId, setActivePaperId] = useState<string | null>(null);
   const [recallOpen, setRecallOpen] = useState(false);
+  const [view, setView] = useState<"phases" | "training">("phases");
 
   useEffect(() => {
     if (initialState) {
@@ -213,28 +214,41 @@ export function App({ initialState }: AppProps) {
         <PhaseRail
           activePhaseId={activePhase.id}
           phases={state.phases}
-          onSelectPhase={setActivePhaseId}
+          activeView={view}
+          onSelectPhase={(phaseId) => {
+            setActivePhaseId(phaseId);
+            setView("phases");
+          }}
+          onSelectTraining={() => setView("training")}
         />
-        <main className="workspace">
-          <PhaseHeader phase={activePhase} />
-          <ProgressBand phase={activePhase} papers={readingPapers} runs={phaseRuns} />
-          <TaskBoard
-            tasks={activePhase.tasks}
-            phaseId={activePhase.id}
-            csrfToken={state.csrfToken ?? ""}
-            onOpenMarkdown={openMarkdownDocument}
-            onChangeStatus={updateTaskStatus}
-          />
-        </main>
-        <aside className="right-rail">
-          <RecallPanel onStart={() => setRecallOpen(true)} />
-          <ReadingPanel
-            papers={readingPapers}
-            synopses={state.synopses}
-            onOpen={setActivePaperId}
-          />
-          <ResultsPanel runs={phaseRuns} onOpenMarkdown={openMarkdownDocument} />
-        </aside>
+        {view === "training" ? (
+          <main className="workspace">
+            <TrainingPanel />
+          </main>
+        ) : (
+          <>
+            <main className="workspace">
+              <PhaseHeader phase={activePhase} />
+              <ProgressBand phase={activePhase} papers={readingPapers} runs={phaseRuns} />
+              <TaskBoard
+                tasks={activePhase.tasks}
+                phaseId={activePhase.id}
+                csrfToken={state.csrfToken ?? ""}
+                onOpenMarkdown={openMarkdownDocument}
+                onChangeStatus={updateTaskStatus}
+              />
+            </main>
+            <aside className="right-rail">
+              <RecallPanel onStart={() => setRecallOpen(true)} />
+              <ReadingPanel
+                papers={readingPapers}
+                synopses={state.synopses}
+                onOpen={setActivePaperId}
+              />
+              <ResultsPanel runs={phaseRuns} onOpenMarkdown={openMarkdownDocument} />
+            </aside>
+          </>
+        )}
       </div>
       <MarkdownDocumentView
         document={markdownDocument}
@@ -261,11 +275,15 @@ export function App({ initialState }: AppProps) {
 function PhaseRail({
   activePhaseId,
   phases,
-  onSelectPhase
+  activeView,
+  onSelectPhase,
+  onSelectTraining
 }: {
   activePhaseId: string;
   phases: Phase[];
+  activeView: "phases" | "training";
   onSelectPhase: (phaseId: string) => void;
+  onSelectTraining: () => void;
 }) {
   return (
     <nav className="phase-rail" aria-label="Microlab phases">
@@ -282,7 +300,9 @@ function PhaseRail({
       <div className="phase-list">
         {phases.map((phase, index) => (
           <button
-            className={`phase-nav ${phase.id === activePhaseId ? "is-active" : ""}`}
+            className={`phase-nav ${
+              activeView === "phases" && phase.id === activePhaseId ? "is-active" : ""
+            }`}
             key={phase.id}
             onClick={() => onSelectPhase(phase.id)}
             type="button"
@@ -294,8 +314,40 @@ function PhaseRail({
             </span>
           </button>
         ))}
+        <button
+          className={`phase-nav ${activeView === "training" ? "is-active" : ""}`}
+          onClick={onSelectTraining}
+          type="button"
+        >
+          <span className="phase-number" aria-hidden="true">
+            <Activity />
+          </span>
+          <span>
+            <strong>Training</strong>
+            <small>TensorBoard</small>
+          </span>
+        </button>
       </div>
     </nav>
+  );
+}
+
+function TrainingPanel() {
+  return (
+    <section className="training-panel" aria-labelledby="training-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Live</p>
+          <h2 id="training-heading">Training</h2>
+        </div>
+        <Activity aria-hidden="true" />
+      </div>
+      <iframe
+        title="TensorBoard"
+        src="/tensorboard/"
+        style={{ width: "100%", height: "80vh", border: 0 }}
+      />
+    </section>
   );
 }
 
