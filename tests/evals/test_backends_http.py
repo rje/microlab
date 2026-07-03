@@ -48,7 +48,7 @@ def _task(prompt: str = "once upon a time") -> EvalTask:
 @pytest.fixture
 def live_server(tmp_path, monkeypatch):
     """Real HTTP server on an ephemeral port; token lives in the app's instance dir."""
-    monkeypatch.setattr(serve, "get_state", lambda root: _tiny_state())
+    monkeypatch.setattr(serve, "get_state", lambda root, run=None, reload=False: _tiny_state())
     app = create_app(str(tmp_path))
     server = make_server("127.0.0.1", 0, app, threaded=True)
     host = f"http://127.0.0.1:{server.server_port}"

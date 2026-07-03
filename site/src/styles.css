@@ -951,6 +951,13 @@ svg {
 
 /* Playground — stream from the owner's own trained model (authed) */
 .playground-panel { display: flex; flex-direction: column; gap: 14px; }
+.playground-serving { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid #ece5d6; }
+.playground-serving-run { display: flex; flex-direction: column; gap: 6px; }
+.playground-serving-select { background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 6px; padding: 0.4rem 0.5rem; font: inherit; min-width: 200px; }
+.playground-serving-select:disabled { color: #a29a8c; }
+.playground-reload { padding: 0.45rem 1rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fffdf8; color: #24231f; font-weight: 600; cursor: pointer; }
+.playground-reload:disabled { color: #a29a8c; cursor: default; }
+.playground-serving-status { color: #6f675c; font-size: 0.8rem; margin-left: auto; }
 .playground-field { display: flex; flex-direction: column; gap: 6px; }
 .playground-label { color: #6f675c; font-size: 0.78rem; font-weight: 700; }
 .playground-prompt { width: 100%; background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 8px; padding: 0.6rem; font: inherit; resize: vertical; }

@@ -372,6 +372,8 @@ function TrainingPanel() {
   );
 }
 
+type ServeRun = { name: string; latestStep: number };
+
 function PlaygroundPanel() {
   const [prompt, setPrompt] = useState("Once upon a time");
   const [output, setOutput] = useState("");
@@ -385,9 +387,77 @@ function PlaygroundPanel() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Run/checkpoint picker: the server keeps ONE model resident, so selecting a run (or
+  // reloading) switches which trained run's LATEST checkpoint answers /api/generate.
+  const [runs, setRuns] = useState<ServeRun[]>([]);
+  const [selectedRun, setSelectedRun] = useState(""); // "" = let the server pick its default
+  const [activeRun, setActiveRun] = useState<string | null>(null); // resident on the server
+  const [activeStep, setActiveStep] = useState<number | null>(null);
+  const [reloading, setReloading] = useState(false);
+
   // Kill an in-flight generation when navigating away — the server holds a single-generation
   // lock, so a leaked stream would block the next request.
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Populate the picker from the server's runs. Failures are non-fatal: the Playground still
+  // works against the server's default run, just without the switcher.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/serve/runs");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const list: ServeRun[] = (data.runs ?? []).map((r: { name: string; latest_step: number }) => ({
+          name: r.name,
+          latestStep: r.latest_step
+        }));
+        setRuns(list);
+        const active = data.active as { name: string; step: number } | null;
+        if (active) {
+          setActiveRun(active.name);
+          setActiveStep(active.step);
+          setSelectedRun(active.name);
+        } else if (list.length) {
+          setSelectedRun(list[0].name);
+        }
+      } catch {
+        /* leave the picker empty; generate still hits the default run */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const reload = async () => {
+    setReloading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/serve/reload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedRun ? { run: selectedRun } : {})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setActiveRun(data.run);
+      setActiveStep(data.step);
+      setSelectedRun(data.run);
+      setRuns((prev) =>
+        prev.map((r) => (r.name === data.run ? { ...r, latestStep: data.step } : r))
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setReloading(false);
+    }
+  };
+
+  const selected = runs.find((r) => r.name === selectedRun) ?? null;
+  const isResident = activeRun !== null && activeRun === selectedRun;
+  const shownStep = isResident ? activeStep : selected?.latestStep ?? null;
 
   const generate = async () => {
     setRunning(true);
@@ -408,7 +478,8 @@ function PlaygroundPanel() {
           temperature,
           top_k: topK || null,
           top_p: topP || null,
-          seed: seed === "" ? null : Number(seed)
+          seed: seed === "" ? null : Number(seed),
+          run: selectedRun || null
         }),
         signal: controller.signal
       });
@@ -424,6 +495,11 @@ function PlaygroundPanel() {
         const piece = decoder.decode(value, { stream: true });
         chars += piece.length;
         setOutput((prev) => prev + piece);
+      }
+      // A successful generate loaded the selected run's latest checkpoint into residency.
+      if (selectedRun) {
+        setActiveRun(selectedRun);
+        if (selected) setActiveStep(selected.latestStep);
       }
       const secs = (performance.now() - t0) / 1000;
       setStats(`${(chars / Math.max(secs, 0.001)).toFixed(0)} chars/s · ${secs.toFixed(1)}s`);
@@ -442,6 +518,41 @@ function PlaygroundPanel() {
           <h2 id="playground-heading">Playground</h2>
         </div>
         <Sparkles aria-hidden="true" />
+      </div>
+
+      <div className="playground-serving">
+        <label className="playground-serving-run">
+          <span className="playground-label">Run</span>
+          <select
+            className="playground-serving-select"
+            aria-label="Run to serve"
+            value={selectedRun}
+            disabled={runs.length === 0}
+            onChange={(event) => setSelectedRun(event.target.value)}
+          >
+            {runs.length === 0 && <option value="">default run</option>}
+            {runs.map((r) => (
+              <option key={r.name} value={r.name}>
+                {r.name} · step {r.latestStep}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="playground-reload"
+          onClick={reload}
+          disabled={reloading || running}
+        >
+          {reloading ? "Reloading…" : "Reload latest"}
+        </button>
+        <span className="playground-serving-status">
+          {selectedRun
+            ? `Serving ${selectedRun}${shownStep != null ? ` · step ${shownStep}` : ""}${
+                isResident ? " · resident" : ""
+              }`
+            : "Serving the default run"}
+        </span>
       </div>
 
       <label className="playground-field">
