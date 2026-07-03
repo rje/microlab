@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import math
+import shutil
 from pathlib import Path
 
 from microlab.data.shard_dataset import ShardDataset
@@ -39,6 +40,15 @@ def main() -> None:
         tok = FastTokenizer.load(str(tok_path))
         cfg.vocab_size = tok.vocab_size
         print(f"vocab_size set from tokenizer: {cfg.vocab_size}")
+
+    # Make the run dir self-contained: co-locate the tokenizer with the checkpoints so the
+    # console can serve this run without guessing which tokenizer produced it (decoding a
+    # checkpoint with the wrong tokenizer yields garbage).
+    out_dir = Path(cfg.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if tok_path.exists() and not (out_dir / "tokenizer.json").exists():
+        shutil.copy(tok_path, out_dir / "tokenizer.json")
+        print(f"co-located tokenizer -> {out_dir / 'tokenizer.json'}")
 
     train_ds = ShardDataset(args.data_dir, split="train")
     val_ds = ShardDataset(args.data_dir, split="val")
