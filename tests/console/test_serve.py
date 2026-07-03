@@ -1,5 +1,6 @@
 """Serving core + endpoint: stream correctness, limits, auth, and failure modes."""
 
+import threading
 from pathlib import Path
 
 import pytest
@@ -213,6 +214,32 @@ def test_get_state_switch_evicts_old_model(tmp_path, stub_load):
     assert s2.run == "350m" and s2.step == 5
     assert s1.model is None  # the evicted state had its model ref dropped (bounds VRAM)
     assert stub_load == [("150m", 20), ("350m", 5)]
+
+
+def test_run_switch_waits_for_active_generation(tmp_path, stub_load):
+    # Concurrency: generation and eviction share ONE lock, so a run switch must WAIT for an
+    # in-flight stream instead of nulling the model under it. Hold _gen_lock to stand in for
+    # an active generation, then prove a switching get_state blocks and doesn't evict.
+    _fake_run(tmp_path, "a", [10])
+    _fake_run(tmp_path, "b", [5])
+    s1 = serve.get_state(tmp_path, run="a")
+    result = {}
+
+    def switch():
+        result["state"] = serve.get_state(tmp_path, run="b")
+
+    serve._gen_lock.acquire()
+    worker = threading.Thread(target=switch)
+    try:
+        worker.start()
+        worker.join(timeout=0.3)
+        assert worker.is_alive()  # blocked on _gen_lock -> the switch waits for the stream
+        assert s1.model is not None  # the in-use model was NOT evicted mid-generation
+    finally:
+        serve._gen_lock.release()  # the "generation" finishes and releases the lock
+    worker.join(timeout=3)
+    assert not worker.is_alive()  # no deadlock: the switch completes once the lock frees
+    assert result["state"].run == "b" and s1.model is None
 
 
 def test_get_state_reload_and_newer_checkpoint(tmp_path, stub_load):

@@ -14,7 +14,7 @@ import os
 import re
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -33,11 +33,17 @@ class ServeState:
     step: int
     device: str
     run: str = ""
-    lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 _state: ServeState | None = None
+# Guards the resident-model slot: which run is loaded and swapping it out.
 _state_lock = threading.Lock()
+# Serializes the two operations that must never overlap on the single GPU: an in-flight
+# generation, and evicting/loading a model in get_state. A per-ServeState lock could NOT do
+# this — eviction nulls _state.model under _state_lock while a generation runs under a
+# different lock, so it could free a model mid-stream. One shared lock makes a run switch
+# WAIT for the active stream to finish instead. (Residual window documented in get_state.)
+_gen_lock = threading.Lock()
 
 
 def _anchor(root: Path, value: str) -> Path:
@@ -168,18 +174,30 @@ def get_state(root: Path, run: str | None = None, reload: bool = False) -> Serve
 
         tok_path = _tokenizer_path(root, run_name, run_dir)  # raises -> 503, old model kept
 
-        # Commit: evict the resident model first so we never hold two at once.
-        if _state is not None:
-            _state.model = None
-            _state = None
-            if device.startswith("cuda"):
-                torch.cuda.empty_cache()
+        # Commit under _gen_lock so eviction can NOT null a model an in-flight generation is
+        # using: a switch/reload here WAITS for the active stream to finish. Nested inside
+        # _state_lock, but stream_generate only ever takes _gen_lock (never _state_lock), so
+        # there's no lock-order inversion / deadlock.
+        #
+        # Residual (NOT closed by this lock, and out of scope): between get_state releasing
+        # _gen_lock below and stream_generate re-acquiring it, a second concurrent request
+        # could evict — nulling the ServeState this caller already holds -> a mid-stream
+        # crash. Fully closing it needs whole-request serialization (the route holding the
+        # lock across the streamed body). Unreachable from the serialized UI and the
+        # sequential eval harness, so it's a documented limitation, not a live bug.
+        with _gen_lock:
+            # Evict the resident model first so we never hold two at once.
+            if _state is not None:
+                _state.model = None
+                _state = None
+                if device.startswith("cuda"):
+                    torch.cuda.empty_cache()
 
-        model, step = load_variant_from_run(run_dir, device=device)
-        from microlab.tokenizer.fast import FastTokenizer
+            model, step = load_variant_from_run(run_dir, device=device)
+            from microlab.tokenizer.fast import FastTokenizer
 
-        _state = ServeState(model=model, tokenizer=FastTokenizer.load(str(tok_path)),
-                            step=step, device=device, run=run_name)
+            _state = ServeState(model=model, tokenizer=FastTokenizer.load(str(tok_path)),
+                                step=step, device=device, run=run_name)
         return _state
 
 
@@ -210,7 +228,9 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
 
     @torch.no_grad()
     def _run() -> Iterator[str]:
-        with state.lock:
+        # The single shared generation lock — held for the whole stream so a run
+        # switch/reload in get_state can't evict this model mid-generation.
+        with _gen_lock:
             n_kv = getattr(cfg, "n_kv_head", None) or cfg.n_head
             cache = KVCache(cfg.n_layer, 1, n_kv, cfg.block_size,
                             cfg.n_embd // cfg.n_head, device=state.device)
