@@ -29,7 +29,9 @@ def test_truncate_cuts_at_earliest_stop():
     assert bp.truncate("  plain answer  ") == "plain answer"
 
 
-def test_build_prefs_skips_empty_and_identical(monkeypatch):
+def test_build_prefs_skips_empty_and_identical(monkeypatch, tmp_path):
+    tok = FastTokenizer.train(["hello world", "the answer is four"] * 4, vocab_size=300,
+                              save_path=str(tmp_path / "tok.json"))
     rows = [
         {"instruction": "a", "context": "", "response": "gold-a"},  # kept
         {"instruction": "b", "context": "", "response": "   "},     # empty gold -> skip (no gen)
@@ -40,10 +42,22 @@ def test_build_prefs_skips_empty_and_identical(monkeypatch):
     scripted = iter(["model-a", "", "gold-d"])
     monkeypatch.setattr(bp, "sample_rejected", lambda *a, **k: next(scripted))
 
-    prefs = bp.build_prefs(model=None, tok=None, rows=rows, device="cpu")
+    prefs = bp.build_prefs(model=None, tok=tok, rows=rows, device="cpu", block_size=1024)
     assert len(prefs) == 1
     assert prefs[0]["chosen"] == "gold-a" and prefs[0]["rejected"] == "model-a"
     assert "### Instruction:" in prefs[0]["prompt"] and "### Response:" in prefs[0]["prompt"]
+
+
+def test_build_prefs_skips_overlong_prompt_before_sampling(monkeypatch, tmp_path):
+    # A prompt that won't fit in block_size is dropped BEFORE sample_rejected is called, so the
+    # model's prefill assertion is never hit (the real bug: Dolly rows with long context).
+    tok = FastTokenizer.train(["hello world foo bar"] * 4, vocab_size=300,
+                              save_path=str(tmp_path / "tok.json"))
+    calls: list[int] = []
+    monkeypatch.setattr(bp, "sample_rejected", lambda *a, **k: calls.append(1) or "x")
+    rows = [{"instruction": "some question with several words", "context": "", "response": "g"}]
+    prefs = bp.build_prefs(model=None, tok=tok, rows=rows, device="cpu", block_size=4, max_new=4)
+    assert prefs == [] and calls == []
 
 
 def test_write_prefs_roundtrips_jsonl(tmp_path):
