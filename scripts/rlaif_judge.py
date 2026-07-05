@@ -100,7 +100,11 @@ def judge_batch(batch: list[tuple[int, dict]], out_path: Path, schema_path: Path
     if proc.returncode != 0:
         raise RuntimeError(f"codex exit {proc.returncode}: {proc.stderr[-500:]}")
     verdicts = parse_verdicts(codex_out.read_text(), batch)
-    out_path.write_text(json.dumps(verdicts))
+    # Atomic write: a kill mid-write leaves only the .tmp (ignored by the verdicts_*.json glob),
+    # never a truncated verdict file — so resume re-judges just that batch, loses nothing else.
+    tmp = out_path.with_name(out_path.name + ".tmp")
+    tmp.write_text(json.dumps(verdicts))
+    tmp.replace(out_path)
     codex_out.unlink(missing_ok=True)
     return len(verdicts)
 

@@ -49,6 +49,15 @@ def test_load_verdicts_merges_files(tmp_path):
                       5: {"index": 5, "best": 2, "worst": 1}}
 
 
+def test_load_verdicts_skips_corrupt_file(tmp_path):
+    good = tmp_path / "verdicts_00000.json"
+    good.write_text(json.dumps([{"index": 0, "best": 1, "worst": 0}]))
+    partial = tmp_path / "verdicts_00030.json"  # e.g. a kill mid-write
+    partial.write_text('[{"index": 30, "best":')
+    merged = ar.load_verdicts([good, partial])  # corrupt one skipped, not fatal
+    assert merged == {0: {"index": 0, "best": 1, "worst": 0}}
+
+
 def test_load_records_indexes_by_line(tmp_path):
     f = tmp_path / "c.jsonl"
     f.write_text("\n".join(json.dumps(_rec([str(i), str(i) + "b"])) for i in range(3)))
