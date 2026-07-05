@@ -38,15 +38,16 @@ def truncate(text: str) -> str:
 
 def sample_candidates(model, tok, prompt: str, device: str, k: int, temp: float, max_new: int,
                       base_seed: int) -> list[str]:
-    """Draw k independent continuations of `prompt`, each with its own seed (base_seed + j) so
-    they are distinct and the run is reproducible. Truncated at the SFT stops."""
-    ids = torch.tensor([tok.encode(prompt)], dtype=torch.long, device=device)
-    out = []
-    for j in range(k):
-        gen = torch.Generator(device=device).manual_seed(base_seed + j)
-        seq = generate_cached(model, ids, max_new, temperature=temp, generator=gen)
-        out.append(truncate(tok.decode(seq[0].tolist()[len(ids[0]):])))
-    return out
+    """Draw k continuations of `prompt` in ONE batched generate_cached call: the k rows are the
+    same prompt tiled, so they need no padding, and batched multinomial samples each row from an
+    independent draw off the shared generator (identical logits, different randomness -> distinct
+    samples). Far faster than k sequential calls — generation is per-step-overhead-bound at batch
+    1, so batching amortizes it near-linearly. Truncated at the SFT stops."""
+    prompt_ids = tok.encode(prompt)
+    ids = torch.tensor([prompt_ids], dtype=torch.long, device=device).repeat(k, 1)
+    gen = torch.Generator(device=device).manual_seed(base_seed)
+    seqs = generate_cached(model, ids, max_new, temperature=temp, generator=gen)
+    return [truncate(tok.decode(seqs[j].tolist()[len(prompt_ids):])) for j in range(k)]
 
 
 def build_candidates(model, tok, rows: list[dict], device: str, block_size: int, k: int = 4,
