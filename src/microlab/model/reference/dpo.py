@@ -10,16 +10,22 @@ from torch.nn import functional as F
 IGNORE_INDEX = -100
 
 
-def sequence_logprob(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+def sequence_logprob(logits: torch.Tensor, labels: torch.Tensor,
+                     normalize: bool = False) -> torch.Tensor:
     """Sum of per-token log-probs of `labels` under `logits`, over the supervised
     (non-IGNORE_INDEX) response tokens. Causal shift: logits[:, :-1] predict labels[:, 1:].
-    Returns (B,)."""
+    Returns (B,). If `normalize`, return the MEAN per response token instead of the sum
+    (length-normalized, SimPO-style): the preference margin stays O(1) regardless of response
+    length, which keeps IPO's squared loss from oscillating when responses are long."""
     logits = logits[:, :-1, :]
     labels = labels[:, 1:]
     logp = F.log_softmax(logits, dim=-1)
     mask = labels != IGNORE_INDEX
     gathered = logp.gather(-1, labels.clamp(min=0).unsqueeze(-1)).squeeze(-1)
-    return (gathered * mask).sum(dim=-1)
+    summed = (gathered * mask).sum(dim=-1)
+    if normalize:
+        return summed / mask.sum(dim=-1).clamp(min=1)
+    return summed
 
 
 def dpo_loss(
