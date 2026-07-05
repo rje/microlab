@@ -30,6 +30,7 @@ The canonical machine-readable list is `manifest.json`.
 - [Evaluating Large Language Models Trained on Code](evaluation/2021-chen-evaluating-large-language-models-trained-on-code.pdf) (2021) - [source](https://arxiv.org/abs/2107.03374)
 - [Beyond the Imitation Game: Quantifying and extrapolating the capabilities of language models](evaluation/2022-big-bench-authors-beyond-the-imitation-game.pdf) (2022) - [source](https://arxiv.org/abs/2206.04615)
 - [Holistic Evaluation of Language Models](evaluation/2022-liang-holistic-evaluation-of-language-models.pdf) (2022) - [source](https://arxiv.org/abs/2211.09110)
+- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](evaluation/2023-zheng-judging-llm-as-a-judge-mt-bench.pdf) (2023) - [source](https://arxiv.org/abs/2306.05685)
 - [SWE-bench: Can Language Models Resolve Real-World GitHub Issues?](evaluation/2023-jimenez-swe-bench.pdf) (2023) - [source](https://arxiv.org/abs/2310.06770)
 - [Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference](evaluation/2024-chiang-chatbot-arena.pdf) (2024) - [source](https://arxiv.org/abs/2403.04132)
 - [tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains](evaluation/2024-yao-tau-bench.pdf) (2024) - [source](https://arxiv.org/abs/2406.12045)
@@ -84,8 +85,12 @@ The canonical machine-readable list is `manifest.json`.
 - [Fine-Tuning Language Models from Human Preferences](preferences-rlhf/2019-ziegler-fine-tuning-language-models-from-human-preferences.pdf) (2019) - [source](https://arxiv.org/abs/1909.08593)
 - [Constitutional AI: Harmlessness from AI Feedback](preferences-rlhf/2022-bai-constitutional-ai.pdf) (2022) - [source](https://arxiv.org/abs/2212.08073)
 - [Direct Preference Optimization: Your Language Model is Secretly a Reward Model](preferences-rlhf/2023-rafailov-direct-preference-optimization.pdf) (2023) - [source](https://arxiv.org/abs/2305.18290)
+- [RLAIF: Scaling Reinforcement Learning from Human Feedback with AI Feedback](preferences-rlhf/2023-lee-rlaif-scaling-rl-from-ai-feedback.pdf) (2023) - [source](https://arxiv.org/abs/2309.00267)
+- [A General Theoretical Paradigm to Understand Learning from Human Preferences](preferences-rlhf/2024-azar-general-theoretical-paradigm-preferences.pdf) (2024) - [source](https://arxiv.org/abs/2310.12036)
+- [Disentangling Length from Quality in Direct Preference Optimization](preferences-rlhf/2024-park-disentangling-length-from-quality-dpo.pdf) (2024) - [source](https://arxiv.org/abs/2403.19159)
 - [KTO: Model Alignment as Prospect Theoretic Optimization](preferences-rlhf/2024-ethayarajh-kto.pdf) (2024) - [source](https://arxiv.org/abs/2402.01306)
 - [ORPO: Monolithic Preference Optimization without Reference Model](preferences-rlhf/2024-hong-orpo.pdf) (2024) - [source](https://arxiv.org/abs/2403.07691)
+- [SimPO: Simple Preference Optimization with a Reference-Free Reward](preferences-rlhf/2024-meng-simpo-simple-preference-optimization.pdf) (2024) - [source](https://arxiv.org/abs/2405.14734)
 
 ### reasoning-rl
 

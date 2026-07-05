@@ -673,5 +673,50 @@
     "source_url": "https://arxiv.org/abs/2406.12045",
     "pdf_url": "https://arxiv.org/pdf/2406.12045",
     "filename": "2024-yao-tau-bench.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "A General Theoretical Paradigm to Understand Learning from Human Preferences",
+    "authors": "Azar et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2310.12036",
+    "pdf_url": "https://arxiv.org/pdf/2310.12036",
+    "filename": "2024-azar-general-theoretical-paradigm-preferences.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "RLAIF: Scaling Reinforcement Learning from Human Feedback with AI Feedback",
+    "authors": "Lee et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2309.00267",
+    "pdf_url": "https://arxiv.org/pdf/2309.00267",
+    "filename": "2023-lee-rlaif-scaling-rl-from-ai-feedback.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "SimPO: Simple Preference Optimization with a Reference-Free Reward",
+    "authors": "Meng et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2405.14734",
+    "pdf_url": "https://arxiv.org/pdf/2405.14734",
+    "filename": "2024-meng-simpo-simple-preference-optimization.pdf"
+  },
+  {
+    "topic": "preferences-rlhf",
+    "title": "Disentangling Length from Quality in Direct Preference Optimization",
+    "authors": "Park et al.",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2403.19159",
+    "pdf_url": "https://arxiv.org/pdf/2403.19159",
+    "filename": "2024-park-disentangling-length-from-quality-dpo.pdf"
+  },
+  {
+    "topic": "evaluation",
+    "title": "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena",
+    "authors": "Zheng et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2306.05685",
+    "pdf_url": "https://arxiv.org/pdf/2306.05685",
+    "filename": "2023-zheng-judging-llm-as-a-judge-mt-bench.pdf"
   }
 ]
