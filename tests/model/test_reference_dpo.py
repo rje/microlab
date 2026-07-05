@@ -3,7 +3,7 @@ import math
 import pytest
 import torch
 
-from microlab.model.reference.dpo import IGNORE_INDEX, dpo_loss, sequence_logprob
+from microlab.model.reference.dpo import IGNORE_INDEX, dpo_loss, ipo_loss, sequence_logprob
 
 
 def test_sequence_logprob_sums_masked_token_logprobs():
@@ -28,6 +28,28 @@ def test_dpo_loss_prefers_chosen():
     rc, rr = torch.tensor([0.0]), torch.tensor([0.0])
     loss, acc = dpo_loss(pc, pr, rc, rr, beta=0.5)
     assert loss.item() < math.log(2) and acc == pytest.approx(1.0)
+
+
+def test_ipo_loss_at_target_margin_is_zero():
+    # margin h = (pc-pr)-(rc-rr); IPO's squared loss is minimized (=0) at h = 1/(2*beta).
+    beta = 0.5  # target margin 1.0
+    z = torch.zeros(1)
+    loss, acc = ipo_loss(torch.tensor([1.0]), z, z, z, beta=beta)
+    assert loss.item() == pytest.approx(0.0, abs=1e-6) and acc == pytest.approx(1.0)
+
+
+def test_ipo_penalizes_overshoot_where_dpo_rewards_it():
+    # IPO's whole point: driving the margin far past its target is PENALIZED, so the policy
+    # cannot run to h -> +inf and drift arbitrarily from the reference. DPO's -logsigmoid,
+    # by contrast, keeps decreasing as the margin grows -- the over-optimization trap.
+    beta = 0.5  # IPO target margin 1.0
+    z = torch.zeros(1)
+    ipo_at_target = ipo_loss(torch.tensor([1.0]), z, z, z, beta=beta)[0].item()
+    ipo_overshoot = ipo_loss(torch.tensor([10.0]), z, z, z, beta=beta)[0].item()
+    assert ipo_overshoot > ipo_at_target
+    dpo_small = dpo_loss(torch.tensor([1.0]), z, z, z, beta=beta)[0].item()
+    dpo_large = dpo_loss(torch.tensor([10.0]), z, z, z, beta=beta)[0].item()
+    assert dpo_large < dpo_small
 
 
 @pytest.mark.gpu

@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import torch  # noqa: E402
 
 from microlab.model.reference.checkpoint import latest_checkpoint  # noqa: E402
-from microlab.model.reference.dpo import dpo_loss, sequence_logprob  # noqa: E402
+from microlab.model.reference.dpo import dpo_loss, ipo_loss, sequence_logprob  # noqa: E402
 from microlab.model.reference.sft import build_sft_example, collate_sft  # noqa: E402
 from microlab.model.reference.variants import VariantConfig, VariantGPT  # noqa: E402
 
@@ -121,12 +121,13 @@ def _pair_logps(policy, reference, chosen, rejected):
 def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer: str | Path,
             epochs: int = 2, lr: float = 5e-6, beta: float = 0.1, batch_size: int = 8,
             block_size: int = 1024, device: str = "cpu", limit: int | None = None,
-            log_interval: int = 10, seed: int = 1337) -> dict:
-    """Run DPO and write a servable chat run dir. Returns
+            log_interval: int = 10, seed: int = 1337, loss: str = "dpo") -> dict:
+    """Run preference optimization (DPO or IPO) and write a servable chat run dir. Returns
     {"final_loss", "final_acc", "steps", "loss_history", "acc_history", "ckpt_path", "out_dir"}."""
     if device.startswith("cuda") and not torch.cuda.is_available():
         device = "cpu"
     torch.manual_seed(seed)
+    loss_fn = {"dpo": dpo_loss, "ipo": ipo_loss}[loss]
 
     from microlab.tokenizer.fast import FastTokenizer
 
@@ -146,7 +147,7 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
     min_lr = lr * 0.1
     use_amp = device.startswith("cuda")
 
-    print(f"DPO: {len(examples)} pairs, {epochs} epochs, {total_steps} steps "
+    print(f"{loss.upper()}: {len(examples)} pairs, {epochs} epochs, {total_steps} steps "
           f"(batch {batch_size}, block {block_size}, lr {lr:g}, beta {beta}) on {device}")
 
     rng = torch.Generator().manual_seed(seed)
@@ -170,22 +171,22 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                     pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
                         policy, reference, chosen, rejected)
-                    loss, acc = dpo_loss(pol_ch, pol_rej, ref_ch, ref_rej, beta)
+                    batch_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
             else:
                 pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
                     policy, reference, chosen, rejected)
-                loss, acc = dpo_loss(pol_ch, pol_rej, ref_ch, ref_rej, beta)
+                batch_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
 
             opt.zero_grad(set_to_none=True)
-            loss.backward()
+            batch_loss.backward()
             torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
             opt.step()
             step += 1
-            loss_history.append(loss.item())
+            loss_history.append(batch_loss.item())
             acc_history.append(acc)
             if step % log_interval == 0 or step == total_steps:
                 print(f"epoch {epoch + 1}/{epochs} step {step}/{total_steps} "
-                      f"loss {loss.item():.4f} acc {acc:.3f} lr {cur_lr:.2e}")
+                      f"loss {batch_loss.item():.4f} acc {acc:.3f} lr {cur_lr:.2e}")
 
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -213,9 +214,13 @@ def main() -> None:
     ap.add_argument("--prefs", default="data/corpora/dpo_prefs.jsonl")
     ap.add_argument("--out", default="runs/350m-dpo")
     ap.add_argument("--tokenizer", default="runs/350m-sft/tokenizer.json")
+    ap.add_argument("--loss", choices=["dpo", "ipo"], default="dpo",
+                    help="dpo: -logsigmoid(beta*margin); ipo: (margin - 1/(2*beta))^2, bounded")
     ap.add_argument("--epochs", type=int, default=2)
     ap.add_argument("--lr", type=float, default=5e-6)
-    ap.add_argument("--beta", type=float, default=0.1)
+    ap.add_argument("--beta", type=float, default=0.1,
+                    help="dpo: higher = sharper; ipo: target margin is 1/(2*beta), higher = "
+                         "closer to reference")
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--block-size", type=int, default=1024)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -224,7 +229,7 @@ def main() -> None:
 
     run_dpo(sft_ckpt=args.sft_ckpt, prefs=args.prefs, out=args.out, tokenizer=args.tokenizer,
             epochs=args.epochs, lr=args.lr, beta=args.beta, batch_size=args.batch_size,
-            block_size=args.block_size, device=args.device, limit=args.limit)
+            block_size=args.block_size, device=args.device, limit=args.limit, loss=args.loss)
 
 
 if __name__ == "__main__":

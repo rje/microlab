@@ -47,22 +47,32 @@ def sample_rejected(model, tok, prompt: str, device: str, temp: float, max_new: 
     return truncate(gen)
 
 
-def build_prefs(model, tok, rows: list[dict], device: str, temp: float = 0.8,
+def build_prefs(model, tok, rows: list[dict], device: str, block_size: int, temp: float = 0.8,
                 max_new: int = 80, seed: int = 0) -> list[dict[str, str]]:
     """Turn Dolly rows into DPO pairs. The sampling RNG is re-seeded per example (seed + index)
     so each rejected sample is distinct and the run is reproducible. Drops a pair when the gold
-    is empty, the sample is empty, or the sample matches the gold verbatim."""
+    is empty, the sample is empty, the sample matches the gold verbatim, or the templated prompt
+    plus the generation budget won't fit in block_size (some Dolly rows carry long context)."""
     prefs: list[dict[str, str]] = []
+    skipped_long = 0
     for i, row in enumerate(rows):
         chosen = row["response"]
         if not chosen.strip():
             continue
         prompt, _ = format_chat(row["instruction"], row.get("context", ""))
+        # Skip prompts too long to generate a response from — a templated prompt over
+        # block_size would fail the model's prefill assertion.
+        if len(tok.encode(prompt)) + max_new > block_size:
+            skipped_long += 1
+            continue
         generator = torch.Generator(device=device).manual_seed(seed + i)
         rejected = sample_rejected(model, tok, prompt, device, temp, max_new, generator)
         if not rejected or rejected.strip() == chosen.strip():
             continue
         prefs.append({"prompt": prompt, "chosen": chosen, "rejected": rejected})
+    if skipped_long:
+        print(f"build_dpo_prefs: skipped {skipped_long} rows with prompt+{max_new} > "
+              f"block_size {block_size}")
     return prefs
 
 
@@ -91,7 +101,8 @@ def run_build(sft_run: str | Path, data: str | Path, out: str | Path, tokenizer:
     print(f"build_dpo_prefs: {len(rows)} dolly rows, SFT step {step}, temp {temp}, "
           f"max_new {max_new} on {device}")
 
-    prefs = build_prefs(model, tok, rows, device, temp=temp, max_new=max_new, seed=seed)
+    prefs = build_prefs(model, tok, rows, device, model.config.block_size,
+                        temp=temp, max_new=max_new, seed=seed)
     written = write_prefs(prefs, out)
     print(f"wrote {written} preference pairs (of {len(rows)} rows) -> {out}")
     return {"written": written, "considered": len(rows), "out": str(out)}
