@@ -308,12 +308,20 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
                         yield text[len(emitted):safe_len]
                         emitted = text[:safe_len]
                     if hit:
-                        break
+                        break  # stop completed: already truncated here, no held-back tail to flush
                 elif len(text) > len(emitted):
                     yield text[len(emitted):]
                     emitted = text
                 if cache.seq_len >= cfg.block_size:
+                    # Out of context without hitting a stop: flush any tail _stop_scan held
+                    # back (a partial stop-prefix that never completed) so no content is lost.
+                    if len(text) > len(emitted):
+                        yield text[len(emitted):]
                     break
                 logits, _ = state.model(nxt, kv_cache=cache)
+            else:
+                # Reached max_new_tokens without a stop: flush the held-back tail too.
+                if len(text) > len(emitted):
+                    yield text[len(emitted):]
 
     return _run()

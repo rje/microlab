@@ -403,16 +403,21 @@ class _WordTok:
 
 
 class _ScriptedModel(torch.nn.Module):
-    """Emits a fixed script of token ids (argmax at temperature 0). Ignores the KV cache;
-    stream_generate only reads logits[:, -1, :] and the max_new_tokens cap ends the loop."""
+    """Emits a fixed script of token ids (argmax at temperature 0). Ignores the KV cache for
+    output; stream_generate only reads logits[:, -1, :]. With fill_cache=True it drives the
+    cache to capacity so the block_size exit branch fires (the cache doesn't otherwise fill,
+    since this stub never appends real K/V)."""
 
-    def __init__(self, script: list[int], cfg: VariantConfig) -> None:
+    def __init__(self, script: list[int], cfg: VariantConfig, fill_cache: bool = False) -> None:
         super().__init__()
         self.script = script
         self.config = cfg
+        self.fill_cache = fill_cache
         self._i = 0
 
     def forward(self, idx, kv_cache=None):
+        if self.fill_cache and kv_cache is not None:
+            kv_cache.seq_len = kv_cache.capacity  # force the "out of context" break
         b, t = idx.shape
         logits = torch.zeros(b, t, self.config.vocab_size)
         logits[:, -1, self.script[min(self._i, len(self.script) - 1)]] = 10.0
@@ -420,11 +425,13 @@ class _ScriptedModel(torch.nn.Module):
         return logits, None
 
 
-def _scripted_state(frags, script, *, mode="chat", stop_strings=("### End",)):
-    cfg = VariantConfig(vocab_size=32, block_size=64, n_layer=1, n_head=2, n_embd=8,
+def _scripted_state(frags, script, *, mode="chat", stop_strings=("### End",), block_size=64,
+                    fill_cache=False):
+    cfg = VariantConfig(vocab_size=32, block_size=block_size, n_layer=1, n_head=2, n_embd=8,
                         norm="rms", pos="rope", mlp="swiglu")
-    return serve.ServeState(model=_ScriptedModel(script, cfg), tokenizer=_WordTok(frags),
-                            step=1, device="cpu", mode=mode, stop_strings=list(stop_strings))
+    model = _ScriptedModel(script, cfg, fill_cache=fill_cache)
+    return serve.ServeState(model=model, tokenizer=_WordTok(frags), step=1, device="cpu",
+                            mode=mode, stop_strings=list(stop_strings))
 
 
 def test_get_state_reads_chat_serve_config(tmp_path, stub_load):
@@ -484,3 +491,42 @@ def test_raw_true_bypasses_chat_wrapping_and_stopping(monkeypatch):
     out = "".join(serve.stream_generate(state, "q", max_new_tokens=3, temperature=0.0,
                                         raw=True))
     assert out == "Hi ### End more"
+
+
+def test_chat_flushes_held_back_tail_at_token_cap(monkeypatch):
+    # Regression: a reply cut off by max_new_tokens while a partial stop-prefix is held back
+    # must still stream that tail — the reassembled stream must equal the full decode, not
+    # silently drop the last few chars.
+    monkeypatch.setattr(serve, "format_chat", lambda p, context="", response="": (p, ""))
+    # "###" is a prefix of "### End" (held back); the reply never completes the stop marker.
+    state = _scripted_state({1: "See ", 2: "###"}, script=[1, 2])
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=2, temperature=0.0))
+    assert out == "See ###"  # held-back "###" flushed at the cap, nothing dropped
+
+
+def test_chat_flushes_held_back_newline_at_token_cap(monkeypatch):
+    # A reply ending in "\n" (a prefix of the "\n### Instruction:" stop) is held back mid-
+    # stream; hitting the cap must still flush it.
+    monkeypatch.setattr(serve, "format_chat", lambda p, context="", response="": (p, ""))
+    state = _scripted_state({1: "Answer", 2: "\n"}, script=[1, 2],
+                            stop_strings=("### End", "\n### Instruction:"))
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=2, temperature=0.0))
+    assert out == "Answer\n"
+
+
+def test_chat_flushes_held_back_tail_at_block_size(monkeypatch):
+    # The OTHER exit path: running out of context (cache.seq_len >= block_size) with a partial
+    # stop-prefix held back must also flush it.
+    monkeypatch.setattr(serve, "format_chat", lambda p, context="", response="": (p, ""))
+    state = _scripted_state({1: "###"}, script=[1], block_size=2, fill_cache=True)
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=1, temperature=0.0))
+    assert out == "###"  # flushed at the block_size break, not dropped
+
+
+def test_chat_no_double_flush_after_stop_hit(monkeypatch):
+    # When a stop string DID complete, the tail is intentionally dropped (truncated) — the new
+    # flush logic must not resurrect it.
+    monkeypatch.setattr(serve, "format_chat", lambda p, context="", response="": (p, ""))
+    state = _scripted_state({1: "Hi ", 2: "### End", 3: " tail"}, script=[1, 2, 3])
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=3, temperature=0.0))
+    assert out == "Hi "  # stop hit -> truncated; " tail" and the marker stay dropped
