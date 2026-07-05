@@ -107,21 +107,24 @@ def cosine_lr(step: int, warmup: int, total: int, base_lr: float, min_lr: float)
     return min_lr + coeff * (base_lr - min_lr)
 
 
-def _pair_logps(policy, reference, chosen, rejected):
-    """Summed response log-probs for policy (with grad) and reference (no_grad) on both the
-    chosen and rejected batches. Returns (pol_ch, pol_rej, ref_ch, ref_rej), each (N,)."""
-    pol_ch = sequence_logprob(policy(chosen["input_ids"])[0], chosen["labels"])
-    pol_rej = sequence_logprob(policy(rejected["input_ids"])[0], rejected["labels"])
+def _pair_logps(policy, reference, chosen, rejected, normalize=False):
+    """Response log-probs for policy (with grad) and reference (no_grad) on both the chosen and
+    rejected batches. Summed, or length-normalized per response token when `normalize`. Returns
+    (pol_ch, pol_rej, ref_ch, ref_rej), each (N,)."""
+    pol_ch = sequence_logprob(policy(chosen["input_ids"])[0], chosen["labels"], normalize)
+    pol_rej = sequence_logprob(policy(rejected["input_ids"])[0], rejected["labels"], normalize)
     with torch.no_grad():
-        ref_ch = sequence_logprob(reference(chosen["input_ids"])[0], chosen["labels"])
-        ref_rej = sequence_logprob(reference(rejected["input_ids"])[0], rejected["labels"])
+        ref_ch = sequence_logprob(reference(chosen["input_ids"])[0], chosen["labels"], normalize)
+        ref_rej = sequence_logprob(
+            reference(rejected["input_ids"])[0], rejected["labels"], normalize)
     return pol_ch, pol_rej, ref_ch, ref_rej
 
 
 def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer: str | Path,
             epochs: int = 2, lr: float = 5e-6, beta: float = 0.1, batch_size: int = 8,
             block_size: int = 1024, device: str = "cpu", limit: int | None = None,
-            log_interval: int = 10, seed: int = 1337, loss: str = "dpo") -> dict:
+            log_interval: int = 10, seed: int = 1337, loss: str = "dpo",
+            length_norm: bool = False) -> dict:
     """Run preference optimization (DPO or IPO) and write a servable chat run dir. Returns
     {"final_loss", "final_acc", "steps", "loss_history", "acc_history", "ckpt_path", "out_dir"}."""
     if device.startswith("cuda") and not torch.cuda.is_available():
@@ -147,8 +150,9 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
     min_lr = lr * 0.1
     use_amp = device.startswith("cuda")
 
-    print(f"{loss.upper()}: {len(examples)} pairs, {epochs} epochs, {total_steps} steps "
-          f"(batch {batch_size}, block {block_size}, lr {lr:g}, beta {beta}) on {device}")
+    print(f"{loss.upper()}{' +length-norm' if length_norm else ''}: {len(examples)} pairs, "
+          f"{epochs} epochs, {total_steps} steps (batch {batch_size}, block {block_size}, "
+          f"lr {lr:g}, beta {beta}) on {device}")
 
     rng = torch.Generator().manual_seed(seed)
     step = 0
@@ -170,11 +174,11 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
             if use_amp:
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                     pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
-                        policy, reference, chosen, rejected)
+                        policy, reference, chosen, rejected, length_norm)
                     batch_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
             else:
                 pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
-                    policy, reference, chosen, rejected)
+                    policy, reference, chosen, rejected, length_norm)
                 batch_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
 
             opt.zero_grad(set_to_none=True)
@@ -216,6 +220,9 @@ def main() -> None:
     ap.add_argument("--tokenizer", default="runs/350m-sft/tokenizer.json")
     ap.add_argument("--loss", choices=["dpo", "ipo"], default="dpo",
                     help="dpo: -logsigmoid(beta*margin); ipo: (margin - 1/(2*beta))^2, bounded")
+    ap.add_argument("--length-norm", action="store_true",
+                    help="length-normalize log-probs (SimPO-style) — margin O(1) regardless of "
+                         "response length; stabilizes ipo on long responses (raise beta to match)")
     ap.add_argument("--epochs", type=int, default=2)
     ap.add_argument("--lr", type=float, default=5e-6)
     ap.add_argument("--beta", type=float, default=0.1,
@@ -229,7 +236,8 @@ def main() -> None:
 
     run_dpo(sft_ckpt=args.sft_ckpt, prefs=args.prefs, out=args.out, tokenizer=args.tokenizer,
             epochs=args.epochs, lr=args.lr, beta=args.beta, batch_size=args.batch_size,
-            block_size=args.block_size, device=args.device, limit=args.limit, loss=args.loss)
+            block_size=args.block_size, device=args.device, limit=args.limit, loss=args.loss,
+            length_norm=args.length_norm)
 
 
 if __name__ == "__main__":

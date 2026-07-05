@@ -16,6 +16,15 @@ def test_sequence_logprob_sums_masked_token_logprobs():
     assert sequence_logprob(logits, labels).item() == pytest.approx(expected.item(), abs=1e-5)
 
 
+def test_sequence_logprob_normalize_divides_by_token_count():
+    torch.manual_seed(0)
+    logits = torch.randn(1, 4, 8)
+    labels = torch.tensor([[IGNORE_INDEX, 2, 5, 1]])  # 3 supervised tokens after the shift
+    summed = sequence_logprob(logits, labels).item()
+    mean = sequence_logprob(logits, labels, normalize=True).item()
+    assert mean == pytest.approx(summed / 3, abs=1e-6)
+
+
 def test_dpo_loss_zero_advantage_is_log2():
     z = torch.zeros(4)
     loss, _ = dpo_loss(z, z, z, z, beta=0.1)  # policy == ref -> logits 0 -> -log sigmoid 0
