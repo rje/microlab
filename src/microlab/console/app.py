@@ -420,6 +420,9 @@ def register_content_routes(app: Flask) -> None:
                 top_k=int(body["top_k"]) if body.get("top_k") else None,
                 top_p=float(body["top_p"]) if body.get("top_p") else None,
                 seed=int(body["seed"]) if body.get("seed") is not None else None,
+                # Forces raw completion even on a chat model (skips template + stop strings) so
+                # the Playground can offer a base-style side-by-side. No-op on base runs.
+                raw=bool(body.get("raw", False)),
             )
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400

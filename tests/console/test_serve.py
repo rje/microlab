@@ -187,8 +187,8 @@ def test_list_runs(tmp_path):
     (tmp_path / "runs" / "empty").mkdir()  # a run dir with no checkpoints is skipped
     (tmp_path / "runs" / "notes.txt").write_text("x")  # a stray file is skipped
     assert serve.list_runs(tmp_path) == [
-        {"name": "150m", "latest_step": 6000},
-        {"name": "350m", "latest_step": 4000},
+        {"name": "150m", "latest_step": 6000, "mode": "base"},
+        {"name": "350m", "latest_step": 4000, "mode": "base"},
     ]
 
 
@@ -295,8 +295,8 @@ def test_serve_runs_endpoint(tmp_path):
     assert r.status_code == 200
     payload = r.get_json()
     assert payload["runs"] == [
-        {"name": "150m", "latest_step": 6000},
-        {"name": "350m", "latest_step": 4000},
+        {"name": "150m", "latest_step": 6000, "mode": "base"},
+        {"name": "350m", "latest_step": 4000, "mode": "base"},
     ]
     assert payload["active"] is None  # nothing loaded yet
 
@@ -376,8 +376,111 @@ def test_get_state_real_checkpoint_end_to_end(tmp_path):
     torch.save({"model": model.state_dict(), "step": 30, "cfg": cfg},
                run_dir / "ckpt_30.pt")
 
-    assert serve.list_runs(tmp_path) == [{"name": "mini", "latest_step": 30}]
+    assert serve.list_runs(tmp_path) == [{"name": "mini", "latest_step": 30, "mode": "base"}]
     state = serve.get_state(tmp_path, run="mini")
-    assert state.run == "mini" and state.step == 30
+    assert state.run == "mini" and state.step == 30 and state.mode == "base"
     out = "".join(serve.stream_generate(state, "hello", max_new_tokens=6, temperature=0.0))
     assert isinstance(out, str) and out
+
+
+# --- chat-aware serving: serve_config -> mode/stop_strings, template wrapping, stop-strings ---
+
+
+class _WordTok:
+    """Decode joins a per-id text fragment, so a scripted model can produce arbitrary text
+    (including a stop string) deterministically. encode is irrelevant to these tests."""
+
+    vocab_size = 32
+
+    def __init__(self, frags: dict[int, str]) -> None:
+        self.frags = frags
+
+    def encode(self, text):
+        return [0]
+
+    def decode(self, ids):
+        return "".join(self.frags.get(i, "") for i in ids)
+
+
+class _ScriptedModel(torch.nn.Module):
+    """Emits a fixed script of token ids (argmax at temperature 0). Ignores the KV cache;
+    stream_generate only reads logits[:, -1, :] and the max_new_tokens cap ends the loop."""
+
+    def __init__(self, script: list[int], cfg: VariantConfig) -> None:
+        super().__init__()
+        self.script = script
+        self.config = cfg
+        self._i = 0
+
+    def forward(self, idx, kv_cache=None):
+        b, t = idx.shape
+        logits = torch.zeros(b, t, self.config.vocab_size)
+        logits[:, -1, self.script[min(self._i, len(self.script) - 1)]] = 10.0
+        self._i += 1
+        return logits, None
+
+
+def _scripted_state(frags, script, *, mode="chat", stop_strings=("### End",)):
+    cfg = VariantConfig(vocab_size=32, block_size=64, n_layer=1, n_head=2, n_embd=8,
+                        norm="rms", pos="rope", mlp="swiglu")
+    return serve.ServeState(model=_ScriptedModel(script, cfg), tokenizer=_WordTok(frags),
+                            step=1, device="cpu", mode=mode, stop_strings=list(stop_strings))
+
+
+def test_get_state_reads_chat_serve_config(tmp_path, stub_load):
+    run_dir = _fake_run(tmp_path, "350m-sft", [5])
+    (run_dir / "serve_config.json").write_text(
+        '{"mode": "chat", "stop_strings": ["### End", "\\n### Instruction:"]}')
+    state = serve.get_state(tmp_path, run="350m-sft")
+    assert state.mode == "chat"
+    assert state.stop_strings == ["### End", "\n### Instruction:"]
+    # and list_runs surfaces the mode for the UI
+    assert {"name": "350m-sft", "latest_step": 5, "mode": "chat"} in serve.list_runs(tmp_path)
+
+
+def test_chat_mode_wraps_prompt_and_stops_before_stop_string(monkeypatch):
+    seen = []
+
+    def spy_format_chat(prompt, context="", response=""):
+        seen.append(prompt)
+        return ("### Instruction:\n" + prompt + "\n\n### Response:\n", "")
+
+    monkeypatch.setattr(serve, "format_chat", spy_format_chat)
+    state = _scripted_state({1: "Hello", 2: " world", 3: "### End", 4: " leaked"},
+                            script=[1, 2, 3, 4, 4])
+    out = "".join(serve.stream_generate(state, "hi there", max_new_tokens=10, temperature=0.0))
+    assert seen == ["hi there"]          # the chat template wrapped the user message
+    assert out == "Hello world"          # truncated at the stop string, which is excluded
+
+
+def test_chat_mode_does_not_leak_partial_stop_prefix(monkeypatch):
+    # The stop string arrives across two tokens ("###" then " End"). The "###" prefix must be
+    # held back, not streamed, or the client sees a half-emitted stop marker.
+    monkeypatch.setattr(serve, "format_chat", lambda p, context="", response="": (p, ""))
+    state = _scripted_state({1: "Hi ", 2: "###", 3: " End"}, script=[1, 2, 3])
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=5, temperature=0.0))
+    assert out == "Hi "  # neither the "###" partial nor the completed "### End" leaked
+
+
+def test_base_mode_unchanged_ignores_stop_strings(monkeypatch):
+    # A base run (no chat config) never stops on the marker text nor wraps the prompt.
+    def boom(*a, **k):
+        raise AssertionError("format_chat must not be called for a base run")
+
+    monkeypatch.setattr(serve, "format_chat", boom)
+    state = _scripted_state({1: "Hi ", 2: "### End", 3: " more"}, script=[1, 2, 3],
+                            mode="base", stop_strings=[])
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=3, temperature=0.0))
+    assert out == "Hi ### End more"  # full completion, marker text and all
+
+
+def test_raw_true_bypasses_chat_wrapping_and_stopping(monkeypatch):
+    # raw=True forces base behavior on a chat model: no template, no stop truncation.
+    def boom(*a, **k):
+        raise AssertionError("format_chat must not be called when raw=True")
+
+    monkeypatch.setattr(serve, "format_chat", boom)
+    state = _scripted_state({1: "Hi ", 2: "### End", 3: " more"}, script=[1, 2, 3])
+    out = "".join(serve.stream_generate(state, "q", max_new_tokens=3, temperature=0.0,
+                                        raw=True))
+    assert out == "Hi ### End more"

@@ -955,6 +955,10 @@ svg {
 .playground-serving-run { display: flex; flex-direction: column; gap: 6px; }
 .playground-serving-select { background: #fffdf8; color: #24231f; border: 1px solid #ddd6c5; border-radius: 6px; padding: 0.4rem 0.5rem; font: inherit; min-width: 200px; }
 .playground-serving-select:disabled { color: #a29a8c; }
+.playground-mode-badge { align-self: center; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border: 1px solid #ddd6c5; color: #6f675c; background: #f6f1e6; }
+.playground-mode-badge.is-chat { color: #0c4f51; background: #d9efe7; border-color: #a7d3c8; }
+.playground-raw-toggle { align-self: center; display: inline-flex; align-items: center; gap: 6px; color: #6f675c; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.playground-raw-toggle input { accent-color: #116466; }
 .playground-reload { padding: 0.45rem 1rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fffdf8; color: #24231f; font-weight: 600; cursor: pointer; }
 .playground-reload:disabled { color: #a29a8c; cursor: default; }
 .playground-serving-status { color: #6f675c; font-size: 0.8rem; margin-left: auto; }
@@ -972,4 +976,6 @@ svg {
 .playground-stop:disabled { color: #a29a8c; cursor: default; }
 .playground-stats { color: #6f675c; font-size: 0.8rem; }
 .playground-error { color: #b3261e; margin: 0; font-size: 0.88rem; }
+.playground-reply-label { margin-bottom: -6px; }
 .playground-output { margin: 0; min-height: 40vh; max-height: 60vh; overflow-y: auto; background: #fffdf8; border: 1px solid #ddd6c5; border-radius: 8px; padding: 0.9rem; color: #24231f; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.playground-output.is-reply { min-height: 24vh; border-color: #a7d3c8; background: #f4faf7; font-family: inherit; font-size: 0.95rem; }

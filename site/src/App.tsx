@@ -372,7 +372,7 @@ function TrainingPanel() {
   );
 }
 
-type ServeRun = { name: string; latestStep: number };
+type ServeRun = { name: string; latestStep: number; mode: "chat" | "base" };
 
 function PlaygroundPanel() {
   const [prompt, setPrompt] = useState("Once upon a time");
@@ -382,6 +382,9 @@ function PlaygroundPanel() {
   const [topP, setTopP] = useState(0); // 0 = off
   const [maxTokens, setMaxTokens] = useState(128);
   const [seed, setSeed] = useState(""); // blank = no seed (fresh samples each run)
+  // Chat runs answer a message; "raw completion" forces base-style raw output (raw:true) on a
+  // chat model so you can compare the instruction-tuned reply against the untemplated model.
+  const [rawMode, setRawMode] = useState(false);
   const [running, setRunning] = useState(false);
   const [stats, setStats] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -409,10 +412,13 @@ function PlaygroundPanel() {
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
-        const list: ServeRun[] = (data.runs ?? []).map((r: { name: string; latest_step: number }) => ({
-          name: r.name,
-          latestStep: r.latest_step
-        }));
+        const list: ServeRun[] = (data.runs ?? []).map(
+          (r: { name: string; latest_step: number; mode?: string }) => ({
+            name: r.name,
+            latestStep: r.latest_step,
+            mode: r.mode === "chat" ? "chat" : "base"
+          })
+        );
         setRuns(list);
         const active = data.active as { name: string; step: number } | null;
         if (active) {
@@ -458,6 +464,9 @@ function PlaygroundPanel() {
   const selected = runs.find((r) => r.name === selectedRun) ?? null;
   const isResident = activeRun !== null && activeRun === selectedRun;
   const shownStep = isResident ? activeStep : selected?.latestStep ?? null;
+  const isChat = selected?.mode === "chat";
+  // A chat run answers as itself unless "raw completion" is on; base runs are always raw.
+  const chatReply = isChat && !rawMode;
 
   const generate = async () => {
     setRunning(true);
@@ -479,7 +488,8 @@ function PlaygroundPanel() {
           top_k: topK || null,
           top_p: topP || null,
           seed: seed === "" ? null : Number(seed),
-          run: selectedRun || null
+          run: selectedRun || null,
+          raw: isChat && rawMode
         }),
         signal: controller.signal
       });
@@ -538,6 +548,19 @@ function PlaygroundPanel() {
             ))}
           </select>
         </label>
+        <span className={`playground-mode-badge is-${isChat ? "chat" : "base"}`}>
+          {isChat ? "chat" : "base"}
+        </span>
+        {isChat && (
+          <label className="playground-raw-toggle">
+            <input
+              type="checkbox"
+              checked={rawMode}
+              onChange={(event) => setRawMode(event.target.checked)}
+            />
+            <span>raw completion</span>
+          </label>
+        )}
         <button
           type="button"
           className="playground-reload"
@@ -556,10 +579,10 @@ function PlaygroundPanel() {
       </div>
 
       <label className="playground-field">
-        <span className="playground-label">Prompt</span>
+        <span className="playground-label">{chatReply ? "Your message" : "Prompt"}</span>
         <textarea
           className="playground-prompt"
-          aria-label="Prompt"
+          aria-label={chatReply ? "Message" : "Prompt"}
           rows={3}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -629,7 +652,7 @@ function PlaygroundPanel() {
           onClick={generate}
           disabled={running}
         >
-          {running ? "Generating…" : "Generate"}
+          {chatReply ? (running ? "Sending…" : "Send") : running ? "Generating…" : "Generate"}
         </button>
         <button
           type="button"
@@ -644,7 +667,11 @@ function PlaygroundPanel() {
 
       {error && <p className="playground-error">{error}</p>}
 
-      <pre className="playground-output" aria-live="polite">
+      {chatReply && <span className="playground-label playground-reply-label">Reply</span>}
+      <pre
+        className={`playground-output${chatReply ? " is-reply" : ""}`}
+        aria-live="polite"
+      >
         {output}
       </pre>
     </section>
