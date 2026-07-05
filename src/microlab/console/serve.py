@@ -10,11 +10,12 @@ loading the new one."""
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import torch
@@ -22,6 +23,7 @@ import torch
 from microlab.infer.reference.kv_cache import KVCache
 from microlab.infer.reference.sampling import sample_next
 from microlab.model.reference.checkpoint import latest_checkpoint, load_variant_from_run
+from microlab.model.reference.sft import format_chat
 
 MAX_NEW_TOKENS = 512
 
@@ -33,6 +35,10 @@ class ServeState:
     step: int
     device: str
     run: str = ""
+    # Set from <run_dir>/serve_config.json. A base run (no config) keeps raw-completion
+    # behavior; a "chat" run wraps prompts with the SFT template and stops on stop_strings.
+    mode: str = "base"
+    stop_strings: list[str] = field(default_factory=list)
 
 
 _state: ServeState | None = None
@@ -58,12 +64,26 @@ def _step_of(ckpt: Path) -> int:
     return int(ckpt.stem.split("_")[1])
 
 
+def _read_serve_config(run_dir: Path) -> dict:
+    """A run's ``serve_config.json`` (written by scripts/sft.py for chat runs), normalized to
+    ``{"mode", "stop_strings"}``. No file (the pretraining runs) or an unset mode -> a base
+    run: raw completion, no stop strings. A present-but-malformed file raises loudly rather
+    than silently degrading to base (a broken config should be fixed, not masked)."""
+    cfg_path = Path(run_dir) / "serve_config.json"
+    if not cfg_path.exists():
+        return {"mode": "base", "stop_strings": []}
+    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+    return {"mode": data.get("mode", "base"), "stop_strings": data.get("stop_strings", [])}
+
+
 def list_runs(root: Path) -> list[dict]:
     """Every run under ``<root>/runs/<name>`` that has at least one ``ckpt_*.pt``, sorted by
     name. Cheap: reads the filesystem only (no torch load). ``latest_step`` is taken from the
     newest checkpoint's filename — the same number the checkpoint records internally.
+    ``mode`` ("base"/"chat") comes from the run's serve_config.json so the UI can tell them
+    apart.
 
-        [{"name": "150m", "latest_step": 6000}, {"name": "350m", "latest_step": 4000}]
+        [{"name": "150m", "latest_step": 6000, "mode": "base"}, ...]
     """
     runs_dir = Path(root) / "runs"
     if not runs_dir.is_dir():
@@ -75,7 +95,8 @@ def list_runs(root: Path) -> list[dict]:
         ckpts = list(run_dir.glob("ckpt_*.pt"))
         if not ckpts:
             continue
-        out.append({"name": run_dir.name, "latest_step": max(_step_of(c) for c in ckpts)})
+        out.append({"name": run_dir.name, "latest_step": max(_step_of(c) for c in ckpts),
+                    "mode": _read_serve_config(run_dir)["mode"]})
     return out
 
 
@@ -196,16 +217,49 @@ def get_state(root: Path, run: str | None = None, reload: bool = False) -> Serve
             model, step = load_variant_from_run(run_dir, device=device)
             from microlab.tokenizer.fast import FastTokenizer
 
+            serve_cfg = _read_serve_config(run_dir)
             _state = ServeState(model=model, tokenizer=FastTokenizer.load(str(tok_path)),
-                                step=step, device=device, run=run_name)
+                                step=step, device=device, run=run_name,
+                                mode=serve_cfg["mode"], stop_strings=serve_cfg["stop_strings"])
         return _state
+
+
+def _stop_scan(text: str, stop_strings: list[str]) -> tuple[int, bool]:
+    """How much of ``text`` is safe to emit now, and whether generation should stop.
+
+    Returns (safe_len, hit). If any stop string is present, safe_len is the index of the
+    EARLIEST one and hit is True — the caller emits up to (excluding) it and stops. Otherwise
+    hit is False and safe_len holds back the longest trailing suffix of ``text`` that is a
+    proper prefix of some stop string: emitting it now could leak the start of a stop marker
+    (e.g. "###") that only the next token reveals as a stop. That held-back tail is released
+    once it's known NOT to be a stop string."""
+    earliest: int | None = None
+    for s in stop_strings:
+        i = text.find(s)
+        if i != -1:
+            earliest = i if earliest is None else min(earliest, i)
+    if earliest is not None:
+        return earliest, True
+    hold = 0
+    for s in stop_strings:
+        for k in range(min(len(text), len(s) - 1), 0, -1):
+            if text.endswith(s[:k]):
+                hold = max(hold, k)
+                break
+    return len(text) - hold, False
 
 
 def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
                     temperature: float = 0.8, top_k: int | None = None,
-                    top_p: float | None = None, seed: int | None = None) -> Iterator[str]:
+                    top_p: float | None = None, seed: int | None = None,
+                    raw: bool = False) -> Iterator[str]:
     """Yield text DELTAS. Accumulate ids and re-decode the full completion each step so
     byte-level BPE never splits a multi-byte character across chunks.
+
+    Chat vs base is a property of the served run (``state.mode``): a chat run wraps the
+    incoming prompt with the SFT template (``format_chat``) and stops when the completion
+    contains one of ``state.stop_strings``. ``raw=True`` forces base-style raw completion even
+    on a chat model (no template, no stop strings) so the Playground can show a side-by-side.
 
     Argument limits are validated EAGERLY (at call, not first ``next()``) so the route can
     return a 400 before it commits to a streaming response: the checks run here, then an
@@ -213,7 +267,10 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
     if not 0 < max_new_tokens <= MAX_NEW_TOKENS:
         raise ValueError(f"max_new_tokens must be in (0, {MAX_NEW_TOKENS}]")
     cfg = state.model.config
-    prompt_ids = state.tokenizer.encode(prompt) or [0]
+    chat = state.mode == "chat" and not raw
+    gen_prompt = format_chat(prompt)[0] if chat else prompt
+    stop_strings = state.stop_strings if chat else []
+    prompt_ids = state.tokenizer.encode(gen_prompt) or [0]
     if len(prompt_ids) + max_new_tokens > cfg.block_size:
         raise ValueError(
             f"prompt ({len(prompt_ids)} tokens) + max_new_tokens ({max_new_tokens}) "
@@ -243,11 +300,28 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
                                   top_p=top_p, generator=gen)
                 out_ids.append(int(nxt[0, 0]))
                 text = state.tokenizer.decode(out_ids)
-                if len(text) > len(emitted):
+                if stop_strings:
+                    # Detect stop markers on the FULL decoded completion, emit only the delta
+                    # up to the safe point, and stop at the earliest marker.
+                    safe_len, hit = _stop_scan(text, stop_strings)
+                    if safe_len > len(emitted):
+                        yield text[len(emitted):safe_len]
+                        emitted = text[:safe_len]
+                    if hit:
+                        break  # stop completed: already truncated here, no held-back tail to flush
+                elif len(text) > len(emitted):
                     yield text[len(emitted):]
                     emitted = text
                 if cache.seq_len >= cfg.block_size:
+                    # Out of context without hitting a stop: flush any tail _stop_scan held
+                    # back (a partial stop-prefix that never completed) so no content is lost.
+                    if len(text) > len(emitted):
+                        yield text[len(emitted):]
                     break
                 logits, _ = state.model(nxt, kv_cache=cache)
+            else:
+                # Reached max_new_tokens without a stop: flush the held-back tail too.
+                if len(text) > len(emitted):
+                    yield text[len(emitted):]
 
     return _run()

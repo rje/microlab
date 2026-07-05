@@ -241,4 +241,57 @@ describe("App", () => {
       await screen.findByText(/Serving 150m · step 6200 · resident/i)
     ).toBeInTheDocument();
   });
+
+  it("frames a chat run as a message exchange and can force raw completion", async () => {
+    const generateCalls: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url) === "/api/serve/runs") {
+        return {
+          ok: true,
+          json: async () => ({
+            runs: [
+              { name: "350m", latest_step: 4000, mode: "base" },
+              { name: "350m-sft", latest_step: 900, mode: "chat" }
+            ],
+            active: null
+          })
+        };
+      }
+      if (String(url) === "/api/generate") {
+        generateCalls.push(JSON.parse(String(init?.body)));
+        // Minimal streaming body: one empty read then done.
+        return {
+          ok: true,
+          body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }) }) }
+        };
+      }
+      return { ok: true, json: async () => ({}), text: async () => "" };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("button", { name: /playground/i }));
+
+    // Base run first: no raw toggle, prompt is a "Prompt".
+    const select = (await screen.findByRole("combobox", { name: /run to serve/i })) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("350m"));
+    expect(screen.queryByRole("checkbox", { name: /raw completion/i })).not.toBeInTheDocument();
+
+    // Switch to the chat run: message framing + raw-completion toggle appear.
+    fireEvent.change(select, { target: { value: "350m-sft" } });
+    expect(await screen.findByLabelText(/message/i)).toBeInTheDocument();
+    const rawToggle = screen.getByRole("checkbox", { name: /raw completion/i });
+    expect(screen.getByRole("button", { name: /^send$/i })).toBeInTheDocument();
+
+    // Send as chat -> raw:false.
+    fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
+    await waitFor(() => expect(generateCalls).toHaveLength(1));
+    expect(generateCalls[0]).toMatchObject({ run: "350m-sft", raw: false });
+
+    // Toggle raw completion -> the next request forces raw:true.
+    fireEvent.click(rawToggle);
+    fireEvent.click(screen.getByRole("button", { name: /generate/i }));
+    await waitFor(() => expect(generateCalls).toHaveLength(2));
+    expect(generateCalls[1]).toMatchObject({ run: "350m-sft", raw: true });
+  });
 });
