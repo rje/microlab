@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 
@@ -22,10 +23,17 @@ def load_records(candidates: str | Path) -> list[dict]:
 
 def load_verdicts(paths: list[str | Path]) -> dict[int, dict]:
     """Merge verdict files into {index: verdict}. Each file is a JSON list of objects carrying
-    an integer 'index'. On a duplicate index the later file wins."""
+    an integer 'index'. On a duplicate index the later file wins. An unreadable file (e.g. a
+    partial write from an interrupted judge) is skipped with a warning, not fatal — the resume
+    re-judges those batches."""
     verdicts: dict[int, dict] = {}
     for p in paths:
-        for v in json.loads(Path(p).read_text()):
+        try:
+            data = json.loads(Path(p).read_text())
+        except (json.JSONDecodeError, OSError):
+            print(f"warning: skipping unreadable verdict file {p}", file=sys.stderr)
+            continue
+        for v in data:
             verdicts[int(v["index"])] = v
     return verdicts
 
@@ -69,9 +77,10 @@ def main() -> None:
     args = ap.parse_args()
 
     vpath = Path(args.verdicts)
-    verdict_files = sorted(vpath.glob("*.json")) if vpath.is_dir() else [vpath]
+    # Only the per-batch verdict files — not the judge's _schema.json or any .tmp left by a crash.
+    verdict_files = sorted(vpath.glob("verdicts_*.json")) if vpath.is_dir() else [vpath]
     if not verdict_files:
-        raise FileNotFoundError(f"no verdict json files under {args.verdicts}")
+        raise FileNotFoundError(f"no verdicts_*.json files under {args.verdicts}")
 
     records = load_records(args.candidates)
     verdicts = load_verdicts(verdict_files)
