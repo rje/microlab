@@ -33,10 +33,12 @@ config = RunConfig(
     batch_size=16,
     grad_accum=32,
     compile=True,           # ~2x faster; the 350M run relied on it (missing here would crawl)
-    # max-autotune autotunes Triton kernels: +29% (22.6->17.5 days) AND lower peak memory than
-    # grad-ckpt-off, so we keep grad-checkpointing on. Cost: one slow compile at startup.
+    # max-autotune: autotuned Triton kernels beat cuBLAS on our shapes. Slow one-time compile.
     compile_mode="max-autotune",
-    grad_checkpoint=True,   # keep ON — with max-autotune, peak is only ~13-20GB, huge margin
+    # OFF on purpose: under torch.compile, Inductor's partitioner already minimizes activation
+    # memory, so explicit grad-checkpointing is redundant AND adds a recompute tax. Off is ~30%
+    # faster (18.0k vs 13.9k tok/s) at the SAME ~13GB peak. Measured; ~13.5 days for 21B tokens.
+    grad_checkpoint=False,
     eval_interval=1000,
     eval_iters=200,
     ckpt_interval=2000,     # lean: keep the last 3 (~36GB), not all ~40 (~480GB of disk)
