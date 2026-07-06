@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+// The app tsconfig has no @types/node; declare the one Node global this spec reads.
+declare const process: { env: Record<string, string | undefined> };
+
 // Authed Playground e2e. The console requires login; we inject a session cookie signed with the
 // app's local secret key (scripts/e2e_session_cookie.py) rather than the password, so this runs
 // with no credential exchange. Skips cleanly when the cookie isn't provided.

@@ -608,17 +608,6 @@ function PlaygroundPanel() {
         </span>
       </div>
 
-      <label className="playground-field">
-        <span className="playground-label">{chatReply ? "Your message" : "Prompt"}</span>
-        <textarea
-          className="playground-prompt"
-          aria-label={chatReply ? "Message" : "Prompt"}
-          rows={3}
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-        />
-      </label>
-
       <div className="playground-controls">
         <label className="playground-control">
           <span className="playground-label">Temperature {temperature.toFixed(1)}</span>
@@ -687,6 +676,17 @@ function PlaygroundPanel() {
           />
         </label>
       </div>
+
+      <label className="playground-field">
+        <span className="playground-label">{chatReply ? "Your message" : "Prompt"}</span>
+        <textarea
+          className="playground-prompt"
+          aria-label={chatReply ? "Message" : "Prompt"}
+          rows={3}
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+        />
+      </label>
 
       <div className="playground-actions">
         <button
