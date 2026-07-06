@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from microlab.train.config import RunConfig
-from microlab.train.trainer import TensorData, Trainer, get_lr
+from microlab.train.trainer import TensorData, Trainer, get_lr, gpu_scalars
 
 
 def _cfg(**kw):
@@ -96,6 +96,21 @@ def test_milestone_interval_must_divide_ckpt_interval(tmp_path):
             _cfg(out_dir=str(tmp_path), ckpt_interval=200, ckpt_milestone_interval=300),
             data, data,
         )
+
+
+def test_gpu_scalars_empty_off_cuda():
+    # Off CUDA there is nothing to report — no keys, regardless of the NVML flag. This is the
+    # path the CPU test suite and CPU training runs take; it must never touch torch.cuda.*.
+    assert gpu_scalars("cpu", include_nvml=True) == {}
+    assert gpu_scalars("cpu", include_nvml=False) == {}
+
+
+def test_cpu_trainer_disables_gpu_telemetry(tmp_path):
+    # A CPU Trainer must not claim NVML telemetry, so its logging stays memory-free and never
+    # calls the NVML helpers (which would raise off-CUDA).
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    tr = Trainer(_cfg(out_dir=str(tmp_path), max_steps=1), data, data)
+    assert tr._gpu_nvml is False
 
 
 def test_tensorboard_event_file_written(tmp_path):
