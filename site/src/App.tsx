@@ -380,6 +380,7 @@ function PlaygroundPanel() {
   const [temperature, setTemperature] = useState(0.8);
   const [topK, setTopK] = useState(0); // 0 = off
   const [topP, setTopP] = useState(0); // 0 = off
+  const [repetitionPenalty, setRepetitionPenalty] = useState(1.0); // 1.0 = off
   const [maxTokens, setMaxTokens] = useState(128);
   const [seed, setSeed] = useState(""); // blank = no seed (fresh samples each run)
   // Chat runs answer a message; "raw completion" forces base-style raw output (raw:true) on a
@@ -487,6 +488,7 @@ function PlaygroundPanel() {
           temperature,
           top_k: topK || null,
           top_p: topP || null,
+          repetition_penalty: repetitionPenalty,
           seed: seed === "" ? null : Number(seed),
           run: selectedRun || null,
           raw: isChat && rawMode
@@ -610,6 +612,19 @@ function PlaygroundPanel() {
             step={0.05}
             value={topP}
             onChange={(event) => setTopP(Number(event.target.value))}
+          />
+        </label>
+        <label className="playground-control">
+          <span className="playground-label">
+            Repetition penalty {repetitionPenalty.toFixed(2)} (1 = off)
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={2}
+            step={0.05}
+            value={repetitionPenalty}
+            onChange={(event) => setRepetitionPenalty(Number(event.target.value))}
           />
         </label>
         <label className="playground-control">
