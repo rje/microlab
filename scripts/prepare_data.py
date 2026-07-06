@@ -17,9 +17,15 @@ Re-running with the same --out reuses the existing tokenizer (`<out>/tokenizer.j
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
-from microlab.data.prepare import batched_token_chunks, take_tokens, write_shards
+from microlab.data.prepare import (
+    batched_token_chunks,
+    parallel_token_chunks,
+    take_tokens,
+    write_shards,
+)
 from microlab.tokenizer.fast import FastTokenizer
 
 
@@ -49,8 +55,11 @@ def main() -> None:
     ap.add_argument("--tokens", type=int, default=3_000_000_000, help="train token budget")
     ap.add_argument("--val-tokens", type=int, default=5_000_000)
     ap.add_argument("--shard-size", type=int, default=100_000_000)
-    ap.add_argument("--batch-docs", type=int, default=1024,
-                    help="documents per encode_batch call (parallel across cores)")
+    ap.add_argument("--batch-docs", type=int, default=256,
+                    help="documents per encode_batch call")
+    ap.add_argument("--workers", type=int, default=max(1, min(24, (os.cpu_count() or 4) - 2)),
+                    help="tokenizer worker processes (1 = single-process). ~3x faster than one "
+                         "process since encode_batch's rayon parallelism doesn't scale")
     ap.add_argument("--tokenizer-sample-docs", type=int, default=50_000)
     args = ap.parse_args()
 
@@ -70,9 +79,14 @@ def main() -> None:
 
     eot = tok.eot_token
     docs = stream_hf(args.hf_dataset, args.hf_config, args.split, args.text_field)
-    chunks = batched_token_chunks(tok, docs, eot, batch_docs=args.batch_docs)
+    if args.workers > 1:
+        chunks = parallel_token_chunks(tok_path, docs, eot, workers=args.workers,
+                                       batch_docs=args.batch_docs)
+    else:
+        chunks = batched_token_chunks(tok, docs, eot, batch_docs=args.batch_docs)
     carry: list = []  # boundary remainder shared between the val and train segments
-    print(f"writing {args.val_tokens:,} val tokens (encode_batch x{args.batch_docs} docs)...")
+    print(f"writing {args.val_tokens:,} val tokens ({args.workers} workers x {args.batch_docs} "
+          f"docs)...")
     write_shards(take_tokens(chunks, args.val_tokens, carry), str(out), split="val",
                  shard_size=args.shard_size)
     print(f"writing {args.tokens:,} train tokens (same stream continues; disjoint from val)")

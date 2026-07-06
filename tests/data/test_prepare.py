@@ -3,6 +3,7 @@ import torch
 
 from microlab.data.prepare import (
     batched_token_chunks,
+    parallel_token_chunks,
     strip_contamination,
     take_tokens,
     write_shards,
@@ -38,6 +39,17 @@ def test_batched_token_chunks_matches_per_doc(tmp_path):
         ref.append(eot)
     got = np.concatenate(list(batched_token_chunks(tok, docs, eot, batch_docs=2)))
     assert got.tolist() == ref  # batched encoding == per-doc encoding + EOT
+
+
+def test_parallel_token_chunks_matches_single_process(tmp_path):
+    tok = FastTokenizer.train(["hello world", "the cat sat", "a b c d"] * 6,
+                              vocab_size=300, save_path=str(tmp_path / "tok.json"))
+    docs = [f"doc number {i} with a few words here" for i in range(20)]
+    eot = tok.eot_token
+    single = np.concatenate(list(batched_token_chunks(tok, docs, eot, batch_docs=4)))
+    parallel = np.concatenate(list(parallel_token_chunks(
+        tmp_path / "tok.json", docs, eot, workers=2, batch_docs=4)))
+    assert parallel.tolist() == single.tolist()  # identical tokens, order preserved (imap)
 
 
 def test_take_tokens_splits_without_loss_or_overlap():
