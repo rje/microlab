@@ -69,6 +69,35 @@ def test_checkpoint_pruning(tmp_path):
     assert [p.stem for p in ckpts] == ["ckpt_4", "ckpt_6"]
 
 
+def test_checkpoint_milestone_retention(tmp_path):
+    # Two-tier retention: milestones (multiples of ckpt_milestone_interval) are permanent,
+    # AND the last `ckpt_keep` rolling checkpoints survive for crash recovery. A milestone
+    # outside the rolling window must NOT be pruned.
+    torch.manual_seed(0)
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    tr = Trainer(
+        _cfg(out_dir=str(tmp_path), max_steps=12, ckpt_interval=2, ckpt_keep=2,
+             ckpt_milestone_interval=6),
+        data, data,
+    )
+    tr.train()
+    ckpts = sorted(tmp_path.glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
+    # milestone 6 survives though it's outside the last-2 rolling window (10, 12);
+    # 12 is both a milestone and the latest rolling checkpoint.
+    assert [p.stem for p in ckpts] == ["ckpt_6", "ckpt_10", "ckpt_12"]
+
+
+def test_milestone_interval_must_divide_ckpt_interval(tmp_path):
+    # A milestone cadence not divisible by ckpt_interval means milestone steps are never
+    # actually checkpointed — a silent no-op. Fail loudly at construction instead.
+    data = TensorData(torch.randint(0, 64, (4000,)))
+    with pytest.raises(ValueError, match="multiple of ckpt_interval"):
+        Trainer(
+            _cfg(out_dir=str(tmp_path), ckpt_interval=200, ckpt_milestone_interval=300),
+            data, data,
+        )
+
+
 def test_tensorboard_event_file_written(tmp_path):
     # With tensorboard installed, a tiny run must emit an event file into out_dir
     # and must not crash the training loop.

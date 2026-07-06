@@ -34,6 +34,9 @@ class RunConfig:
     eval_iters: int = 50
     ckpt_interval: int = 500
     ckpt_keep: int = 3  # 0 disables pruning; only the last N ckpt_*.pt files are kept
+    # >0: checkpoints at multiples of this step are permanent (never pruned) — a research
+    # trajectory kept alongside the rolling recovery window. Must divide ckpt_interval.
+    ckpt_milestone_interval: int = 0
     grad_checkpoint: bool = False  # recompute activations backward: ~30x less act memory
     compile: bool = False          # torch.compile the model (CUDA; first step compiles)
     compile_mode: str = "default"  # "max-autotune" autotunes Triton kernels (slow compile,

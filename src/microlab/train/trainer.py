@@ -62,6 +62,19 @@ class Trainer:
     """
 
     def __init__(self, cfg: RunConfig, train_data, val_data=None, tokenizer=None) -> None:
+        # A milestone cadence that isn't a multiple of ckpt_interval would mean milestone
+        # steps are never actually checkpointed (no ckpt_*.pt exists at those steps), so the
+        # permanent trajectory would silently be empty. Fail loudly rather than mask it.
+        if (
+            cfg.ckpt_milestone_interval > 0
+            and cfg.ckpt_interval > 0
+            and cfg.ckpt_milestone_interval % cfg.ckpt_interval != 0
+        ):
+            raise ValueError(
+                f"ckpt_milestone_interval ({cfg.ckpt_milestone_interval}) must be a multiple "
+                f"of ckpt_interval ({cfg.ckpt_interval}); otherwise milestone steps are never "
+                f"checkpointed and no permanent trajectory is saved."
+            )
         self.cfg = cfg
         self.train_data = train_data
         self.val_data = val_data
@@ -189,8 +202,16 @@ class Trainer:
         ckpts = sorted(
             Path(self.cfg.out_dir).glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1])
         )
-        for stale in ckpts[:-keep]:
-            stale.unlink()
+        # Two-tier: protect the last `keep` (rolling crash-recovery window) AND every
+        # milestone checkpoint (multiples of ckpt_milestone_interval — a permanent
+        # training-trajectory record kept for later emergence/interpretability study).
+        protected = set(ckpts[-keep:])
+        milestone = self.cfg.ckpt_milestone_interval
+        if milestone > 0:
+            protected.update(p for p in ckpts if int(p.stem.split("_")[1]) % milestone == 0)
+        for stale in ckpts:
+            if stale not in protected:
+                stale.unlink()
 
     def load_checkpoint(self, path: str) -> None:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
