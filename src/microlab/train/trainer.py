@@ -24,6 +24,26 @@ SAMPLE_PROMPT = "\n"
 SAMPLE_TOKENS = 64
 
 
+def gpu_scalars(device: str, include_nvml: bool) -> dict[str, float]:
+    """TensorBoard GPU-telemetry scalars for `device`; empty off-CUDA (so CPU runs and the CPU
+    test suite never touch torch.cuda.*). Memory metrics need only torch. The NVML metrics
+    (temperature/utilization/power/clock) are added when `include_nvml` — i.e. nvidia-ml-py is
+    importable and the init probe succeeded. Units: memory GB, temp C, util %, power W, clk MHz."""
+    if not device.startswith("cuda"):
+        return {}
+    s = {
+        "gpu/mem_allocated_gb": torch.cuda.memory_allocated() / 1e9,
+        "gpu/mem_reserved_gb": torch.cuda.memory_reserved() / 1e9,
+        "gpu/mem_max_allocated_gb": torch.cuda.max_memory_allocated() / 1e9,
+    }
+    if include_nvml:
+        s["gpu/temperature_c"] = float(torch.cuda.temperature())
+        s["gpu/utilization_pct"] = float(torch.cuda.utilization())
+        s["gpu/power_w"] = torch.cuda.power_draw() / 1000.0  # NVML reports milliwatts
+        s["gpu/sm_clock_mhz"] = float(torch.cuda.clock_rate())
+    return s
+
+
 def get_lr(step: int, cfg: RunConfig) -> float:
     """nanoGPT LR schedule: linear warmup 0 -> cfg.lr over `warmup_steps`, then cosine
     decay cfg.lr -> cfg.min_lr over the remaining `lr_decay_steps - warmup_steps`, then
@@ -122,6 +142,16 @@ class Trainer:
         # Last-step telemetry captured by train_step for side-effect-only TB logging.
         self.last_lr = cfg.lr
         self.last_grad_norm = 0.0
+        # Probe NVML once so GPU telemetry (temp/util/power/clock) can log to TB. A missing
+        # nvidia-ml-py or a probe failure -> memory-only telemetry, reported not swallowed
+        # (telemetry must never be fatal to a multi-week run, nor vanish silently).
+        self._gpu_nvml = False
+        if self.device.startswith("cuda"):
+            try:
+                torch.cuda.temperature()
+                self._gpu_nvml = True
+            except Exception as e:  # noqa: BLE001 - report any NVML/import failure, don't crash
+                print(f"GPU NVML telemetry unavailable (memory-only): {type(e).__name__}: {e}")
 
     def _autocast(self):
         if self.use_amp:
@@ -276,6 +306,16 @@ class Trainer:
                     writer.add_scalar("lr", self.last_lr, step)
                     writer.add_scalar("train/tokens_per_sec", tps, step)
                     writer.add_scalar("train/grad_norm", self.last_grad_norm, step)
+                    # GPU telemetry. If an NVML read fails mid-run, report once and drop to
+                    # memory-only rather than crash the loop or silently stop logging.
+                    try:
+                        scalars = gpu_scalars(self.device, self._gpu_nvml)
+                    except Exception as e:  # noqa: BLE001 - degrade telemetry, never kill training
+                        self._gpu_nvml = False
+                        scalars = gpu_scalars(self.device, False)
+                        print(f"GPU NVML telemetry disabled: {type(e).__name__}: {e}")
+                    for k, v in scalars.items():
+                        writer.add_scalar(k, v, step)
                     last_log_time, last_log_step = now, step
             if cfg.ckpt_interval > 0 and step % cfg.ckpt_interval == 0:
                 self.save_checkpoint(os.path.join(cfg.out_dir, f"ckpt_{step}.pt"))
