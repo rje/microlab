@@ -21,8 +21,13 @@ def latest_checkpoint(run_dir: Path) -> Path:
 
 
 def load_variant_from_run(run_dir: Path, device: str = "cpu") -> tuple[VariantGPT, int]:
-    """Latest ckpt_*.pt by step number. Raises FileNotFoundError when none exists."""
-    ckpt = torch.load(latest_checkpoint(run_dir), map_location=device, weights_only=False)
+    """Latest ckpt_*.pt by step number. Raises FileNotFoundError when none exists.
+
+    Loads to CPU and moves only the model to ``device``. The checkpoint bundles the optimizer
+    state (Adam m/v, ~2x the model size); mapping the whole file straight onto CUDA would spike
+    that onto the GPU too (~11GB for the 1B), which can OOM a training run sharing the device.
+    Inference never needs the optimizer state, so it stays on CPU and is freed with ``ckpt``."""
+    ckpt = torch.load(latest_checkpoint(run_dir), map_location="cpu", weights_only=False)
     cfg = ckpt["cfg"]
     model = VariantGPT(VariantConfig(
         vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
