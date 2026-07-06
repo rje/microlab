@@ -39,9 +39,11 @@ config = RunConfig(
     # memory, so explicit grad-checkpointing is redundant AND adds a recompute tax. Off is ~30%
     # faster (18.0k vs 13.9k tok/s) at the SAME ~13GB peak. Measured; ~13.5 days for 21B tokens.
     grad_checkpoint=False,
-    eval_interval=1000,
-    eval_iters=200,
-    ckpt_interval=2000,     # lean: keep the last 3 (~36GB), not all ~40 (~480GB of disk)
+    eval_interval=500,      # ~4h: a val-perplexity point every ~500 steps (~80 over the run)
+    eval_iters=100,
+    # ~2h per checkpoint (250 * ~29s/step) so a crash/reboot costs <=2h. ckpt_keep=3 caps disk
+    # at ~36GB (3 * ~12GB) regardless of frequency, so frequent checkpointing is free.
+    ckpt_interval=250,
     ckpt_keep=3,
     log_interval=20,
     out_dir="runs/1b",
