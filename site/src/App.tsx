@@ -372,7 +372,14 @@ function TrainingPanel() {
   );
 }
 
-type ServeRun = { name: string; latestStep: number; mode: "chat" | "base" };
+type Decoding = { temperature: number; top_p: number; top_k: number; repetition_penalty: number };
+type ServeRun = {
+  name: string;
+  latestStep: number;
+  mode: "chat" | "base";
+  decoding: Decoding;
+};
+const OFF_DECODING: Decoding = { temperature: 0.8, top_p: 0, top_k: 0, repetition_penalty: 1.0 };
 
 function PlaygroundPanel() {
   const [prompt, setPrompt] = useState("Once upon a time");
@@ -399,6 +406,16 @@ function PlaygroundPanel() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const [reloading, setReloading] = useState(false);
 
+  // Pre-fill the sampling sliders from a run's per-model defaults when it's selected. Only fired
+  // on an explicit run change / initial load, so it never clobbers the user's manual tweaks.
+  const applyRunDecoding = (run: ServeRun | undefined) => {
+    if (!run) return;
+    setTemperature(run.decoding.temperature);
+    setTopP(run.decoding.top_p);
+    setTopK(run.decoding.top_k);
+    setRepetitionPenalty(run.decoding.repetition_penalty);
+  };
+
   // Kill an in-flight generation when navigating away — the server holds a single-generation
   // lock, so a leaked stream would block the next request.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -414,10 +431,16 @@ function PlaygroundPanel() {
         const data = await res.json();
         if (cancelled) return;
         const list: ServeRun[] = (data.runs ?? []).map(
-          (r: { name: string; latest_step: number; mode?: string }) => ({
+          (r: {
+            name: string;
+            latest_step: number;
+            mode?: string;
+            decoding?: Decoding;
+          }) => ({
             name: r.name,
             latestStep: r.latest_step,
-            mode: r.mode === "chat" ? "chat" : "base"
+            mode: r.mode === "chat" ? "chat" : "base",
+            decoding: r.decoding ?? OFF_DECODING
           })
         );
         setRuns(list);
@@ -426,8 +449,10 @@ function PlaygroundPanel() {
           setActiveRun(active.name);
           setActiveStep(active.step);
           setSelectedRun(active.name);
+          applyRunDecoding(list.find((r) => r.name === active.name));
         } else if (list.length) {
           setSelectedRun(list[0].name);
+          applyRunDecoding(list[0]);
         }
       } catch {
         /* leave the picker empty; generate still hits the default run */
@@ -540,7 +565,10 @@ function PlaygroundPanel() {
             aria-label="Run to serve"
             value={selectedRun}
             disabled={runs.length === 0}
-            onChange={(event) => setSelectedRun(event.target.value)}
+            onChange={(event) => {
+              setSelectedRun(event.target.value);
+              applyRunDecoding(runs.find((r) => r.name === event.target.value));
+            }}
           >
             {runs.length === 0 && <option value="">default run</option>}
             {runs.map((r) => (

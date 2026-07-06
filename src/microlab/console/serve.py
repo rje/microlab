@@ -64,16 +64,29 @@ def _step_of(ckpt: Path) -> int:
     return int(ckpt.stem.split("_")[1])
 
 
+# Per-mode default decoding params the Playground inherits when a run is selected. Chat runs
+# want a repetition penalty + moderate temperature; base/completion runs (the story models) want
+# a higher temperature and a lighter penalty (some repetition is natural in stories). A run may
+# override any of these with a ``decoding`` block in its serve_config.json (merged over these).
+DEFAULT_DECODING = {
+    "chat": {"temperature": 0.8, "top_p": 0.9, "top_k": 0, "repetition_penalty": 1.2},
+    "base": {"temperature": 0.9, "top_p": 0.95, "top_k": 0, "repetition_penalty": 1.1},
+}
+
+
 def _read_serve_config(run_dir: Path) -> dict:
     """A run's ``serve_config.json`` (written by scripts/sft.py for chat runs), normalized to
-    ``{"mode", "stop_strings"}``. No file (the pretraining runs) or an unset mode -> a base
-    run: raw completion, no stop strings. A present-but-malformed file raises loudly rather
-    than silently degrading to base (a broken config should be fixed, not masked)."""
+    ``{"mode", "stop_strings", "decoding"}``. No file (the pretraining runs) or an unset mode ->
+    a base run: raw completion, no stop strings. ``decoding`` is the per-mode default with any
+    ``decoding`` block in the file merged on top (so a run can override individual params). A
+    present-but-malformed file raises loudly rather than silently degrading (fix it, don't mask)."""
     cfg_path = Path(run_dir) / "serve_config.json"
     if not cfg_path.exists():
-        return {"mode": "base", "stop_strings": []}
+        return {"mode": "base", "stop_strings": [], "decoding": dict(DEFAULT_DECODING["base"])}
     data = json.loads(cfg_path.read_text(encoding="utf-8"))
-    return {"mode": data.get("mode", "base"), "stop_strings": data.get("stop_strings", [])}
+    mode = data.get("mode", "base")
+    decoding = {**DEFAULT_DECODING.get(mode, DEFAULT_DECODING["base"]), **data.get("decoding", {})}
+    return {"mode": mode, "stop_strings": data.get("stop_strings", []), "decoding": decoding}
 
 
 def list_runs(root: Path) -> list[dict]:
@@ -83,7 +96,10 @@ def list_runs(root: Path) -> list[dict]:
     ``mode`` ("base"/"chat") comes from the run's serve_config.json so the UI can tell them
     apart.
 
-        [{"name": "150m", "latest_step": 6000, "mode": "base"}, ...]
+        [{"name": "150m", "latest_step": 6000, "mode": "base", "decoding": {...}}, ...]
+
+    ``decoding`` is the run's default sampling params so the Playground can pre-fill its sliders
+    per model.
     """
     runs_dir = Path(root) / "runs"
     if not runs_dir.is_dir():
@@ -95,8 +111,9 @@ def list_runs(root: Path) -> list[dict]:
         ckpts = list(run_dir.glob("ckpt_*.pt"))
         if not ckpts:
             continue
+        cfg = _read_serve_config(run_dir)
         out.append({"name": run_dir.name, "latest_step": max(_step_of(c) for c in ckpts),
-                    "mode": _read_serve_config(run_dir)["mode"]})
+                    "mode": cfg["mode"], "decoding": cfg["decoding"]})
     return out
 
 
