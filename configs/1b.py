@@ -41,10 +41,13 @@ config = RunConfig(
     grad_checkpoint=False,
     eval_interval=500,      # ~4h: a val-perplexity point every ~500 steps (~80 over the run)
     eval_iters=100,
-    # ~2h per checkpoint (250 * ~29s/step) so a crash/reboot costs <=2h. ckpt_keep=3 caps disk
-    # at ~36GB (3 * ~12GB) regardless of frequency, so frequent checkpointing is free.
+    # Two-tier checkpointing (1.7TB free, ~11GB/ckpt). Rolling: every 250 steps (~2h), keep
+    # the last 4 (~44GB) so a crash/reboot costs <=2h. Milestones: every 2000 steps (~1B
+    # tokens), permanent — 20 checkpoints (~220GB) preserving the training trajectory for
+    # later emergence/interpretability study and warm-starting ablations.
     ckpt_interval=250,
-    ckpt_keep=3,
+    ckpt_keep=4,
+    ckpt_milestone_interval=2000,
     log_interval=20,
     out_dir="runs/1b",
     device="cuda",
