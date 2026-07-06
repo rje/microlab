@@ -1,13 +1,52 @@
 import numpy as np
 import torch
 
-from microlab.data.prepare import strip_contamination, write_shards
+from microlab.data.prepare import (
+    batched_token_chunks,
+    strip_contamination,
+    take_tokens,
+    write_shards,
+)
 from microlab.data.shard_dataset import ShardDataset
+from microlab.tokenizer.fast import FastTokenizer
 
 
 def test_strip_contamination():
     texts = ["clean", "has EVAL_Q inside", "fine"]
     assert list(strip_contamination(texts, ["EVAL_Q"])) == ["clean", "fine"]
+
+
+def test_write_shards_accepts_token_arrays(tmp_path):
+    # the scale path: arrays in, exact shard_size shards out, bytes round-trip
+    chunks = [np.arange(0, 250, dtype=np.uint16), np.arange(250, 1000, dtype=np.uint16)]
+    man = write_shards(chunks, str(tmp_path), split="train", shard_size=300)
+    assert man["total_tokens"] == 1000 and len(man["shards"]) == 4  # 300,300,300,100
+    read = []
+    for s in man["shards"]:
+        read.extend(np.fromfile(tmp_path / s["file"], dtype=np.uint16).tolist())
+    assert read == list(range(1000))
+
+
+def test_batched_token_chunks_matches_per_doc(tmp_path):
+    tok = FastTokenizer.train(["hello world", "the cat sat on mat", "a b c d e"] * 4,
+                              vocab_size=300, save_path=str(tmp_path / "tok.json"))
+    docs = ["hello world foo bar", "the cat sat", "a b c d e f g"]
+    eot = tok.eot_token
+    ref: list[int] = []
+    for d in docs:
+        ref.extend(tok.encode(d))
+        ref.append(eot)
+    got = np.concatenate(list(batched_token_chunks(tok, docs, eot, batch_docs=2)))
+    assert got.tolist() == ref  # batched encoding == per-doc encoding + EOT
+
+
+def test_take_tokens_splits_without_loss_or_overlap():
+    chunks = iter([np.arange(0, 400, dtype=np.uint16), np.arange(400, 1000, dtype=np.uint16)])
+    carry: list = []
+    val = np.concatenate(list(take_tokens(chunks, 500, carry)))
+    train = np.concatenate(list(take_tokens(chunks, 500, carry)))
+    assert val.tolist() == list(range(500))            # exactly 500, split mid-chunk
+    assert train.tolist() == list(range(500, 1000))    # resumes with no loss/overlap
 
 
 def test_write_shards_and_readback(tmp_path):
