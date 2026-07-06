@@ -5,6 +5,7 @@ uint16 requires vocab_size <= 65536 (our 32k fits)."""
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -93,6 +94,53 @@ def batched_token_chunks(tok, docs: Iterable[str], eot: int,
             batch = []
     if batch:
         yield _flush(batch)
+
+
+_WORKER: dict = {}  # per-process tokenizer, set by _worker_init
+
+
+def _worker_init(tokenizer_path: str, eot: int) -> None:
+    """Pool worker setup: one core of the Rust tokenizer per process (the pool is the
+    parallelism), load the tokenizer once."""
+    os.environ["RAYON_NUM_THREADS"] = "1"
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    from microlab.tokenizer.fast import FastTokenizer
+    _WORKER["tok"] = FastTokenizer.load(tokenizer_path)
+    _WORKER["eot"] = eot
+
+
+def _worker_encode(batch: list[str]) -> np.ndarray:
+    tok, eot = _WORKER["tok"], _WORKER["eot"]
+    eot_arr = np.array([eot], dtype=np.uint16)
+    parts: list[np.ndarray] = []
+    for ids in tok.encode_batch(batch):
+        parts.append(np.asarray(ids, dtype=np.uint16))
+        parts.append(eot_arr)
+    return np.concatenate(parts) if parts else np.empty(0, dtype=np.uint16)
+
+
+def parallel_token_chunks(tokenizer_path: str | Path, docs: Iterable[str], eot: int,
+                          workers: int = 16, batch_docs: int = 256) -> Iterator[np.ndarray]:
+    """Like batched_token_chunks but across a pool of `workers` processes, each running the Rust
+    tokenizer single-threaded — encode_batch's own rayon parallelism only scales ~4x, so N
+    single-threaded workers reach ~3x its throughput. Order is preserved (imap), so shards stay
+    deterministic. The main process only streams docs (I/O), overlapping with worker CPU."""
+    from multiprocessing import get_context
+
+    def batches() -> Iterator[list[str]]:
+        batch: list[str] = []
+        for text in docs:
+            batch.append(text)
+            if len(batch) >= batch_docs:
+                yield batch
+                batch = []
+        if batch:
+            yield batch
+
+    # spawn: fresh workers that honor RAYON_NUM_THREADS=1 regardless of the parent's tokenizer state
+    ctx = get_context("spawn")
+    with ctx.Pool(workers, initializer=_worker_init, initargs=(str(tokenizer_path), eot)) as pool:
+        yield from pool.imap(_worker_encode, batches(), chunksize=4)
 
 
 def take_tokens(chunks: Iterator[np.ndarray], budget: int,
