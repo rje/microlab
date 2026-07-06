@@ -198,14 +198,31 @@ def test_list_runs(tmp_path):
     _fake_run(tmp_path, "350m", [500, 4000])
     (tmp_path / "runs" / "empty").mkdir()  # a run dir with no checkpoints is skipped
     (tmp_path / "runs" / "notes.txt").write_text("x")  # a stray file is skipped
+    base_dec = serve.DEFAULT_DECODING["base"]
     assert serve.list_runs(tmp_path) == [
-        {"name": "150m", "latest_step": 6000, "mode": "base"},
-        {"name": "350m", "latest_step": 4000, "mode": "base"},
+        {"name": "150m", "latest_step": 6000, "mode": "base", "decoding": base_dec},
+        {"name": "350m", "latest_step": 4000, "mode": "base", "decoding": base_dec},
     ]
 
 
 def test_list_runs_no_runs_dir(tmp_path):
     assert serve.list_runs(tmp_path) == []
+
+
+def test_serve_config_decoding_defaults_and_override(tmp_path):
+    run = tmp_path / "runs" / "r"
+    run.mkdir(parents=True)
+    # no config file -> base-mode decoding defaults
+    assert serve._read_serve_config(run)["decoding"] == serve.DEFAULT_DECODING["base"]
+    # chat mode -> chat decoding defaults
+    (run / "serve_config.json").write_text('{"mode": "chat", "stop_strings": []}')
+    assert serve._read_serve_config(run)["decoding"] == serve.DEFAULT_DECODING["chat"]
+    # a run may override individual params, merged over the mode defaults
+    (run / "serve_config.json").write_text(
+        '{"mode": "chat", "stop_strings": [], "decoding": {"repetition_penalty": 1.5}}')
+    dec = serve._read_serve_config(run)["decoding"]
+    assert dec["repetition_penalty"] == 1.5  # overridden
+    assert dec["temperature"] == serve.DEFAULT_DECODING["chat"]["temperature"]  # others kept
 
 
 def test_get_state_selects_and_caches(tmp_path, stub_load):
@@ -306,9 +323,10 @@ def test_serve_runs_endpoint(tmp_path):
     r = client.get("/api/serve/runs", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
     payload = r.get_json()
+    base_dec = serve.DEFAULT_DECODING["base"]
     assert payload["runs"] == [
-        {"name": "150m", "latest_step": 6000, "mode": "base"},
-        {"name": "350m", "latest_step": 4000, "mode": "base"},
+        {"name": "150m", "latest_step": 6000, "mode": "base", "decoding": base_dec},
+        {"name": "350m", "latest_step": 4000, "mode": "base", "decoding": base_dec},
     ]
     assert payload["active"] is None  # nothing loaded yet
 
@@ -388,7 +406,9 @@ def test_get_state_real_checkpoint_end_to_end(tmp_path):
     torch.save({"model": model.state_dict(), "step": 30, "cfg": cfg},
                run_dir / "ckpt_30.pt")
 
-    assert serve.list_runs(tmp_path) == [{"name": "mini", "latest_step": 30, "mode": "base"}]
+    assert serve.list_runs(tmp_path) == [
+        {"name": "mini", "latest_step": 30, "mode": "base",
+         "decoding": serve.DEFAULT_DECODING["base"]}]
     state = serve.get_state(tmp_path, run="mini")
     assert state.run == "mini" and state.step == 30 and state.mode == "base"
     out = "".join(serve.stream_generate(state, "hello", max_new_tokens=6, temperature=0.0))
@@ -453,8 +473,9 @@ def test_get_state_reads_chat_serve_config(tmp_path, stub_load):
     state = serve.get_state(tmp_path, run="350m-sft")
     assert state.mode == "chat"
     assert state.stop_strings == ["### End", "\n### Instruction:"]
-    # and list_runs surfaces the mode for the UI
-    assert {"name": "350m-sft", "latest_step": 5, "mode": "chat"} in serve.list_runs(tmp_path)
+    # and list_runs surfaces the mode + chat decoding defaults for the UI
+    assert {"name": "350m-sft", "latest_step": 5, "mode": "chat",
+            "decoding": serve.DEFAULT_DECODING["chat"]} in serve.list_runs(tmp_path)
 
 
 def test_chat_mode_wraps_prompt_and_stops_before_stop_string(monkeypatch):
