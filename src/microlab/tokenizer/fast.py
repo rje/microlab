@@ -40,6 +40,11 @@ class FastTokenizer:
     def encode(self, text: str) -> list[int]:
         return self._tok.encode(text).ids
 
+    def encode_batch(self, texts: list[str]) -> list[list[int]]:
+        """Tokenize many documents at once. The Rust tokenizer runs the batch across all cores,
+        so this is far faster than a Python loop of encode() — the way to tokenize at scale."""
+        return [e.ids for e in self._tok.encode_batch(texts)]
+
     def decode(self, ids: list[int]) -> str:
         return self._tok.decode(ids)
 

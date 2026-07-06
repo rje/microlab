@@ -17,10 +17,9 @@ Re-running with the same --out reuses the existing tokenizer (`<out>/tokenizer.j
 from __future__ import annotations
 
 import argparse
-import itertools
 from pathlib import Path
 
-from microlab.data.prepare import write_shards
+from microlab.data.prepare import batched_token_chunks, take_tokens, write_shards
 from microlab.tokenizer.fast import FastTokenizer
 
 
@@ -50,6 +49,8 @@ def main() -> None:
     ap.add_argument("--tokens", type=int, default=3_000_000_000, help="train token budget")
     ap.add_argument("--val-tokens", type=int, default=5_000_000)
     ap.add_argument("--shard-size", type=int, default=100_000_000)
+    ap.add_argument("--batch-docs", type=int, default=1024,
+                    help="documents per encode_batch call (parallel across cores)")
     ap.add_argument("--tokenizer-sample-docs", type=int, default=50_000)
     args = ap.parse_args()
 
@@ -68,18 +69,14 @@ def main() -> None:
         print(f"saved tokenizer -> {tok_path} (vocab {tok.vocab_size})")
 
     eot = tok.eot_token
-
-    def all_tokens():
-        for text in stream_hf(args.hf_dataset, args.hf_config, args.split, args.text_field):
-            yield from tok.encode(text)
-            yield eot
-
-    gen = all_tokens()
-    print(f"writing {args.val_tokens:,} val tokens...")
-    write_shards(itertools.islice(gen, args.val_tokens), str(out), split="val",
+    docs = stream_hf(args.hf_dataset, args.hf_config, args.split, args.text_field)
+    chunks = batched_token_chunks(tok, docs, eot, batch_docs=args.batch_docs)
+    carry: list = []  # boundary remainder shared between the val and train segments
+    print(f"writing {args.val_tokens:,} val tokens (encode_batch x{args.batch_docs} docs)...")
+    write_shards(take_tokens(chunks, args.val_tokens, carry), str(out), split="val",
                  shard_size=args.shard_size)
     print(f"writing {args.tokens:,} train tokens (same stream continues; disjoint from val)")
-    write_shards(itertools.islice(gen, args.tokens), str(out), split="train",
+    write_shards(take_tokens(chunks, args.tokens, carry), str(out), split="train",
                  shard_size=args.shard_size)
     print(f"done. reusable shards + tokenizer under {out}/")
 
