@@ -1,5 +1,6 @@
-"""Reference next-token sampling (Phase 6): temperature, top-k, and top-p (nucleus) in
-the standard order — scale, filter, filter, softmax, sample."""
+"""Reference next-token sampling (Phase 6): an optional repetition penalty, then temperature,
+top-k, and top-p (nucleus) in the standard order — penalize, scale, filter, filter, softmax,
+sample."""
 
 from __future__ import annotations
 
@@ -8,9 +9,21 @@ from torch.nn import functional as F
 
 
 def sample_next(logits: torch.Tensor, temperature: float = 1.0, top_k: int | None = None,
-                top_p: float | None = None,
-                generator: torch.Generator | None = None) -> torch.Tensor:
-    """logits (B, V) -> next token ids (B, 1). temperature=0 is greedy argmax."""
+                top_p: float | None = None, generator: torch.Generator | None = None,
+                repetition_penalty: float = 1.0,
+                prev_ids: list[int] | None = None) -> torch.Tensor:
+    """logits (B, V) -> next token ids (B, 1). temperature=0 is greedy argmax.
+
+    repetition_penalty>1 down-weights tokens already generated (CTRL-style: divide their logit
+    by the penalty if positive, else multiply) so the decoder stops looping. Applied to the raw
+    logits BEFORE temperature so it also shifts the greedy argmax. prev_ids is the generated
+    history (dedup'd); pass None/1.0 to disable."""
+    if repetition_penalty != 1.0 and prev_ids:
+        ids = torch.tensor(sorted(set(prev_ids)), device=logits.device, dtype=torch.long)
+        seen = logits[:, ids]
+        logits = logits.clone()  # don't mutate the caller's logits view
+        logits[:, ids] = torch.where(seen > 0, seen / repetition_penalty,
+                                      seen * repetition_penalty)
     if temperature == 0.0:
         return logits.argmax(dim=-1, keepdim=True)
     logits = logits / temperature

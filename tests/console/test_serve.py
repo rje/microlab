@@ -77,6 +77,18 @@ def test_limits_raise():
         list(serve.stream_generate(state, "hi", max_new_tokens=513))
     with pytest.raises(ValueError):  # prompt + budget must fit block_size (64)
         list(serve.stream_generate(state, "x" * 60, max_new_tokens=32))
+    with pytest.raises(ValueError):  # repetition_penalty out of [1.0, 2.0]
+        list(serve.stream_generate(state, "hi", max_new_tokens=8, repetition_penalty=3.0))
+    with pytest.raises(ValueError):
+        list(serve.stream_generate(state, "hi", max_new_tokens=8, repetition_penalty=0.5))
+
+
+def test_repetition_penalty_generates_without_error():
+    # a valid penalty threads through the loop (prev_ids grows each step) and still streams
+    state = _tiny_state()
+    out = "".join(serve.stream_generate(state, "hi", max_new_tokens=8, temperature=0.0,
+                                        repetition_penalty=1.3))
+    assert isinstance(out, str)
 
 
 def test_endpoint_auth_and_stream(tmp_path, monkeypatch):

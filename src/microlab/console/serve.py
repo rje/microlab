@@ -252,7 +252,7 @@ def _stop_scan(text: str, stop_strings: list[str]) -> tuple[int, bool]:
 def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
                     temperature: float = 0.8, top_k: int | None = None,
                     top_p: float | None = None, seed: int | None = None,
-                    raw: bool = False) -> Iterator[str]:
+                    raw: bool = False, repetition_penalty: float = 1.0) -> Iterator[str]:
     """Yield text DELTAS. Accumulate ids and re-decode the full completion each step so
     byte-level BPE never splits a multi-byte character across chunks.
 
@@ -279,6 +279,8 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
         raise ValueError(f"top_k must be None or >= 1 (got {top_k})")
     if top_p is not None and not 0 < top_p <= 1:
         raise ValueError(f"top_p must be None or in (0, 1] (got {top_p})")
+    if not 1.0 <= repetition_penalty <= 2.0:
+        raise ValueError(f"repetition_penalty must be in [1.0, 2.0] (got {repetition_penalty})")
     # The RNG generator must live on the same device as the logits multinomial() samples
     # from — a CPU generator against CUDA logits raises. Only bites GPU serving with a seed.
     gen = None if seed is None else torch.Generator(device=state.device).manual_seed(seed)
@@ -297,7 +299,8 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
             emitted = ""
             for _ in range(max_new_tokens):
                 nxt = sample_next(logits[:, -1, :], temperature=temperature, top_k=top_k,
-                                  top_p=top_p, generator=gen)
+                                  top_p=top_p, generator=gen,
+                                  repetition_penalty=repetition_penalty, prev_ids=out_ids)
                 out_ids.append(int(nxt[0, 0]))
                 text = state.tokenizer.decode(out_ids)
                 if stop_strings:
