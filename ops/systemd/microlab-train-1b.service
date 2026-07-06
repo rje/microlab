@@ -1,0 +1,20 @@
+[Unit]
+Description=Microlab 1B pretraining run (configs/1b.py, ~21B tokens, ~13.5 days, resumable)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rje/src/python/microlab
+Environment=PYTHONUNBUFFERED=1
+# Reduce allocator fragmentation — matters at batch 8's ~34GB peak sharing the GPU with the
+# Playground; keeps a transient spike from OOMing the run.
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# --no-capture-output so training logs stream live to journalctl (conda run buffers otherwise).
+ExecStart=/home/rje/anaconda3/bin/conda run --no-capture-output -n microlab python scripts/pretrain.py configs/1b.py --data-dir data/shards/fineweb-100bt
+# Restart on crash only (not on clean exit at max_steps). pretrain.py auto-resumes from the
+# latest ckpt_*.pt, so a crash/reboot costs at most the steps since the last checkpoint (~2h).
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
