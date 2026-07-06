@@ -1,7 +1,9 @@
 """~1B-parameter pretraining config — the capstone run (~1-3 weeks on an RTX 6000 Ada).
-Modern block: RoPE + RMSNorm + SwiGLU. ~20B tokens (~20x params). Requires the ~150M run
-to have validated the pipeline first. Enable gradient checkpointing / lower batch_size if
-you OOM; the effective batch is batch_size * grad_accum * block_size.
+Modern block: RoPE + RMSNorm + SwiGLU. ~983M params, ~21B tokens (~20x params, Chinchilla-
+optimal). Dense on purpose: MoE would store every expert (only k compute, all N resident) and
+blow past 48GB. grad_checkpoint is ON — a 1B's activations overflow 48GB without it; drop
+batch_size further only if the local validation still OOMs. Effective batch = batch_size *
+grad_accum * block_size = 512 * 1024.
 
     python scripts/pretrain.py configs/1b.py    # resumable across interruptions
 """
@@ -30,9 +32,15 @@ config = RunConfig(
     # data / io  (16 * 1024 * 32 ≈ 0.52M tokens/step * 40000 ≈ 21B tokens)
     batch_size=16,
     grad_accum=32,
+    compile=True,           # ~2x faster; the 350M run relied on it (missing here would crawl)
+    # max-autotune autotunes Triton kernels: +29% (22.6->17.5 days) AND lower peak memory than
+    # grad-ckpt-off, so we keep grad-checkpointing on. Cost: one slow compile at startup.
+    compile_mode="max-autotune",
+    grad_checkpoint=True,   # keep ON — with max-autotune, peak is only ~13-20GB, huge margin
     eval_interval=1000,
     eval_iters=200,
-    ckpt_interval=1000,
+    ckpt_interval=2000,     # lean: keep the last 3 (~36GB), not all ~40 (~480GB of disk)
+    ckpt_keep=3,
     log_interval=20,
     out_dir="runs/1b",
     device="cuda",

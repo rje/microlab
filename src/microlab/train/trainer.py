@@ -89,13 +89,17 @@ class Trainer:
         self.model.to(self.device)
         self.raw_model = self.model  # state_dict source of truth (survives torch.compile)
         self.raw_model.grad_checkpoint = cfg.grad_checkpoint
+        # TF32 for any fp32 matmuls autocast leaves alone (the head, some reductions) — free.
+        if self.device.startswith("cuda"):
+            torch.set_float32_matmul_precision("high")
         if cfg.compile:
-            self.model = torch.compile(self.model)
+            self.model = torch.compile(self.model, mode=cfg.compile_mode)
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=cfg.lr,
             betas=cfg.betas,
             weight_decay=cfg.weight_decay,
+            fused=self.device.startswith("cuda"),  # fused CUDA optimizer step
         )
         # Separate CPU generator drives batch sampling, so data order is reproducible and
         # independent of any global-RNG consumption during forward/backward (e.g. dropout).
