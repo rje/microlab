@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import gc
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -33,6 +34,7 @@ LOG = RUN / "probe_track.jsonl"
 MILESTONE = 2000
 QUAL_TOKENS = 30
 EVAL_TOKENS = 6
+SCORE_VERSION = 2  # bump when _hit changes; older records are re-scored (not counted "done")
 
 QUAL_PROMPTS = [
     "The capital of France is",                       # factual recall (original)
@@ -84,8 +86,23 @@ def _norm(s: str) -> str:
 
 
 def _hit(completion: str, answers: list[str]) -> bool:
-    c = _norm(completion)
-    return any(c.startswith(_norm(a)) for a in answers)
+    """Robust to verbosity: as the model matures it wraps the answer in a preamble
+    ("...is T, and the symbol is W"), which strict startswith under-counts. Look only at the
+    FIRST line and accept: it starts with the answer, OR a single-word answer appears as a
+    whole word, OR a multi-word answer appears as a substring."""
+    line = completion.strip().splitlines()[0] if completion.strip() else ""
+    ln = _norm(line)
+    words = re.findall(r"[a-z0-9]+", ln)
+    for a in answers:
+        an = _norm(a)
+        aw = re.findall(r"[a-z0-9]+", an)
+        # Single-word answer: must appear as a whole word (so "W" does not match "Washington").
+        # Multi-word answer: substring of the first line.
+        if len(aw) == 1 and aw[0] in words:
+            return True
+        if len(aw) > 1 and an in ln:
+            return True
+    return False
 
 
 def step_of(p: Path) -> int:
@@ -112,7 +129,8 @@ def complete(model, tok, prompt: str, n_tokens: int) -> str:
 
 
 def done_steps() -> set[int]:
-    """Steps already logged UNDER THE NEW SCHEMA (records that carry an 'eval' field)."""
+    """Steps already scored under the CURRENT SCORE_VERSION. Older records are re-run so a
+    scoring change re-scores the whole curve consistently."""
     if not LOG.exists():
         return set()
     out = set()
@@ -120,19 +138,22 @@ def done_steps() -> set[int]:
         if not line.strip():
             continue
         rec = json.loads(line)
-        if "eval" in rec:
+        if rec.get("score_version") == SCORE_VERSION:
             out.add(rec["step"])
     return out
 
 
-def run_eval(model, tok) -> dict:
+def run_eval(model, tok) -> tuple[dict, list[str]]:
     cats: dict[str, list[int]] = {}
+    comps: list[str] = []
     for cat, prompt, answers in EVAL:
-        ok = _hit(complete(model, tok, prompt, EVAL_TOKENS), answers)
-        cats.setdefault(cat, []).append(1 if ok else 0)
+        comp = complete(model, tok, prompt, EVAL_TOKENS)
+        comps.append(comp)
+        cats.setdefault(cat, []).append(1 if _hit(comp, answers) else 0)
     by_cat = {c: round(sum(v) / len(v), 3) for c, v in cats.items()}
     total = [x for v in cats.values() for x in v]
-    return {"n": len(total), "accuracy": round(sum(total) / len(total), 3), "by_cat": by_cat}
+    ev = {"n": len(total), "accuracy": round(sum(total) / len(total), 3), "by_cat": by_cat}
+    return ev, comps
 
 
 def main() -> None:
@@ -156,10 +177,11 @@ def main() -> None:
         seen.add(s)
         model, step = load_ckpt(ck)
         outputs = {p: complete(model, tok, p, QUAL_TOKENS) for p in QUAL_PROMPTS}
-        ev = run_eval(model, tok)
+        ev, eval_comps = run_eval(model, tok)
         with LOG.open("a") as f:
-            f.write(json.dumps({"step": step, "tokens": step * 524288,
-                                "outputs": outputs, "eval": ev}) + "\n")
+            f.write(json.dumps({"step": step, "tokens": step * 524288, "outputs": outputs,
+                                "eval": ev, "eval_completions": eval_comps,
+                                "score_version": SCORE_VERSION}) + "\n")
         cats = " ".join(f"{c}={a:.0%}" for c, a in ev["by_cat"].items())
         print(f"=== step {step}  ({step * 524288 / 1e9:.2f}B tok) "
               f"EVAL {ev['accuracy']:.0%} ({ev['n']}) | {cats} ===")
