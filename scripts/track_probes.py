@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, "src")
 import torch
 
-from microlab.model.reference.sample import generate
+from microlab.infer.reference.kv_cache import generate_cached
 from microlab.model.reference.variants import VariantConfig, VariantGPT
 from microlab.tokenizer.fast import FastTokenizer
 
@@ -34,7 +34,7 @@ LOG = RUN / "probe_track.jsonl"
 MILESTONE = 2000
 QUAL_TOKENS = 30
 EVAL_TOKENS = 6
-SCORE_VERSION = 2  # bump when _hit changes; older records are re-scored (not counted "done")
+SCORE_VERSION = 4  # bump when scoring/eval-set changes; older records re-scored (not "done")
 
 QUAL_PROMPTS = [
     "The capital of France is",                       # factual recall (original)
@@ -78,6 +78,77 @@ EVAL = [
     ("icl", "France: Paris\nJapan: Tokyo\nItaly: Rome\nSpain:", ["Madrid"]),
     ("icl", "one: two\ntwo: three\nthree: four\nfour:", ["five"]),
     ("icl", "walk: walked\njump: jumped\nplay: played\ncook:", ["cooked"]),
+]
+
+# Likelihood-based multiple choice (the standard base-model eval): score each choice by the
+# model's length-normalized log-prob of the continuation and pick the argmax. Robust (no string
+# matching / format brittleness) and has real headroom for a 1B — the back-half signal once the
+# greedy eval saturates. Hand-written (not from public test sets) to avoid contamination.
+# (category, context, [choices...], answer_index). Choices begin with a leading space.
+MC_EVAL = [
+    # easy-medium commonsense / physical (a floor the model should mostly clear)
+    ("commonsense", "It started raining, so he opened his",
+     [" umbrella", " refrigerator"], 0),
+    ("commonsense", "She was exhausted after work, so she went straight to",
+     [" bed", " the gym for three hours"], 0),
+    ("commonsense", "The plant on the windowsill died because no one remembered to",
+     [" water it", " talk to it"], 0),
+    ("commonsense", "She returned the shirt to the store because it did not",
+     [" fit", " match her car"], 0),
+    ("commonsense", "In the library everyone spoke quietly so they would not",
+     [" disturb others", " lose their books"], 0),
+    ("physical", "If you want to cut a piece of paper, you use",
+     [" scissors", " a spoon"], 0),
+    ("physical", "To find out what time it is, you look at a",
+     [" clock", " mirror"], 0),
+    ("physical", "To keep milk from spoiling, you store it in the",
+     [" refrigerator", " oven"], 0),
+    # medium science / semantics
+    ("science", "Plants take in carbon dioxide and release",
+     [" oxygen", " nitrogen"], 0),
+    ("science", "An object falls to the ground because of",
+     [" gravity", " friction"], 0),
+    ("science", "Water freezes into ice when it gets very",
+     [" cold", " loud"], 0),
+    ("science", "A thermometer is a tool used to measure",
+     [" temperature", " weight", " distance"], 0),
+    ("semantic", "The opposite of 'generous' is",
+     [" stingy", " tall", " quick"], 0),
+    ("semantic", "A baby dog is called a",
+     [" puppy", " kitten", " calf"], 0),
+    ("semantic", "The color you get by mixing red and blue is",
+     [" purple", " green", " orange"], 0),
+    ("semantic", "A group of wolves is called a",
+     [" pack", " herd", " flock"], 0),
+    # hard science (counterintuitive — the common wrong answer is a distractor)
+    ("science", "The gas that makes up most of Earth's atmosphere is",
+     [" nitrogen", " oxygen", " carbon dioxide"], 0),
+    ("science", "Sound travels fastest through",
+     [" steel", " air", " empty space"], 0),
+    # hard multi-step / temporal / coreference reasoning (the real headroom)
+    ("reasoning", "A car travels 60 miles in one hour. In three hours it travels",
+     [" 180 miles", " 60 miles", " 120 miles"], 0),
+    ("reasoning", "Sara is older than Mia but younger than Ben. The oldest is",
+     [" Ben", " Sara", " Mia"], 0),
+    ("reasoning", "All birds have feathers. A penguin is a bird. Therefore a penguin has",
+     [" feathers", " scales", " fur"], 0),
+    ("reasoning", "There are twelve eggs in a dozen, so two and a half dozen eggs is",
+     [" thirty", " twenty-four", " twenty-five"], 0),
+    ("reasoning", "The concert was moved from Saturday to two days earlier, so it is now on",
+     [" Thursday", " Monday", " Sunday"], 0),
+    ("reasoning", "If baking one cake takes 2 hours, baking three cakes one after another takes",
+     [" 6 hours", " 2 hours", " 3 hours"], 0),
+    ("reasoning", "The council refused the marchers a permit because they feared violence. "
+     "The ones who feared violence were the",
+     [" council", " marchers"], 0),
+    ("reasoning", "Tom is standing behind Sam, who is behind Bob. The person in front is",
+     [" Bob", " Tom", " Sam"], 0),
+    ("semantic", "Tokyo is to Japan as Paris is to",
+     [" France", " London", " Germany"], 0),
+    ("semantic", "Finger is to hand as toe is to",
+     [" foot", " arm", " knee"], 0),
+    ("reasoning", "A rectangle has four sides. A triangle has three. Together they have",
+     [" seven", " six", " five"], 0),
 ]
 
 
@@ -124,7 +195,9 @@ def load_ckpt(path: Path):
 def complete(model, tok, prompt: str, n_tokens: int) -> str:
     ids = tok.encode(prompt)
     idx = torch.tensor([ids], dtype=torch.long)
-    out = generate(model, idx, n_tokens, temperature=0.0)
+    # KV-cached greedy: byte-identical to sample.generate but O(n) not O(n^2) — ~10x faster
+    # on CPU where these probes run (per the code-review finding).
+    out = generate_cached(model, idx, n_tokens, temperature=0.0)
     return tok.decode(out[0].tolist()[len(ids):])
 
 
@@ -156,6 +229,49 @@ def run_eval(model, tok) -> tuple[dict, list[str]]:
     return ev, comps
 
 
+@torch.no_grad()
+def _choice_avg_logprob(model, tok, context: str, choice: str) -> float:
+    """Length-normalized log-prob of `choice` continuing `context` (lm-eval-harness style).
+    Uses the common-prefix split so a BPE boundary merge between context and choice can't
+    misalign the scored tokens."""
+    ctx = tok.encode(context)
+    full = tok.encode(context + choice)
+    i = 0
+    while i < len(ctx) and i < len(full) and ctx[i] == full[i]:
+        i += 1
+    if i == 0 or i >= len(full):  # need a non-empty context and a non-empty continuation
+        return -1e9
+    logits, _ = model(torch.tensor([full], dtype=torch.long))
+    logp = torch.log_softmax(logits[0], dim=-1)  # token at pos p is predicted by logits[p-1]
+    total = sum(logp[p - 1, full[p]].item() for p in range(i, len(full)))
+    return total / (len(full) - i)
+
+
+def score_mc(model, tok) -> dict:
+    cats: dict[str, list[int]] = {}
+    for cat, context, choices, answer in MC_EVAL:
+        scores = [_choice_avg_logprob(model, tok, context, c) for c in choices]
+        pred = max(range(len(scores)), key=scores.__getitem__)
+        cats.setdefault(cat, []).append(1 if pred == answer else 0)
+    by_cat = {c: round(sum(v) / len(v), 3) for c, v in cats.items()}
+    total = [x for v in cats.values() for x in v]
+    return {"n": len(total), "accuracy": round(sum(total) / len(total), 3), "by_cat": by_cat}
+
+
+def repetition_score(texts: list[str]) -> float:
+    """Fraction of repeated 4-grams across free-form completions (0 = all distinct, higher =
+    loopier). Quantifies the greedy looping; should fall as the model matures."""
+    dup = tot = 0
+    for t in texts:
+        toks = t.split()
+        grams = [tuple(toks[k:k + 4]) for k in range(len(toks) - 3)]
+        if not grams:
+            continue
+        tot += len(grams)
+        dup += len(grams) - len(set(grams))
+    return round(dup / tot, 3) if tot else 0.0
+
+
 def main() -> None:
     tok = FastTokenizer.load(str(RUN / "tokenizer.json"))
     on_disk = sorted(RUN.glob("ckpt_*.pt"), key=step_of)
@@ -178,14 +294,18 @@ def main() -> None:
         model, step = load_ckpt(ck)
         outputs = {p: complete(model, tok, p, QUAL_TOKENS) for p in QUAL_PROMPTS}
         ev, eval_comps = run_eval(model, tok)
+        mc = score_mc(model, tok)
+        rep = repetition_score([outputs[p] for p in QUAL_PROMPTS[:3]])  # 3 free-form prompts
         with LOG.open("a") as f:
             f.write(json.dumps({"step": step, "tokens": step * 524288, "outputs": outputs,
-                                "eval": ev, "eval_completions": eval_comps,
-                                "score_version": SCORE_VERSION}) + "\n")
-        cats = " ".join(f"{c}={a:.0%}" for c, a in ev["by_cat"].items())
-        print(f"=== step {step}  ({step * 524288 / 1e9:.2f}B tok) "
-              f"EVAL {ev['accuracy']:.0%} ({ev['n']}) | {cats} ===")
-        for p in QUAL_PROMPTS[:3] + QUAL_PROMPTS[3:]:
+                                "eval": ev, "eval_completions": eval_comps, "mc": mc,
+                                "repetition": rep, "score_version": SCORE_VERSION}) + "\n")
+        gcats = " ".join(f"{c}={a:.0%}" for c, a in ev["by_cat"].items())
+        mcats = " ".join(f"{c}={a:.0%}" for c, a in mc["by_cat"].items())
+        print(f"=== step {step}  ({step * 524288 / 1e9:.2f}B tok) ===")
+        print(f"  GEN-EVAL {ev['accuracy']:.0%} ({ev['n']}) | {gcats}")
+        print(f"  MC-EVAL  {mc['accuracy']:.0%} ({mc['n']}) | {mcats}  | repetition {rep:.0%}")
+        for p in QUAL_PROMPTS:
             label = p.replace(chr(10), " / ")
             print(f"  [{label[:38]!r}] -> {outputs[p]!r}")
         del model
