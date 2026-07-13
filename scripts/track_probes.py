@@ -34,7 +34,7 @@ LOG = RUN / "probe_track.jsonl"
 MILESTONE = 2000
 QUAL_TOKENS = 30
 EVAL_TOKENS = 6
-SCORE_VERSION = 4  # bump when scoring/eval-set changes; older records re-scored (not "done")
+SCORE_VERSION = 5  # bump when scoring/eval-set changes; older records re-scored (not "done")
 
 QUAL_PROMPTS = [
     "The capital of France is",                       # factual recall (original)
@@ -125,30 +125,39 @@ MC_EVAL = [
      [" nitrogen", " oxygen", " carbon dioxide"], 0),
     ("science", "Sound travels fastest through",
      [" steel", " air", " empty space"], 0),
-    # hard multi-step / temporal / coreference reasoning (the real headroom)
-    ("reasoning", "A car travels 60 miles in one hour. In three hours it travels",
-     [" 180 miles", " 60 miles", " 120 miles"], 0),
-    ("reasoning", "Sara is older than Mia but younger than Ben. The oldest is",
-     [" Ben", " Sara", " Mia"], 0),
-    ("reasoning", "All birds have feathers. A penguin is a bird. Therefore a penguin has",
-     [" feathers", " scales", " fur"], 0),
-    ("reasoning", "There are twelve eggs in a dozen, so two and a half dozen eggs is",
-     [" thirty", " twenty-four", " twenty-five"], 0),
-    ("reasoning", "The concert was moved from Saturday to two days earlier, so it is now on",
-     [" Thursday", " Monday", " Sunday"], 0),
-    ("reasoning", "If baking one cake takes 2 hours, baking three cakes one after another takes",
-     [" 6 hours", " 2 hours", " 3 hours"], 0),
-    ("reasoning", "The council refused the marchers a permit because they feared violence. "
-     "The ones who feared violence were the",
-     [" council", " marchers"], 0),
-    ("reasoning", "Tom is standing behind Sam, who is behind Bob. The person in front is",
-     [" Bob", " Tom", " Sam"], 0),
     ("semantic", "Tokyo is to Japan as Paris is to",
      [" France", " London", " Germany"], 0),
     ("semantic", "Finger is to hand as toe is to",
      [" foot", " arm", " knee"], 0),
-    ("reasoning", "A rectangle has four sides. A triangle has three. Together they have",
-     [" seven", " six", " five"], 0),
+    # Reasoning — rewritten COPY-TRAP-FREE and BIAS-BALANCED. The old set scored BELOW chance
+    # because distractors echoed context tokens (" 60 miles" right after "travels 60 miles"), and
+    # likelihood scoring rewards copying — so it measured copy-susceptibility, not reasoning.
+    # Now no distractor repeats a salient context token, and surface biases (recency, lexical
+    # frequency) are balanced across items, so a NON-reasoning model lands at ~chance, not below.
+    ("reasoning", "A car travels 60 miles in one hour. At the same speed, in three hours it goes",
+     [" 180 miles", " 120 miles", " 240 miles"], 0),
+    ("reasoning", "Ben is older than Sara. Sara is older than Mia. The oldest person is",
+     [" Ben", " Mia", " Sara"], 0),         # recency favours a WRONG answer
+    ("reasoning", "Ana is shorter than Kim. Kim is shorter than Zoe. The tallest person is",
+     [" Zoe", " Ana", " Kim"], 0),          # recency favours the RIGHT one (balances the above)
+    ("reasoning", "All fish can swim. A salmon is a fish. Therefore a salmon can",
+     [" swim", " fly", " sing"], 0),
+    ("reasoning", "A rectangle has four sides and a triangle has three. Together they have",
+     [" seven sides", " five sides", " twelve sides"], 0),
+    ("reasoning", "The meeting was on Friday, but it was postponed by three days, so it is now on",
+     [" Monday", " Tuesday", " Saturday"], 0),
+    ("reasoning", "There are twelve eggs in one dozen, so two and a half dozen eggs is",
+     [" thirty eggs", " twenty-four eggs", " twenty-five eggs"], 0),
+    ("reasoning", "If baking one cake takes two hours, baking three cakes one after another takes",
+     [" six hours", " five hours", " eight hours"], 0),
+    # Winograd twins: identical but for one word, and the answer flips. A model that always picks
+    # the same noun scores exactly chance across the pair — only real coreference beats it.
+    ("reasoning", "The trophy did not fit into the suitcase because it was too large. "
+     "The thing that was too large was the",
+     [" trophy", " suitcase"], 0),
+    ("reasoning", "The trophy did not fit into the suitcase because it was too small. "
+     "The thing that was too small was the",
+     [" trophy", " suitcase"], 1),
 ]
 
 
@@ -247,15 +256,37 @@ def _choice_avg_logprob(model, tok, context: str, choice: str) -> float:
     return total / (len(full) - i)
 
 
+NEUTRAL_CTX = "Answer:"  # PMI baseline context
+
+
 def score_mc(model, tok) -> dict:
+    """Two scorings per item, so we can see whether surface bias is driving the result:
+      - raw: argmax of length-normalized log P(choice | context)   (standard)
+      - pmi: argmax of log P(choice | context) - log P(choice | NEUTRAL_CTX), which cancels the
+             choice's intrinsic frequency (e.g. "trophy" being a commoner word than "suitcase")
+    `chance` is the random baseline for this item set — the number to beat."""
     cats: dict[str, list[int]] = {}
+    cats_pmi: dict[str, list[int]] = {}
+    chance: list[float] = []
     for cat, context, choices, answer in MC_EVAL:
-        scores = [_choice_avg_logprob(model, tok, context, c) for c in choices]
-        pred = max(range(len(scores)), key=scores.__getitem__)
-        cats.setdefault(cat, []).append(1 if pred == answer else 0)
-    by_cat = {c: round(sum(v) / len(v), 3) for c, v in cats.items()}
-    total = [x for v in cats.values() for x in v]
-    return {"n": len(total), "accuracy": round(sum(total) / len(total), 3), "by_cat": by_cat}
+        raw = [_choice_avg_logprob(model, tok, context, c) for c in choices]
+        base = [_choice_avg_logprob(model, tok, NEUTRAL_CTX, c) for c in choices]
+        pmi = [r - b for r, b in zip(raw, base, strict=True)]
+        cats.setdefault(cat, []).append(
+            1 if max(range(len(raw)), key=raw.__getitem__) == answer else 0)
+        cats_pmi.setdefault(cat, []).append(
+            1 if max(range(len(pmi)), key=pmi.__getitem__) == answer else 0)
+        chance.append(1 / len(choices))
+
+    def _summ(c: dict[str, list[int]]):
+        by_cat = {k: round(sum(v) / len(v), 3) for k, v in c.items()}
+        total = [x for v in c.values() for x in v]
+        return round(sum(total) / len(total), 3), by_cat, len(total)
+
+    acc, by_cat, n = _summ(cats)
+    acc_pmi, by_cat_pmi, _ = _summ(cats_pmi)
+    return {"n": n, "accuracy": acc, "by_cat": by_cat, "accuracy_pmi": acc_pmi,
+            "by_cat_pmi": by_cat_pmi, "chance": round(sum(chance) / len(chance), 3)}
 
 
 def repetition_score(texts: list[str]) -> float:
@@ -304,7 +335,10 @@ def main() -> None:
         mcats = " ".join(f"{c}={a:.0%}" for c, a in mc["by_cat"].items())
         print(f"=== step {step}  ({step * 524288 / 1e9:.2f}B tok) ===")
         print(f"  GEN-EVAL {ev['accuracy']:.0%} ({ev['n']}) | {gcats}")
-        print(f"  MC-EVAL  {mc['accuracy']:.0%} ({mc['n']}) | {mcats}  | repetition {rep:.0%}")
+        print(f"  MC-EVAL  {mc['accuracy']:.0%} (pmi {mc['accuracy_pmi']:.0%}, chance "
+              f"{mc['chance']:.0%}, n={mc['n']}) | {mcats}")
+        print(f"           reasoning: raw {mc['by_cat'].get('reasoning', 0):.0%} / "
+              f"pmi {mc['by_cat_pmi'].get('reasoning', 0):.0%}  | repetition {rep:.0%}")
         for p in QUAL_PROMPTS:
             label = p.replace(chr(10), " / ")
             print(f"  [{label[:38]!r}] -> {outputs[p]!r}")
