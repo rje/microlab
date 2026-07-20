@@ -90,7 +90,7 @@ def cosine_lr(step: int, warmup: int, total: int, base_lr: float, min_lr: float)
 def run_sft(base_ckpt: str | Path, data: str | Path, out: str | Path, tokenizer: str | Path,
             epochs: int = 3, lr: float = 2e-5, batch_size: int = 16, block_size: int = 1024,
             device: str = "cpu", limit: int | None = None, log_interval: int = 20,
-            seed: int = 1337) -> dict:
+            seed: int = 1337, grad_accum: int = 1, save_every: int = 0) -> dict:
     """Fine-tune the base model on Dolly and write a servable chat run dir. Returns
     {"final_loss", "steps", "ckpt_path", "out_dir"}."""
     if device.startswith("cuda") and not torch.cuda.is_available():
@@ -107,50 +107,74 @@ def run_sft(base_ckpt: str | Path, data: str | Path, out: str | Path, tokenizer:
     model.train()
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.0)
 
-    steps_per_epoch = math.ceil(len(examples) / batch_size)
+    # `batch_size` is the per-forward micro-batch; grad_accum micro-batches make one
+    # optimizer step, so effective batch = batch_size * grad_accum (memory-bound models keep
+    # the recipe's effective batch by trading batch_size for accum). Steps = optimizer steps.
+    eff_batch = batch_size * grad_accum
+    steps_per_epoch = math.ceil(len(examples) / eff_batch)
     total_steps = steps_per_epoch * epochs
     warmup = max(1, total_steps // 20)  # short warmup (~5%)
     min_lr = lr * 0.1
     use_amp = device.startswith("cuda")
 
     print(f"SFT: {len(examples)} examples, {epochs} epochs, {total_steps} steps "
-          f"(batch {batch_size}, block {block_size}, lr {lr:g}) on {device}")
+          f"(batch {batch_size} x accum {grad_accum} = {eff_batch}, block {block_size}, "
+          f"lr {lr:g}) on {device}", flush=True)
+
+    out_dir = Path(out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    last_periodic: Path | None = None
+
+    def save_ckpt(tag_step: int) -> Path:
+        path = out_dir / f"ckpt_{tag_step}.pt"
+        torch.save({"model": model.state_dict(), "optimizer": opt.state_dict(),
+                    "step": tag_step, "cfg": cfg}, path)
+        return path
 
     rng = torch.Generator().manual_seed(seed)
     step = 0
     last_loss = float("nan")
     for epoch in range(epochs):
         order = torch.randperm(len(examples), generator=rng).tolist()
-        for start in range(0, len(examples), batch_size):
-            idx = order[start:start + batch_size]
-            batch = collate_sft([examples[i] for i in idx], PAD_ID, block_size)
-            x = batch["input_ids"].to(device)
-            y = batch["labels"].to(device)
+        for start in range(0, len(examples), eff_batch):
+            eff_idx = order[start:start + eff_batch]
             cur_lr = cosine_lr(step, warmup, total_steps, lr, min_lr)
             for group in opt.param_groups:
                 group["lr"] = cur_lr
-            if use_amp:
-                with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            opt.zero_grad(set_to_none=True)
+            micros = [eff_idx[m:m + batch_size] for m in range(0, len(eff_idx), batch_size)]
+            total_loss = 0.0
+            for idx in micros:
+                batch = collate_sft([examples[i] for i in idx], PAD_ID, block_size)
+                x = batch["input_ids"].to(device)
+                y = batch["labels"].to(device)
+                if use_amp:
+                    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                        logits, _ = model(x)
+                        loss = masked_cross_entropy(logits, y)
+                else:
                     logits, _ = model(x)
                     loss = masked_cross_entropy(logits, y)
-            else:
-                logits, _ = model(x)
-                loss = masked_cross_entropy(logits, y)
-            opt.zero_grad(set_to_none=True)
-            loss.backward()
+                (loss / len(micros)).backward()
+                total_loss += loss.item() / len(micros)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
             step += 1
-            last_loss = loss.item()
+            last_loss = total_loss
             if step % log_interval == 0 or step == total_steps:
                 print(f"epoch {epoch + 1}/{epochs} step {step}/{total_steps} "
-                      f"loss {last_loss:.4f} lr {cur_lr:.2e}")
+                      f"loss {last_loss:.4f} lr {cur_lr:.2e}", flush=True)
+            # Progressive checkpointing: a crash hours in leaves a near-current model, not
+            # nothing. Keep only the newest periodic ckpt (final save below is separate).
+            if save_every > 0 and step % save_every == 0 and step != total_steps:
+                path = save_ckpt(step)
+                if last_periodic is not None and last_periodic.exists():
+                    last_periodic.unlink()
+                last_periodic = path
 
-    out_dir = Path(out)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = out_dir / f"ckpt_{step}.pt"
-    torch.save({"model": model.state_dict(), "optimizer": opt.state_dict(),
-                "step": step, "cfg": cfg}, ckpt_path)
+    ckpt_path = save_ckpt(step)
+    if last_periodic is not None and last_periodic.exists() and last_periodic != ckpt_path:
+        last_periodic.unlink()
     # Make the run dir self-contained + servable: co-locate the tokenizer and mark it chat.
     (out_dir / "tokenizer.json").write_text(
         Path(tokenizer).read_text(encoding="utf-8"), encoding="utf-8")
@@ -176,11 +200,16 @@ def main() -> None:
     ap.add_argument("--block-size", type=int, default=1024)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--limit", type=int, default=None, help="cap examples (smoke runs)")
+    ap.add_argument("--grad-accum", type=int, default=1,
+                    help="micro-batches per optimizer step (effective batch = batch*accum)")
+    ap.add_argument("--save-every", type=int, default=0,
+                    help=">0: save a rolling checkpoint every N optimizer steps")
     args = ap.parse_args()
 
     run_sft(base_ckpt=args.base_ckpt, data=args.data, out=args.out, tokenizer=args.tokenizer,
             epochs=args.epochs, lr=args.lr, batch_size=args.batch_size,
-            block_size=args.block_size, device=args.device, limit=args.limit)
+            block_size=args.block_size, device=args.device, limit=args.limit,
+            grad_accum=args.grad_accum, save_every=args.save_every)
 
 
 if __name__ == "__main__":
