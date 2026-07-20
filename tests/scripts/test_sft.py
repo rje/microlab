@@ -116,3 +116,48 @@ def test_run_sft_raises_when_no_usable_examples(tmp_path):
         raise AssertionError("expected a ValueError for no usable examples")
     except ValueError as exc:
         assert "no usable SFT examples" in str(exc)
+
+
+def _tiny_base(tmp_path):
+    tok = FastTokenizer.train(
+        ["hello world", "say something nice", "the answer is four"] * 4,
+        vocab_size=300, save_path=str(tmp_path / "tokenizer.json"))
+    torch.manual_seed(0)
+    cfg = VariantConfig(vocab_size=tok.vocab_size, block_size=64, n_layer=2, n_head=2,
+                        n_embd=16, norm="rms", pos="rope", mlp="swiglu")
+    torch.save({"model": VariantGPT(cfg).state_dict(), "step": 100, "cfg": cfg},
+               tmp_path / "ckpt_100.pt")
+    rows = [{"instruction": f"question {i}", "context": "", "response": f"answer {i}"}
+            for i in range(8)]
+    data = tmp_path / "rows.jsonl"
+    data.write_text("\n".join(json.dumps(r) for r in rows))
+    return data
+
+
+def test_run_sft_grad_accum_counts_optimizer_steps(tmp_path):
+    # 8 examples, micro-batch 2, accum 2 -> effective batch 4 -> 2 optimizer steps/epoch.
+    # `steps` (and the ckpt name) count OPTIMIZER steps, not micro-batches.
+    data = _tiny_base(tmp_path)
+    result = sft.run_sft(base_ckpt=tmp_path / "ckpt_100.pt", data=data,
+                         out=tmp_path / "run", tokenizer=tmp_path / "tokenizer.json",
+                         epochs=1, lr=1e-3, batch_size=2, grad_accum=2, block_size=64,
+                         device="cpu", log_interval=1)
+    assert result["steps"] == 2
+    assert Path(result["ckpt_path"]).name == "ckpt_2.pt"
+    assert math.isfinite(result["final_loss"])
+
+
+def test_run_sft_save_every_writes_and_prunes_intermediates(tmp_path):
+    # save_every=1 with 4 steps: intermediate ckpts appear during the run and are pruned so
+    # only the latest periodic + final remain (crash-resilience without hoarding disk).
+    data = _tiny_base(tmp_path)
+    out = tmp_path / "run"
+    result = sft.run_sft(base_ckpt=tmp_path / "ckpt_100.pt", data=data, out=out,
+                         tokenizer=tmp_path / "tokenizer.json", epochs=1, lr=1e-3,
+                         batch_size=2, block_size=64, device="cpu", log_interval=1,
+                         save_every=1)
+    assert result["steps"] == 4
+    ckpts = sorted(out.glob("ckpt_*.pt"))
+    assert [c.name for c in ckpts] == ["ckpt_4.pt"]  # intermediates pruned, final kept
+    model, step = load_variant_from_run(out, device="cpu")
+    assert step == 4
