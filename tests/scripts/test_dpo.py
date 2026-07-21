@@ -139,3 +139,21 @@ def test_run_dpo_end_to_end_climbs_acc_and_writes_servable_run(tmp_path):
 
     model, step = load_variant_from_run(out, device="cpu")
     assert step == 16 and model.config.vocab_size == cfg.vocab_size
+
+
+def test_run_dpo_grad_accum_counts_optimizer_steps(tmp_path):
+    # 4 pairs, micro-batch 1, accum 2 -> effective batch 2 -> 2 optimizer steps/epoch.
+    # Same convention as sft.py: `steps` (and the ckpt name) count OPTIMIZER steps.
+    run_dir, tok_path, cfg = _tiny_sft_run(tmp_path)
+    prompts = [format_chat(f"question {i}")[0] for i in range(4)]
+    prefs = [{"prompt": p, "chosen": "the correct and complete answer",
+              "rejected": "no"} for p in prompts]
+    prefs_path = tmp_path / "prefs.jsonl"
+    prefs_path.write_text("\n".join(json.dumps(x) for x in prefs))
+
+    result = dpo.run_dpo(sft_ckpt=run_dir, prefs=prefs_path, out=tmp_path / "o",
+                         tokenizer=tok_path, epochs=2, lr=1e-3, beta=0.1, batch_size=1,
+                         grad_accum=2, block_size=128, device="cpu", log_interval=1)
+    assert result["steps"] == 4  # 4 pairs / (1*2) = 2 opt steps/epoch * 2 epochs
+    assert math.isfinite(result["final_loss"])
+    assert result["acc_history"][-1] > 0.0  # still learns through accumulation
