@@ -124,7 +124,7 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
             epochs: int = 2, lr: float = 5e-6, beta: float = 0.1, batch_size: int = 8,
             block_size: int = 1024, device: str = "cpu", limit: int | None = None,
             log_interval: int = 10, seed: int = 1337, loss: str = "dpo",
-            length_norm: bool = False) -> dict:
+            length_norm: bool = False, grad_accum: int = 1) -> dict:
     """Run preference optimization (DPO or IPO) and write a servable chat run dir. Returns
     {"final_loss", "final_acc", "steps", "loss_history", "acc_history", "ckpt_path", "out_dir"}."""
     if device.startswith("cuda") and not torch.cuda.is_available():
@@ -144,7 +144,11 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
     policy.train()
     opt = torch.optim.AdamW(policy.parameters(), lr=lr, weight_decay=0.0)
 
-    steps_per_epoch = math.ceil(len(examples) / batch_size)
+    # micro-batch x grad_accum = effective batch; steps count OPTIMIZER steps (sft.py's
+    # convention), so the LR schedule and ckpt names are invariant to how memory forced the
+    # micro-batch to shrink.
+    eff_batch = batch_size * grad_accum
+    steps_per_epoch = math.ceil(len(examples) / eff_batch)
     total_steps = steps_per_epoch * epochs
     warmup = max(1, total_steps // 20)
     min_lr = lr * 0.1
@@ -160,37 +164,42 @@ def run_dpo(sft_ckpt: str | Path, prefs: str | Path, out: str | Path, tokenizer:
     acc_history: list[float] = []
     for epoch in range(epochs):
         order = torch.randperm(len(examples), generator=rng).tolist()
-        for start in range(0, len(examples), batch_size):
-            idx = order[start:start + batch_size]
-            chosen = collate_sft([examples[i][0] for i in idx], PAD_ID, block_size)
-            rejected = collate_sft([examples[i][1] for i in idx], PAD_ID, block_size)
-            chosen = {k: v.to(device) for k, v in chosen.items()}
-            rejected = {k: v.to(device) for k, v in rejected.items()}
-
+        for start in range(0, len(examples), eff_batch):
+            eff_idx = order[start:start + eff_batch]
             cur_lr = cosine_lr(step, warmup, total_steps, lr, min_lr)
             for group in opt.param_groups:
                 group["lr"] = cur_lr
+            opt.zero_grad(set_to_none=True)
+            micros = [eff_idx[m:m + batch_size] for m in range(0, len(eff_idx), batch_size)]
+            batch_loss_val, acc_num = 0.0, 0.0
+            for idx in micros:
+                chosen = collate_sft([examples[i][0] for i in idx], PAD_ID, block_size)
+                rejected = collate_sft([examples[i][1] for i in idx], PAD_ID, block_size)
+                chosen = {k: v.to(device) for k, v in chosen.items()}
+                rejected = {k: v.to(device) for k, v in rejected.items()}
 
-            if use_amp:
-                with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                if use_amp:
+                    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                        pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
+                            policy, reference, chosen, rejected, length_norm)
+                        micro_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
+                else:
                     pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
                         policy, reference, chosen, rejected, length_norm)
-                    batch_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
-            else:
-                pol_ch, pol_rej, ref_ch, ref_rej = _pair_logps(
-                    policy, reference, chosen, rejected, length_norm)
-                batch_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
+                    micro_loss, acc = loss_fn(pol_ch, pol_rej, ref_ch, ref_rej, beta)
+                (micro_loss / len(micros)).backward()
+                batch_loss_val += micro_loss.item() / len(micros)
+                acc_num += acc * len(idx)
 
-            opt.zero_grad(set_to_none=True)
-            batch_loss.backward()
             torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
             opt.step()
             step += 1
-            loss_history.append(batch_loss.item())
+            acc = acc_num / len(eff_idx)
+            loss_history.append(batch_loss_val)
             acc_history.append(acc)
             if step % log_interval == 0 or step == total_steps:
                 print(f"epoch {epoch + 1}/{epochs} step {step}/{total_steps} "
-                      f"loss {batch_loss.item():.4f} acc {acc:.3f} lr {cur_lr:.2e}")
+                      f"loss {batch_loss_val:.4f} acc {acc:.3f} lr {cur_lr:.2e}")
 
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -232,12 +241,15 @@ def main() -> None:
     ap.add_argument("--block-size", type=int, default=1024)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--limit", type=int, default=None, help="cap pairs (smoke runs)")
+    ap.add_argument("--grad-accum", type=int, default=1,
+                    help="micro-batches per optimizer step (effective batch = batch*accum)")
     args = ap.parse_args()
 
     run_dpo(sft_ckpt=args.sft_ckpt, prefs=args.prefs, out=args.out, tokenizer=args.tokenizer,
             epochs=args.epochs, lr=args.lr, beta=args.beta, batch_size=args.batch_size,
             block_size=args.block_size, device=args.device, limit=args.limit, loss=args.loss,
-            length_norm=args.length_norm)
+            length_norm=args.length_norm,
+            grad_accum=args.grad_accum)
 
 
 if __name__ == "__main__":
