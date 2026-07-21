@@ -82,3 +82,24 @@ def test_write_jsonl_roundtrips(tmp_path):
     out = tmp_path / "sub" / "cand.jsonl"
     assert bc.write_jsonl(items, out) == 1
     assert [json.loads(x) for x in out.read_text().splitlines()] == items
+
+
+def test_build_candidates_writes_progressively_and_resumes(monkeypatch, tmp_path):
+    # Progressive: each kept record is handed to the writer AS produced (crash-safety), tagged
+    # with its source row index. Resume: start_row skips already-done rows entirely.
+    tok = _tok(tmp_path)
+    rows = [{"instruction": t, "context": "", "response": ""} for t in ("a", "b", "c")]
+    scripted = iter([["x", "y"], ["p", "q"], ["m", "n"]])
+    monkeypatch.setattr(bc, "sample_candidates",
+                        lambda *a, **k: next(scripted))
+    written = []
+    items = bc.build_candidates(None, tok, rows, "cpu", 1024, k=2, writer=written.append)
+    assert [w["row"] for w in written] == [0, 1, 2]
+    assert written == items  # writer sees exactly the kept records, in order
+
+    # resume from row 2: rows 0-1 untouched (scripted iterator provides only one draw)
+    scripted = iter([["r", "s"]])
+    written2 = []
+    bc.build_candidates(None, tok, rows, "cpu", 1024, k=2, writer=written2.append, start_row=2)
+    assert [w["row"] for w in written2] == [2]
+    assert written2[0]["candidates"] == ["r", "s"]
