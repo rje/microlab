@@ -595,6 +595,15 @@
   },
   {
     "topic": "foundations",
+    "title": "Practical Efficiency of Muon for Pretraining",
+    "authors": "Essential AI",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2505.02222",
+    "pdf_url": "https://arxiv.org/pdf/2505.02222",
+    "filename": "2025-essential-ai-practical-efficiency-of-muon-for-pretraining.pdf"
+  },
+  {
+    "topic": "foundations",
     "title": "Scaling Data-Constrained Language Models",
     "authors": "Muennighoff et al.",
     "year": 2023,

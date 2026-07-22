@@ -138,6 +138,7 @@
       "tensor-programs-v-tuning-large-neural-networks-via-zero-shot-hyperparameter-transfer",
       "small-scale-proxies-for-large-scale-transformer-training-instabilities",
       "muon-is-scalable-for-llm-training",
+      "practical-efficiency-of-muon-for-pretraining",
       "scaling-data-constrained-language-models"
     ]
   },
