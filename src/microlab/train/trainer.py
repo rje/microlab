@@ -18,6 +18,7 @@ from microlab.model.reference.sample import generate
 from microlab.model.reference.train import _resolve_device
 from microlab.model.reference.variants import VariantConfig, VariantGPT
 from microlab.train.config import RunConfig
+from microlab.train.muon import build_muon_optimizer
 
 # Fixed prompt used for sample-text logging so generations are comparable across steps.
 SAMPLE_PROMPT = "\n"
@@ -127,13 +128,28 @@ class Trainer:
             torch.set_float32_matmul_precision("high")
         if cfg.compile:
             self.model = torch.compile(self.model, mode=cfg.compile_mode)
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=cfg.lr,
-            betas=cfg.betas,
-            weight_decay=cfg.weight_decay,
-            fused=self.device.startswith("cuda"),  # fused CUDA optimizer step
-        )
+        if cfg.optimizer == "adamw":
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(),
+                lr=cfg.lr,
+                betas=cfg.betas,
+                weight_decay=cfg.weight_decay,
+                fused=self.device.startswith("cuda"),  # fused CUDA optimizer step
+            )
+            # Uniform schedule scale; MuonAdamW stamps its own per-group lr_scale.
+            for group in self.optimizer.param_groups:
+                group["lr_scale"] = 1.0
+        elif cfg.optimizer == "muon":
+            self.optimizer = build_muon_optimizer(
+                self.raw_model,  # named grouping needs the raw module, not the compile wrapper
+                lr=cfg.lr,
+                muon_lr=cfg.muon_lr,
+                betas=cfg.betas,
+                weight_decay=cfg.weight_decay,
+                fused=self.device.startswith("cuda"),
+            )
+        else:
+            raise ValueError(f"unknown optimizer {cfg.optimizer!r}; expected 'adamw' or 'muon'")
         # Separate CPU generator drives batch sampling, so data order is reproducible and
         # independent of any global-RNG consumption during forward/backward (e.g. dropout).
         self.data_gen = torch.Generator().manual_seed(cfg.seed)
@@ -163,7 +179,9 @@ class Trainer:
         lr = get_lr(self.step, cfg)
         self.last_lr = lr
         for group in self.optimizer.param_groups:
-            group["lr"] = lr
+            # lr_scale: 1.0 for AdamW groups; muon_lr/lr for Muon matrix groups, so both
+            # follow one warmup+cosine shape at their own scale.
+            group["lr"] = lr * group["lr_scale"]
         self.model.train()
         self.optimizer.zero_grad(set_to_none=True)
         total_loss = 0.0
@@ -247,6 +265,12 @@ class Trainer:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.raw_model.load_state_dict(ckpt["model"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
+        # lr_scale is config-derived, not learned state. MuonAdamW re-stamps its groups in
+        # its own load_state_dict; AdamW checkpoints from before lr_scale existed (e.g. the
+        # 1b run) restore groups without it, so stamp the uniform scale here.
+        for group in self.optimizer.param_groups:
+            if "lr_scale" not in group:
+                group["lr_scale"] = 1.0
         self.step = ckpt["step"]
         # RNG state tensors must live on CPU for set_rng_state / generator.set_state.
         torch.set_rng_state(ckpt["torch_rng_state"].cpu())

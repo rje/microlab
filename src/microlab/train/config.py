@@ -19,8 +19,13 @@ class RunConfig:
     pos: str = "rope"
     mlp: str = "swiglu"
     # optim / schedule
+    optimizer: str = "adamw"  # "adamw" | "muon" (Muon on block matrices + AdamW on the rest)
     lr: float = 3e-4
     min_lr: float = 3e-5
+    # Muon LR for the matrix params (only read when optimizer="muon"). Muon's orthogonalized
+    # updates are on a different scale than AdamW's — the reference impl default is 0.02.
+    # The schedule keeps one shape: muon groups get lr_schedule(step) * (muon_lr / lr).
+    muon_lr: float = 0.02
     weight_decay: float = 0.1
     betas: tuple[float, float] = (0.9, 0.95)
     grad_clip: float = 1.0
