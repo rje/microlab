@@ -56,7 +56,7 @@ class DDPTrainer(Trainer):
         lr = get_lr(self.step, cfg)
         self.last_lr = lr
         for group in self.optimizer.param_groups:
-            group["lr"] = lr
+            group["lr"] = lr * group["lr_scale"]  # 1.0 for AdamW; muon_lr/lr for Muon groups
         self.ddp.train()
         self.optimizer.zero_grad(set_to_none=True)
         total = 0.0
