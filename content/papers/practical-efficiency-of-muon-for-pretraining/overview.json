@@ -1,0 +1,43 @@
+{
+  "paperId": "practical-efficiency-of-muon-for-pretraining",
+  "generatedAt": "2026-07-22",
+  "depthSuggestion": "understand",
+  "tldr": "Essential AI shows Muon strictly expands the Pareto frontier over AdamW on the compute-vs-time plane — mainly by staying data-efficient at large batch sizes — and pairs it with muP for cheap hyperparameter transfer.",
+  "overview": "A practitioner's guide to second-order optimization for pretraining. Rather than comparing optimizers at fixed hardware, the paper plots iso-loss frontiers on the compute-time plane (devices vs total hours to a target loss) and shows Muon consistently expands the feasible region over AdamW: you can spend fewer device-hours, or the same hours on fewer devices, for the same loss. The mechanism is data efficiency at large batch size — past the critical batch size AdamW needs progressively more tokens per unit of loss than Muon. Experiments span 100M to 4B decoder-only models (Gemma-3-style, QK-norm) on DCLM text and Stack V2 Python at ~50% MFU on TPU v5p, with a muP 'telescoping' recipe for transferring hyperparameters up the scale ladder.",
+  "sections": [
+    {
+      "title": "Introduction",
+      "summary": "Argues wall-clock or FLOP comparisons alone cannot establish an optimizer's advantage; the fundamental object is the compute-time tradeoff (fewer devices vs less time), and Muon — the simplest second-order instantiation — is evaluated on that plane."
+    },
+    {
+      "title": "Review of Muon",
+      "summary": "Muon as matrix-structured steepest descent under a spectral-norm constraint: the optimal update is UV^T from the gradient's SVD, computed cheaply via Newton-Schulz iteration. Only momentum is kept as state, and the 0.2*sqrt(n) rescaling matches Muon's update RMS to AdamW's so one LR schedule and weight decay serve both (embeddings/norms stay on Adam)."
+    },
+    {
+      "title": "Why Muon",
+      "summary": "Chosen over Shampoo/SOAP because it is the minimal second-order method: simplest derivation, lightest optimizer memory (less than AdamW), FLOP overhead that shrinks as batch grows, and only max-LR + weight-decay need tuning."
+    },
+    {
+      "title": "Experimental Setup",
+      "summary": "Gemma-3-based decoder-only models (QK-norm, global attention) from 100M to 4B params, trained past Chinchilla budgets on DCLM text and Stack V2 Python (Llama-3 128K tokenizer, 8192-token sequences), Optax on TPU v5p at ~50% MFU; fine-grained hyperparameter sweep at 100M, validated at 500M, carried to 2B/4B."
+    },
+    {
+      "title": "The Compute-Time Tradeoff",
+      "summary": "500M models trained across 13 batch sizes (128K-16M tokens) on 8-128 devices; plotting iso-loss curves shows Muon's frontier strictly dominates AdamW's across loss thresholds and both data distributions, using a standard Optax AdamW baseline and a deliberately naive Muon implementation."
+    },
+    {
+      "title": "Muon's Relative Data Efficiency",
+      "summary": "The gap grows with batch size: past the critical batch size, AdamW's tokens-to-target-loss inflate faster than Muon's (token-ratio and token-difference analyses across model sizes), which is precisely what enables the frontier expansion."
+    },
+    {
+      "title": "muP Transfer and Telescoping (second half)",
+      "summary": "Demonstrates hyperparameter transfer with muP under Muon and introduces a telescoping algorithm that widens the search grid across model scales to absorb muP's estimation error at only O(C log N) extra compute."
+    }
+  ],
+  "readingFocus": [
+    "The iso-loss compute-time methodology is the right template for Microlab's own Muon-vs-AdamW A/B: compare steps/tokens to equal val loss, not wall-clock alone.",
+    "The 0.2*sqrt(n) RMS-matching trick is why one LR schedule can drive both the Muon (matrix) and AdamW (embedding/norm/tied-head) parameter groups — the exact hybrid used in src/microlab/train/muon.py.",
+    "Note where the gains concentrate: large-batch data efficiency. Microlab's single-GPU runs use modest effective batches, so expect the FLOP-efficiency slice of the benefit, not the full frontier expansion.",
+    "The muP telescoping section pairs with Phase 4's muP transfer exercise — it is the practical recipe for tuning small and training big, relevant to the planned 1B-to-2B growth run."
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "paperId": "practical-efficiency-of-muon-for-pretraining",
+  "cards": [
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#1",
+      "question": "What is this paper's central claim about Muon vs AdamW, and why aren't wall-clock or FLOP comparisons enough to establish it?",
+      "answer": "Muon strictly expands the Pareto frontier over AdamW on the compute-time plane: for a target loss you can use fewer devices, less total time, or both. Wall-clock/FLOP comparisons fix the resource level, so they miss the tradeoff that actually governs pretraining — trading more devices (bigger batch) for less time."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#2",
+      "question": "How is Muon's update derived as matrix-structured steepest descent?",
+      "answer": "The update solves argmin over O of tr(G^T O) subject to a spectral-norm constraint (||O||_2 <= 1). With SVD G = U Sigma V^T, the optimizer is O = U V^T — the gradient with all singular values flattened to 1, i.e. every direction gets equal strength."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#3",
+      "question": "Write Muon's full update rule as used in this paper (momentum, orthogonalization, rescale, weight decay).",
+      "answer": "M_t = G_t + beta*M_{t-1}; O_t = NewtonSchulz(G_t + beta*M_t) (Nesterov-style); W_{t+1} = W_t - eta*((0.2*sqrt(n))*O_t + lambda*W_t). Only the first moment M is kept as state, with coupled weight decay lambda."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#4",
+      "question": "What does the 0.2*sqrt(n) factor in Muon's update do, and why does it matter in practice?",
+      "answer": "It rescales the orthogonalized update to have the same RMS as a typical AdamW update (0.2 is AdamW's empirical update RMS; 1/sqrt(n) is the RMS of a perfectly normalized O_t). This lets one learning-rate schedule and weight decay serve both optimizers — essential because embeddings and normalization parameters still train with Adam."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#5",
+      "question": "Why does Newton-Schulz iteration appear in Muon instead of an exact SVD, and how good is the approximation?",
+      "answer": "Computing U V^T exactly needs an SVD, which is expensive on accelerators; Newton-Schulz reaches approximate orthogonalization with a few rounds of plain matrix multiplies. With the well-tuned coefficients from Jordan et al., it rapidly flattens all singular values into roughly (0.7, 1.3) — approximate, but sufficient."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#6",
+      "question": "By what mechanism does Muon beat AdamW on the compute-time tradeoff?",
+      "answer": "Data efficiency at large batch sizes. Past the critical batch size AdamW needs progressively more tokens to reach the same loss, while Muon's tokens-to-target inflate much more slowly — and the gap widens as batch grows. Since scaling devices requires scaling batch, this is exactly what expands the feasible frontier."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#7",
+      "question": "Why did the authors study Muon rather than richer second-order methods like Shampoo or SOAP?",
+      "answer": "Muon is the minimal instantiation of the class: simplest derivation, the lightest optimizer memory of all methods considered (less than AdamW — momentum only), FLOP overhead that shrinks as Theta(m/B) with batch size, and only the max learning rate and weight decay need tuning. Richer methods reduce to it under simplifying assumptions."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#8",
+      "question": "How is the compute-time tradeoff experiment actually constructed?",
+      "answer": "Train 500M-parameter models across 13 batch sizes (128K to 16M tokens) with data parallelism on 8-128 devices, record total time to reach fixed target losses, and plot iso-loss curves on the devices-vs-time plane for each optimizer. Muon's curve dominating AdamW's at every threshold and on both data distributions (DCLM text, Stack V2 Python) is the frontier-expansion result."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#9",
+      "question": "What problem does the paper's 'telescoping' algorithm solve when combining Muon with muP?",
+      "answer": "muP hyperparameter transfer is only asymptotically correct — at finite width it carries estimation error. Telescoping re-tunes over a widened search grid at each intermediate model scale on the way up, absorbing that error for only O(C log N) additional compute over the final training cost C."
+    },
+    {
+      "id": "practical-efficiency-of-muon-for-pretraining#10",
+      "question": "Where should you expect Muon's advantage to be small, based on this paper's analysis?",
+      "answer": "At small batch sizes: below the critical batch size AdamW is still data-efficient, so the token gap is modest and Muon's edge reduces to its FLOP/memory efficiency. The headline frontier expansion is a large-batch (many-device) phenomenon — relevant for single-GPU training with small effective batches."
+    }
+  ]
+}
