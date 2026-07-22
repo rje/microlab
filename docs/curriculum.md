@@ -33,7 +33,7 @@ understand line by line. Every phase has the same four layers; you climb through
 | 1 | Data & tokenization | byte-level BPE | fast 32k BPE + FineWeb-Edu `.bin` pipeline |
 | 2 | Tiny GPT pretraining | attention, block, train step, sampling | production Trainer + 150M run |
 | 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU, GQA, MoE routing + load-balance loss | — |
-| 4 | Scaling experiments | param/FLOP count, scaling-law fit, muP transfer table | compute-optimal 1B config |
+| 4 | Scaling experiments | param/FLOP count, scaling-law fit, muP transfer table, Muon Newton–Schulz step | compute-optimal 1B config + Muon-vs-AdamW A/B |
 | 5 | Interpretability | logit lens, induction-head score | interp report on the 150M ckpt |
 | 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench + authed streaming Playground (console serves the 150M) |
 | 7 | Distributed training | per-GPU memory budget (DP/TP/PP x ZeRO) | grad-ckpt/compile drills + cloud DDP + 1B capstone |
@@ -75,6 +75,24 @@ code (`VariantGPT` with RoPE + RMSNorm + SwiGLU), scaled up:
    (~3–4 weeks locally on the RTX 6000, or ~12–14 h on a rented 8x H100 node, venue decided
    by the Phase 7 vendor spike). See
    `docs/superpowers/specs/2026-07-01-scale-infrastructure-design.md`.
+
+**Optimizer note (Muon):** the Trainer's baseline optimizer is AdamW; the lab is adopting
+**Muon** (MomentUm Orthogonalized by Newton-Schulz) for the runs after the 1B. The intuition:
+AdamW rescales every scalar weight independently, so a weight matrix's update can concentrate
+in a few dominant directions — Muon instead treats the update as a *matrix*, keeping plain
+momentum and orthogonalizing it so its singular values flatten and the layer learns in many
+directions at comparable strength. Exact orthogonalization (SVD) is too expensive; a few
+Newton–Schulz iterations (a handful of matmuls, ~20 lines) approximate it cheaply on the GPU.
+It only applies to 2D hidden weight matrices, so the standard recipe is hybrid: matrices →
+Muon; embeddings, the tied LM head, and norm gains → AdamW. Learning rates do **not** carry
+over 1:1 from AdamW — Muon's update RMS is shape-dependent, and the update-RMS matching from
+the Moonshot report is what lets it reuse AdamW-tuned values. Claimed payoff: AdamW-equal
+loss at roughly half the FLOPs ("Muon is Scalable for LLM Training", arXiv:2502.16982;
+"Practical Efficiency of Muon for Pretraining", arXiv:2505.02222). The Newton–Schulz step is
+an oracle-graded Phase 4 hand-write; whether Muon actually wins is build-and-verify — a 150M
+Muon-vs-AdamW A/B on otherwise identical configs, scored as steps to equal validation loss,
+gates its use for the 1B→2B model-growth run (ablation stretch in
+`docs/hand-write/phase4-scaling.md`).
 
 **Honest capability note:** a from-scratch ~1B on ~20B tokens is GPT-2-XL / Pythia-1B class
 — coherent, instructable after SFT, basic reasoning after RL. It won't match modern 1–2B
