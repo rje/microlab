@@ -63,7 +63,10 @@ class RoPECausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.dropout = config.dropout
         head_dim = config.n_embd // config.n_head
-        cos, sin = build_rope_cache(config.block_size, head_dim)
+        # getattr: this module also accepts a plain GPTConfig (which predates rope_base);
+        # the default matches the value that was hard-coded before the knob existed.
+        base = getattr(config, "rope_base", 10000.0)
+        cos, sin = build_rope_cache(config.block_size, head_dim, base=base)
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
 
@@ -109,7 +112,7 @@ class GQAAttention(nn.Module):
             config.n_embd, 2 * config.n_kv_head * self.head_dim, bias=config.bias
         )
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
-        cos, sin = build_rope_cache(config.block_size, self.head_dim)
+        cos, sin = build_rope_cache(config.block_size, self.head_dim, base=config.rope_base)
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
 
@@ -163,6 +166,9 @@ class VariantConfig(GPTConfig):
     # None -> classic multi-head attention (fused c_attn), bit-identical to before this
     # field existed. Set to a divisor of n_head for grouped-query attention (1 == MQA).
     n_kv_head: int | None = None
+    # RoPE frequency base (theta). 10000.0 is the value that was hard-coded before this
+    # field existed; larger bases are the lever for context extension (PI/YaRN stage).
+    rope_base: float = 10000.0
 
 
 def _make_norm(kind: str, dim: int) -> nn.Module:
