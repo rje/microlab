@@ -30,9 +30,9 @@ understand line by line. Every phase has the same four layers; you climb through
 | # | Phase | You hand-write (graded vs oracle) | Real-scale |
 |---|---|---|---|
 | 0 | Evaluation harness | pass@k, ECE | — |
-| 1 | Data & tokenization | byte-level BPE | fast 32k BPE + FineWeb-Edu `.bin` pipeline |
+| 1 | Data & tokenization | byte-level BPE | fast 32k BPE + FineWeb-Edu `.bin` pipeline; vocab-sizing study (fertility, embedding share, digit handling) |
 | 2 | Tiny GPT pretraining | attention, block, train step, sampling | production Trainer + 150M run |
-| 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU, GQA, MoE routing + load-balance loss | — |
+| 3 | Architecture ablations | RMSNorm, RoPE, SwiGLU, GQA, MoE routing + load-balance loss | MHA->GQA uptrain of the 1B (Ainslie mean-pool); staged RoPE context extension 4k->16k + passkey eval |
 | 4 | Scaling experiments | param/FLOP count, scaling-law fit, muP transfer table, Muon Newton–Schulz step | compute-optimal 1B config + Muon-vs-AdamW A/B |
 | 5 | Interpretability | logit lens, induction-head score | interp report on the 150M ckpt |
 | 6 | Inference engineering | KV-cached generate, sampling zoo, groupwise quant, speculative accept | inference bench + authed streaming Playground (console serves the 150M) |
@@ -75,6 +75,15 @@ code (`VariantGPT` with RoPE + RMSNorm + SwiGLU), scaled up:
    (~3–4 weeks locally on the RTX 6000, or ~12–14 h on a rented 8x H100 node, venue decided
    by the Phase 7 vendor spike). See
    `docs/superpowers/specs/2026-07-01-scale-infrastructure-design.md`.
+
+**Parity note (config surface):** the 1B capstone shipped MHA at block 1024 even though the
+reference track had already implemented GQA (`n_kv_head`) and ingested the PI/YaRN papers —
+because the production `RunConfig` never exposed those knobs (see `docs/sota-parity-1b.md`).
+Two standing rules: (1) before any major run, table the config against 2-3 contemporary
+same-class releases and mark every divergence CHOSEN or CHANGED; (2) when the reference track
+gains a capability, the production config surface grows with it. The retrofit exercises
+(GQA uptrain, staged context extension with passkey/LAMBADA gates) are now Phase-3 real-scale
+items; vocab sizing joins Phase 1 and data-mixture design joins Phase 4 for the next pretrain.
 
 **Optimizer note (Muon):** the Trainer's baseline optimizer is AdamW; the lab is adopting
 **Muon** (MomentUm Orthogonalized by Newton-Schulz) for the runs after the 1B. The intuition:
