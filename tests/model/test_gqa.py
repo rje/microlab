@@ -82,3 +82,24 @@ def test_variantgpt_trains_with_gqa():
     _, loss = m(x, x)
     loss.backward()
     assert loss.isfinite()
+
+
+def test_load_variant_from_run_rebuilds_gqa(tmp_path):
+    # Serving path: a GQA run's checkpoint must rebuild a GQA model (dropping n_kv_head
+    # would rebuild fused-MHA and fail loudly on q_proj/kv_proj keys).
+    from microlab.model.reference.checkpoint import load_variant_from_run
+    from microlab.train.config import RunConfig
+
+    cfg = RunConfig(vocab_size=64, block_size=32, n_layer=2, n_head=6, n_embd=48,
+                    n_kv_head=2, rope_base=50000.0)
+    model = VariantGPT(VariantConfig(
+        vocab_size=64, block_size=32, n_layer=2, n_head=6, n_embd=48,
+        norm="rms", pos="rope", mlp="swiglu", n_kv_head=2, rope_base=50000.0))
+    torch.save({"model": model.state_dict(), "cfg": cfg, "step": 5}, tmp_path / "ckpt_5.pt")
+    loaded, step = load_variant_from_run(tmp_path)
+    assert step == 5
+    assert isinstance(loaded.transformer.h[0].attn, GQAAttention)
+    assert torch.equal(loaded.transformer.h[0].attn.rope_cos, model.transformer.h[0].attn.rope_cos)
+    x = torch.randint(0, 64, (1, 8))
+    logits, _ = loaded(x)
+    assert logits.shape == (1, 8, 64)

@@ -118,6 +118,10 @@ class Trainer:
                 norm=cfg.norm,
                 pos=cfg.pos,
                 mlp=cfg.mlp,
+                # getattr: cfg may be unpickled from a checkpoint written before these
+                # fields existed; the defaults reproduce that era's behavior exactly.
+                n_kv_head=getattr(cfg, "n_kv_head", None),
+                rope_base=getattr(cfg, "rope_base", 10000.0),
             )
         )
         self.model.to(self.device)

@@ -33,6 +33,10 @@ def load_variant_from_run(run_dir: Path, device: str = "cpu") -> tuple[VariantGP
         vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
         n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
         mlp=cfg.mlp,
+        # getattr: checkpoints from before these fields existed lack the attributes; the
+        # defaults reproduce that era's model exactly (fused MHA, base 10000).
+        n_kv_head=getattr(cfg, "n_kv_head", None),
+        rope_base=getattr(cfg, "rope_base", 10000.0),
     ))
     model.load_state_dict(ckpt["model"])
     return model.to(device).eval(), ckpt["step"]

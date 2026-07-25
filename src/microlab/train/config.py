@@ -18,6 +18,13 @@ class RunConfig:
     norm: str = "rms"
     pos: str = "rope"
     mlp: str = "swiglu"
+    # None -> classic multi-head attention, exactly the pre-field behavior. A divisor of
+    # n_head -> grouped-query attention (n_kv_head K/V heads shared across query groups).
+    # Old checkpoints unpickle without this attribute and fall back to this class default.
+    n_kv_head: int | None = None
+    # RoPE frequency base (theta); 10000.0 was hard-coded before this field existed.
+    # Groundwork for the context-extension stage (PI/YaRN want a raised base).
+    rope_base: float = 10000.0
     # optim / schedule
     optimizer: str = "adamw"  # "adamw" | "muon" (Muon on block matrices + AdamW on the rest)
     lr: float = 3e-4
