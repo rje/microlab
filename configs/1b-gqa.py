@@ -48,7 +48,10 @@ config = RunConfig(
     # Top-up: +2500 steps (~1.3B more tokens) at the schedule's min_lr floor (lr_decay_steps
     # stays 2000, so steps 2000-4500 run at a constant 1e-5 — a standard continued-anneal).
     max_steps=4500,
-    lr_decay_steps=2000,
+    # Second anneal: at the constant 1e-5 floor the top-up recovered only ~0.002 loss/100
+    # steps (5x slower than cycle 1's tail at ~3e-5). Stretching the cosine to the full 4500
+    # re-lifts the LR to ~3.5e-5 at the resume point and re-anneals to 1e-5 by the end.
+    lr_decay_steps=4500,
     # data / io  (8 * 1024 * 64 ~= 0.52M tokens/step * 2000 ~= 1.05B tokens)
     batch_size=8,
     grad_accum=64,
