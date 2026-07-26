@@ -42,7 +42,12 @@ config = RunConfig(
     weight_decay=0.1,
     grad_clip=1.0,
     warmup_steps=100,
-    max_steps=2000,
+    # 2000 (the Ainslie ~5%-of-pretrain guideline) recovered val ppl 15.8 vs the base's
+    # 12.19 with benchmarks down 5.5 pts mean — most of the residual gap is unrecovered
+    # damage, not the 850M capacity delta (~0.03-0.05 nats), and the curve was still falling.
+    # Top-up: +2500 steps (~1.3B more tokens) at the schedule's min_lr floor (lr_decay_steps
+    # stays 2000, so steps 2000-4500 run at a constant 1e-5 — a standard continued-anneal).
+    max_steps=4500,
     lr_decay_steps=2000,
     # data / io  (8 * 1024 * 64 ~= 0.52M tokens/step * 2000 ~= 1.05B tokens)
     batch_size=8,

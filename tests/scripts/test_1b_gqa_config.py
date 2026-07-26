@@ -25,10 +25,12 @@ def test_1b_gqa_config_values():
     assert base.n_head % cfg.n_kv_head == 0
     assert cfg.optimizer == "muon"
     assert cfg.out_dir == "runs/1b-gqa"
-    # ~1B tokens: the paper's alpha=0.05 of the 21B-token base recipe
+    # Uptrain budget: started at the paper's alpha=0.05 (~1B tokens / 2000 steps); measured
+    # recovery at 2000 (val ppl 15.8, benchmarks -5.5) justified a top-up to 4500. Anneal ends
+    # at lr_decay_steps; steps beyond run at the constant min_lr floor (continued-anneal).
     tokens = cfg.batch_size * cfg.grad_accum * cfg.block_size * cfg.max_steps
-    assert 0.9e9 <= tokens <= 1.2e9
-    assert cfg.max_steps == cfg.lr_decay_steps
+    assert 0.9e9 <= tokens <= 2.5e9
+    assert cfg.max_steps >= cfg.lr_decay_steps
     # recovery, not fresh pretraining: gentler than the fresh-run Muon peak (0.02)
     assert cfg.muon_lr < 0.02
     assert cfg.lr < base.lr
