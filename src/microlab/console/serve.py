@@ -22,6 +22,7 @@ import torch
 
 from microlab.infer.reference.kv_cache import KVCache
 from microlab.infer.reference.sampling import sample_next
+from microlab.model.reference.chat_sft import render_conversation
 from microlab.model.reference.checkpoint import latest_checkpoint, load_variant_from_run
 from microlab.model.reference.sft import format_chat
 
@@ -266,17 +267,72 @@ def _stop_scan(text: str, stop_strings: list[str]) -> tuple[int, bool]:
     return len(text) - hold, False
 
 
+class GenerationStream:
+    """The iterable of streamed text deltas plus how a chat conversation's token budget was
+    spent. ``turns_used``/``turns_dropped`` are ints ONLY when a non-empty history was
+    actually rendered into the prompt (chat run, ``raw`` off); both stay None when history was
+    absent or ignored, so the route can tell "history ignored" apart from "all turns
+    dropped"."""
+
+    def __init__(self, deltas: Iterator[str], turns_used: int | None = None,
+                 turns_dropped: int | None = None) -> None:
+        self._deltas = deltas
+        self.turns_used = turns_used
+        self.turns_dropped = turns_dropped
+
+    def __iter__(self) -> Iterator[str]:
+        return self._deltas
+
+
+def render_chat_prompt(history: list[dict], instruction: str) -> str:
+    """The serve-time generation prompt for a conversation: every completed
+    ``{"user", "assistant"}`` exchange rendered EXACTLY as chat SFT training renders it
+    (``chat_sft.render_conversation`` is the single source of truth for the template), then
+    the new instruction as the final OPEN turn ending at ``"### Response:\\n"`` — the position
+    training supervises the next reply from. Empty history degrades to the single-turn
+    ``format_chat`` prompt, byte-identical to pre-history serving. Pinned to the training
+    renderer by test_serve_prompt_pinned_to_chat_sft_rendering — do not restyle by hand."""
+    prompt, _ = format_chat(instruction)
+    if not history:
+        return prompt
+    rendered = "".join(p + r for p, r in render_conversation(history))
+    # The "\n" after the last "### End" belongs to the next prompt segment (chat_sft masks it
+    # with the prompt), so the open turn carries it here too.
+    return rendered + "\n" + prompt
+
+
+def plan_chat_prompt(tokenizer, history: list[dict], instruction: str, max_new_tokens: int,
+                     block_size: int) -> tuple[str, int, int]:
+    """Fit a conversation into the model's context: render, and while prompt tokens +
+    ``max_new_tokens`` exceed ``block_size``, drop whole LEADING turns and re-render
+    (mirroring ``chat_sft.build_chat_example`` — the most recent turns are what the reply
+    must condition on). Returns ``(prompt, turns_used, turns_dropped)``. Raises ValueError
+    (route -> 400) when even the bare final turn cannot fit."""
+    for start in range(len(history) + 1):
+        prompt = render_chat_prompt(history[start:], instruction)
+        n_tokens = len(tokenizer.encode(prompt))
+        if n_tokens + max_new_tokens <= block_size:
+            return prompt, len(history) - start, start
+    raise ValueError(
+        f"prompt ({n_tokens} tokens) + max_new_tokens ({max_new_tokens}) exceeds block_size "
+        f"({block_size}) even with all {len(history)} history turns dropped")
+
+
 def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
                     temperature: float = 0.8, top_k: int | None = None,
                     top_p: float | None = None, seed: int | None = None,
-                    raw: bool = False, repetition_penalty: float = 1.0) -> Iterator[str]:
+                    raw: bool = False, repetition_penalty: float = 1.0,
+                    history: list[dict] | None = None) -> GenerationStream:
     """Yield text DELTAS. Accumulate ids and re-decode the full completion each step so
     byte-level BPE never splits a multi-byte character across chunks.
 
     Chat vs base is a property of the served run (``state.mode``): a chat run wraps the
     incoming prompt with the SFT template (``format_chat``) and stops when the completion
-    contains one of ``state.stop_strings``. ``raw=True`` forces base-style raw completion even
-    on a chat model (no template, no stop strings) so the Playground can show a side-by-side.
+    contains one of ``state.stop_strings``. A non-empty ``history`` on a chat run renders the
+    whole conversation with the multi-turn training template instead (render_chat_prompt),
+    dropping leading turns to fit the context budget; base runs and ``raw=True`` ignore
+    history. ``raw=True`` forces base-style raw completion even on a chat model (no template,
+    no stop strings) so the Playground can show a side-by-side.
 
     Argument limits are validated EAGERLY (at call, not first ``next()``) so the route can
     return a 400 before it commits to a streaming response: the checks run here, then an
@@ -285,13 +341,20 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
         raise ValueError(f"max_new_tokens must be in (0, {MAX_NEW_TOKENS}]")
     cfg = state.model.config
     chat = state.mode == "chat" and not raw
-    gen_prompt = format_chat(prompt)[0] if chat else prompt
+    turns_used: int | None = None
+    turns_dropped: int | None = None
+    if chat and history:
+        gen_prompt, turns_used, turns_dropped = plan_chat_prompt(
+            state.tokenizer, history, prompt, max_new_tokens, cfg.block_size)
+        prompt_ids = state.tokenizer.encode(gen_prompt)
+    else:
+        gen_prompt = format_chat(prompt)[0] if chat else prompt
+        prompt_ids = state.tokenizer.encode(gen_prompt) or [0]
+        if len(prompt_ids) + max_new_tokens > cfg.block_size:
+            raise ValueError(
+                f"prompt ({len(prompt_ids)} tokens) + max_new_tokens ({max_new_tokens}) "
+                f"exceeds block_size ({cfg.block_size})")
     stop_strings = state.stop_strings if chat else []
-    prompt_ids = state.tokenizer.encode(gen_prompt) or [0]
-    if len(prompt_ids) + max_new_tokens > cfg.block_size:
-        raise ValueError(
-            f"prompt ({len(prompt_ids)} tokens) + max_new_tokens ({max_new_tokens}) "
-            f"exceeds block_size ({cfg.block_size})")
     if top_k is not None and top_k < 1:
         raise ValueError(f"top_k must be None or >= 1 (got {top_k})")
     if top_p is not None and not 0 < top_p <= 1:
@@ -344,4 +407,4 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
                 if len(text) > len(emitted):
                     yield text[len(emitted):]
 
-    return _run()
+    return GenerationStream(_run(), turns_used, turns_dropped)

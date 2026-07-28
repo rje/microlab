@@ -262,6 +262,7 @@ describe("App", () => {
         // Minimal streaming body: one empty read then done.
         return {
           ok: true,
+          headers: new Headers(),
           body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }) }) }
         };
       }
@@ -293,5 +294,105 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /generate/i }));
     await waitFor(() => expect(generateCalls).toHaveLength(2));
     expect(generateCalls[1]).toMatchObject({ run: "350m-sft", raw: true });
+  });
+
+  // One chunk of streamed text, then done — enough for the reader loop to accumulate a reply.
+  const streamBody = (text: string) => ({
+    getReader: () => {
+      let sent = false;
+      return {
+        read: async () => {
+          if (sent) return { done: true, value: undefined };
+          sent = true;
+          return { done: false, value: new TextEncoder().encode(text) };
+        }
+      };
+    }
+  });
+
+  const chatRunsResponse = {
+    ok: true,
+    json: async () => ({
+      runs: [{ name: "350m-sft", latest_step: 900, mode: "chat" }],
+      active: null
+    })
+  };
+
+  const openChatPlayground = async () => {
+    render(<App initialState={state} />);
+    fireEvent.click(screen.getByRole("button", { name: /playground/i }));
+    const select = (await screen.findByRole("combobox", {
+      name: /run to serve/i
+    })) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("350m-sft"));
+  };
+
+  const sendMessage = async (text: string) => {
+    fireEvent.change(screen.getByLabelText(/message/i), { target: { value: text } });
+    fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
+    // The send is complete (and the exchange committed) once the button reads "Send" again.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^send$/i })).toBeEnabled()
+    );
+  };
+
+  it("sends the visible transcript as history and clears it on demand", async () => {
+    const generateCalls: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url) === "/api/serve/runs") return chatRunsResponse;
+      if (String(url) === "/api/generate") {
+        generateCalls.push(JSON.parse(String(init?.body)));
+        return {
+          ok: true,
+          headers: new Headers({ "X-Chat-Turns-Used": "0", "X-Chat-Turns-Dropped": "0" }),
+          body: streamBody(`reply ${generateCalls.length}`)
+        };
+      }
+      return { ok: true, json: async () => ({}), text: async () => "" };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await openChatPlayground();
+
+    // First send: empty history; the exchange lands in the transcript.
+    await sendMessage("hi model");
+    expect(generateCalls[0]).toMatchObject({ prompt: "hi model", history: [] });
+    expect(screen.getByText("hi model")).toBeInTheDocument();
+    expect(screen.getByText("reply 1")).toBeInTheDocument();
+
+    // Follow-up: the completed exchange rides along as history.
+    await sendMessage("tell me more");
+    expect(generateCalls[1]).toMatchObject({
+      prompt: "tell me more",
+      history: [{ user: "hi model", assistant: "reply 1" }]
+    });
+    expect(screen.getByText("reply 2")).toBeInTheDocument();
+
+    // Clear conversation: transcript is emptied and the next send starts fresh.
+    fireEvent.click(screen.getByRole("button", { name: /clear conversation/i }));
+    expect(screen.queryByText("reply 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("reply 2")).not.toBeInTheDocument();
+    await sendMessage("fresh start");
+    expect(generateCalls[2]).toMatchObject({ prompt: "fresh start", history: [] });
+  });
+
+  it("shows a dropped-turns indicator when the server trims the conversation", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url) === "/api/serve/runs") return chatRunsResponse;
+      if (String(url) === "/api/generate") {
+        return {
+          ok: true,
+          headers: new Headers({ "X-Chat-Turns-Used": "1", "X-Chat-Turns-Dropped": "2" }),
+          body: streamBody("trimmed reply")
+        };
+      }
+      return { ok: true, json: async () => ({}), text: async () => "" };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await openChatPlayground();
+    expect(screen.queryByText(/dropped the oldest/i)).not.toBeInTheDocument();
+    await sendMessage("hello");
+    expect(await screen.findByText(/dropped the oldest 2 turns/i)).toBeInTheDocument();
   });
 });

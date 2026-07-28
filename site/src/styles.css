@@ -976,6 +976,17 @@ svg {
 .playground-stop:disabled { color: #a29a8c; cursor: default; }
 .playground-stats { color: #6f675c; font-size: 0.8rem; }
 .playground-error { color: #b3261e; margin: 0; font-size: 0.88rem; }
-.playground-reply-label { margin-bottom: -6px; }
 .playground-output { margin: 0; min-height: 40vh; max-height: 60vh; overflow-y: auto; background: #fffdf8; border: 1px solid #ddd6c5; border-radius: 8px; padding: 0.9rem; color: #24231f; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
-.playground-output.is-reply { min-height: 24vh; border-color: #a7d3c8; background: #f4faf7; font-family: inherit; font-size: 0.95rem; }
+.playground-clear { padding: 0.55rem 1.1rem; border: 1px solid #ddd6c5; border-radius: 8px; background: #fffdf8; color: #24231f; font-weight: 600; cursor: pointer; }
+.playground-clear:disabled { color: #a29a8c; cursor: default; }
+.playground-truncated { margin: 0; color: #8a6d1a; background: #fdf6e0; border: 1px solid #ecd9a0; border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.82rem; }
+.playground-thread { display: flex; flex-direction: column; gap: 12px; min-height: 24vh; max-height: 60vh; overflow-y: auto; background: #fffdf8; border: 1px solid #a7d3c8; border-radius: 8px; padding: 0.9rem; }
+.playground-thread-empty { margin: auto; color: #a29a8c; font-size: 0.88rem; }
+.playground-exchange { display: flex; flex-direction: column; gap: 12px; }
+.playground-msg { display: flex; flex-direction: column; gap: 3px; max-width: 85%; }
+.playground-msg.is-user { align-self: flex-end; align-items: flex-end; }
+.playground-msg.is-assistant { align-self: flex-start; align-items: flex-start; }
+.playground-msg-role { color: #6f675c; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.playground-msg-text { white-space: pre-wrap; word-break: break-word; border-radius: 10px; padding: 0.5rem 0.75rem; font-size: 0.92rem; line-height: 1.5; }
+.playground-msg.is-user .playground-msg-text { background: #116466; color: #fff; }
+.playground-msg.is-assistant .playground-msg-text { background: #f4faf7; border: 1px solid #a7d3c8; color: #24231f; }

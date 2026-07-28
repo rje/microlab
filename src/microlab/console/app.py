@@ -405,6 +405,21 @@ def register_content_routes(app: Flask) -> None:
         run = body.get("run")
         if run is not None and not isinstance(run, str):
             return jsonify({"error": "run must be a string"}), 400
+        # Prior completed exchanges of the conversation, oldest first. Optional and backward
+        # compatible: absent/empty means single-turn serving exactly as before. Shape is
+        # validated here so the serving layer never sees a malformed conversation.
+        history = body.get("history")
+        if history is not None and (
+            not isinstance(history, list)
+            or not all(
+                isinstance(t, dict)
+                and isinstance(t.get("user"), str)
+                and isinstance(t.get("assistant"), str)
+                for t in history
+            )
+        ):
+            return jsonify(
+                {"error": "history must be a list of {user, assistant} string pairs"}), 400
         # Lazy import: keeps console restarts light (no torch at boot); the Playground pays
         # the import cost on first use.
         from microlab.console import serve
@@ -424,10 +439,17 @@ def register_content_routes(app: Flask) -> None:
                 # Forces raw completion even on a chat model (skips template + stop strings) so
                 # the Playground can offer a base-style side-by-side. No-op on base runs.
                 raw=bool(body.get("raw", False)),
+                history=history,
             )
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         headers = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+        # Turn accounting for the Playground's "older turns dropped" indicator. Only set when
+        # the history actually shaped the prompt (chat run, raw off) — an ignored history on a
+        # base run must not misreport as "all turns dropped".
+        if stream.turns_used is not None:
+            headers["X-Chat-Turns-Used"] = str(stream.turns_used)
+            headers["X-Chat-Turns-Dropped"] = str(stream.turns_dropped)
         return app.response_class(stream, mimetype="text/plain", headers=headers)
 
     TENSORBOARD_UPSTREAM = os.environ.get("TENSORBOARD_URL", "http://127.0.0.1:6006")
