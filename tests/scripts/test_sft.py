@@ -36,8 +36,9 @@ def test_build_examples_masks_prompt_and_appends_sentinel():
         {"instruction": "Say hi", "context": "", "response": "hello"},
         {"instruction": "x", "context": "", "response": "   "},  # empty response -> skipped
     ]
-    examples = sft.build_examples(tok, rows)
+    examples, skipped = sft.build_examples(tok, rows)
     assert len(examples) == 1  # the blank-response row contributes nothing to learn
+    assert skipped == 0  # blank responses aren't "too long" skips
     input_ids, labels = examples[0]
 
     prompt, _ = format_chat("Say hi", "")
@@ -50,11 +51,64 @@ def test_build_examples_masks_prompt_and_appends_sentinel():
 
 def test_build_examples_includes_context_block():
     tok = _ByteTok()
-    (example,) = sft.build_examples(
+    (example,), _ = sft.build_examples(
         tok, [{"instruction": "summarize", "context": "the ctx", "response": "ok"}])
     prompt, _ = format_chat("summarize", "the ctx")
     assert "### Input:" in prompt and "the ctx" in prompt
     assert len(example[0]) == len(tok.encode(prompt)) + len(tok.encode("ok" + sft.END_SENTINEL))
+
+
+def test_end_sentinel_shared_with_chat_module_and_serve_config():
+    # One source of truth: the sentinel scripts/sft.py trains and serves against is the
+    # same constant the multi-turn builder renders, and serving stops on it.
+    from microlab.model.reference.chat_sft import END_SENTINEL
+    assert sft.END_SENTINEL is END_SENTINEL
+    assert END_SENTINEL.strip() in sft.SERVE_CONFIG["stop_strings"]
+
+
+def test_build_examples_auto_detects_turns_schema():
+    # Old {instruction,...} rows and new {"turns": [...]} rows can share one file; each
+    # line is dispatched by its schema and the chat rows match the reference builder.
+    from microlab.model.reference.chat_sft import build_chat_example
+    tok = _ByteTok()
+    turns = [{"user": "U1", "assistant": "A1"}, {"user": "U2", "assistant": "A2"}]
+    rows = [{"instruction": "Say hi", "context": "", "response": "hello"}, {"turns": turns}]
+    examples, skipped = sft.build_examples(tok, rows, block_size=4096)
+    assert len(examples) == 2 and skipped == 0
+    want_ids, want_labels, _ = build_chat_example(tok, turns, 4096)
+    assert examples[1] == (want_ids, want_labels)
+    # a single-turn conversation row builds byte-identically to its old-schema twin
+    (old_ex, new_ex), _ = sft.build_examples(
+        tok, [{"instruction": "Say hi", "context": "", "response": "hello"},
+              {"turns": [{"user": "Say hi", "assistant": "hello"}]}], block_size=4096)
+    assert old_ex == new_ex
+
+
+def test_build_examples_skips_oversized_chat_rows_with_count():
+    tok = _ByteTok()
+    rows = [{"turns": [{"user": "U", "assistant": "A" * 500}]},  # last turn alone > block
+            {"turns": [{"user": "U", "assistant": "ok"}]}]
+    examples, skipped = sft.build_examples(tok, rows, block_size=64)
+    assert len(examples) == 1 and skipped == 1
+
+
+def test_build_examples_raises_on_unknown_schema():
+    try:
+        sft.build_examples(_ByteTok(), [{"prompt": "?", "completion": "!"}], block_size=64)
+        raise AssertionError("expected ValueError for unrecognized row schema")
+    except ValueError as exc:
+        assert "unrecognized" in str(exc)
+
+
+def test_load_base_model_propagates_rope_base(tmp_path):
+    # runs/1b-4k was context-extended with rope_base 1e5; rebuilding its VariantGPT
+    # without the field would silently rebuild RoPE caches at the 1e4 default.
+    cfg = VariantConfig(vocab_size=64, block_size=32, n_layer=1, n_head=2, n_embd=16,
+                        norm="rms", pos="rope", mlp="swiglu", rope_base=100000.0)
+    torch.save({"model": VariantGPT(cfg).state_dict(), "step": 1, "cfg": cfg},
+               tmp_path / "ckpt_1.pt")
+    model, loaded_cfg = sft.load_base_model(tmp_path / "ckpt_1.pt", "cpu")
+    assert model.config.rope_base == 100000.0
 
 
 def test_resolve_base_ckpt_accepts_file_or_dir(tmp_path):
@@ -161,3 +215,32 @@ def test_run_sft_save_every_writes_and_prunes_intermediates(tmp_path):
     assert [c.name for c in ckpts] == ["ckpt_4.pt"]  # intermediates pruned, final kept
     model, step = load_variant_from_run(out, device="cpu")
     assert step == 4
+
+
+def test_run_sft_end_to_end_on_turns_data(tmp_path):
+    # The full pipeline accepts the multi-turn schema (mixed with old rows in one file)
+    # and still writes a servable chat run.
+    tok = FastTokenizer.train(
+        ["hello world", "say something nice", "the answer is four"] * 4,
+        vocab_size=300, save_path=str(tmp_path / "tokenizer.json"))
+    torch.manual_seed(0)
+    cfg = VariantConfig(vocab_size=tok.vocab_size, block_size=64, n_layer=2, n_head=2,
+                        n_embd=16, norm="rms", pos="rope", mlp="swiglu")
+    torch.save({"model": VariantGPT(cfg).state_dict(), "step": 100, "cfg": cfg},
+               tmp_path / "ckpt_100.pt")
+    rows = [{"turns": [{"user": f"q{i}", "assistant": f"a{i}"},
+                       {"user": "more?", "assistant": "sure"}]} for i in range(4)]
+    rows.append({"instruction": "old style", "context": "", "response": "still works"})
+    data = tmp_path / "chat.jsonl"
+    data.write_text("\n".join(json.dumps(r) for r in rows))
+
+    out = tmp_path / "chat-run"
+    result = sft.run_sft(base_ckpt=tmp_path / "ckpt_100.pt", data=data, out=out,
+                         tokenizer=tmp_path / "tokenizer.json", epochs=1, lr=1e-3,
+                         batch_size=5, block_size=64, device="cpu", log_interval=1)
+    assert math.isfinite(result["final_loss"])
+    assert result["steps"] == 1  # 5 examples / batch 5 over 1 epoch
+    model, step = load_variant_from_run(out, device="cpu")
+    assert step == 1
+    serve_cfg = json.loads((out / "serve_config.json").read_text())
+    assert serve_cfg["stop_strings"] == ["### End", "\n### Instruction:"]
