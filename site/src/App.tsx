@@ -381,9 +381,19 @@ type ServeRun = {
 };
 const OFF_DECODING: Decoding = { temperature: 0.8, top_p: 0, top_k: 0, repetition_penalty: 1.0 };
 
+type Exchange = { user: string; assistant: string };
+
 function PlaygroundPanel() {
   const [prompt, setPrompt] = useState("Once upon a time");
   const [output, setOutput] = useState("");
+  // Completed (user, assistant) exchanges of the visible transcript. Sent as `history` with
+  // every chat send so a multi-turn model conditions on the whole conversation.
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  // The message currently being answered (shown in the thread while the reply streams).
+  const [pendingUser, setPendingUser] = useState<string | null>(null);
+  // How many leading turns the server dropped to fit the context window (from the
+  // X-Chat-Turns-Dropped response header); > 0 shows the truncation notice.
+  const [droppedTurns, setDroppedTurns] = useState(0);
   const [temperature, setTemperature] = useState(0.8);
   const [topK, setTopK] = useState(0); // 0 = off
   const [topP, setTopP] = useState(0); // 0 = off
@@ -494,21 +504,49 @@ function PlaygroundPanel() {
   // A chat run answers as itself unless "raw completion" is on; base runs are always raw.
   const chatReply = isChat && !rawMode;
 
+  // Fold the streamed (or stopped-early) reply into the transcript. An effectively empty
+  // reply is NOT committed — the backend rejects empty assistant turns in history, so the
+  // message goes back into the box for a retry instead of poisoning the conversation.
+  const commitExchange = (user: string, assistant: string) => {
+    setPendingUser(null);
+    setOutput("");
+    if (assistant.trim()) {
+      setExchanges((prev) => [...prev, { user, assistant }]);
+    } else {
+      setPrompt(user);
+    }
+  };
+
+  const clearConversation = () => {
+    setExchanges([]);
+    setPendingUser(null);
+    setOutput("");
+    setDroppedTurns(0);
+    setStats(null);
+    setError(null);
+  };
+
   const generate = async () => {
+    const message = prompt;
+    const asChat = chatReply; // pin the mode for this send; toggles mid-stream can't skew it
     setRunning(true);
     setOutput("");
     setStats(null);
     setError(null);
+    if (asChat) {
+      setPendingUser(message);
+      setPrompt("");
+    }
     const controller = new AbortController();
     abortRef.current = controller;
     const t0 = performance.now();
-    let chars = 0;
+    let reply = "";
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt,
+          prompt: message,
           max_new_tokens: maxTokens,
           temperature,
           top_k: topK || null,
@@ -516,7 +554,10 @@ function PlaygroundPanel() {
           repetition_penalty: repetitionPenalty,
           seed: seed === "" ? null : Number(seed),
           run: selectedRun || null,
-          raw: isChat && rawMode
+          raw: isChat && rawMode,
+          // The visible transcript rides along on chat sends so the model sees the whole
+          // conversation; base runs and raw completions stay single-shot.
+          ...(asChat ? { history: exchanges } : {})
         }),
         signal: controller.signal
       });
@@ -524,13 +565,16 @@ function PlaygroundPanel() {
         const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error ?? `HTTP ${res.status}`);
       }
+      if (asChat) {
+        setDroppedTurns(Number(res.headers.get("X-Chat-Turns-Dropped") ?? "0"));
+      }
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
         const piece = decoder.decode(value, { stream: true });
-        chars += piece.length;
+        reply += piece;
         setOutput((prev) => prev + piece);
       }
       // A successful generate loaded the selected run's latest checkpoint into residency.
@@ -539,9 +583,21 @@ function PlaygroundPanel() {
         if (selected) setActiveStep(selected.latestStep);
       }
       const secs = (performance.now() - t0) / 1000;
-      setStats(`${(chars / Math.max(secs, 0.001)).toFixed(0)} chars/s · ${secs.toFixed(1)}s`);
+      setStats(
+        `${(reply.length / Math.max(secs, 0.001)).toFixed(0)} chars/s · ${secs.toFixed(1)}s`
+      );
+      if (asChat) commitExchange(message, reply);
     } catch (err) {
-      if ((err as Error).name !== "AbortError") setError((err as Error).message);
+      if ((err as Error).name === "AbortError") {
+        // Stopped mid-reply: what streamed still happened, so it stays in the transcript.
+        if (asChat) commitExchange(message, reply);
+      } else {
+        setError((err as Error).message);
+        if (asChat) {
+          setPendingUser(null);
+          setPrompt(message); // failed send: put the message back for a retry
+        }
+      }
     } finally {
       setRunning(false);
     }
@@ -705,18 +761,65 @@ function PlaygroundPanel() {
         >
           Stop
         </button>
+        {chatReply && (
+          <button
+            type="button"
+            className="playground-clear"
+            onClick={clearConversation}
+            disabled={running || (exchanges.length === 0 && pendingUser === null)}
+          >
+            Clear conversation
+          </button>
+        )}
         {stats && <span className="playground-stats">{stats}</span>}
       </div>
 
       {error && <p className="playground-error">{error}</p>}
 
-      {chatReply && <span className="playground-label playground-reply-label">Reply</span>}
-      <pre
-        className={`playground-output${chatReply ? " is-reply" : ""}`}
-        aria-live="polite"
-      >
-        {output}
-      </pre>
+      {chatReply && droppedTurns > 0 && (
+        <p className="playground-truncated" role="status">
+          Context window full — dropped the oldest {droppedTurns}{" "}
+          {droppedTurns === 1 ? "turn" : "turns"} from the conversation.
+        </p>
+      )}
+
+      {chatReply ? (
+        <div className="playground-thread" aria-live="polite" aria-label="Conversation">
+          {exchanges.length === 0 && pendingUser === null && (
+            <p className="playground-thread-empty">
+              No messages yet — the whole thread is sent with each message.
+            </p>
+          )}
+          {exchanges.map((exchange, i) => (
+            <div className="playground-exchange" key={i}>
+              <div className="playground-msg is-user">
+                <span className="playground-msg-role">You</span>
+                <div className="playground-msg-text">{exchange.user}</div>
+              </div>
+              <div className="playground-msg is-assistant">
+                <span className="playground-msg-role">{selectedRun || "model"}</span>
+                <div className="playground-msg-text">{exchange.assistant}</div>
+              </div>
+            </div>
+          ))}
+          {pendingUser !== null && (
+            <div className="playground-exchange">
+              <div className="playground-msg is-user">
+                <span className="playground-msg-role">You</span>
+                <div className="playground-msg-text">{pendingUser}</div>
+              </div>
+              <div className="playground-msg is-assistant">
+                <span className="playground-msg-role">{selectedRun || "model"}</span>
+                <div className="playground-msg-text">{output || "…"}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <pre className="playground-output" aria-live="polite">
+          {output}
+        </pre>
+      )}
     </section>
   );
 }

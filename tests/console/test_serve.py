@@ -563,3 +563,166 @@ def test_chat_no_double_flush_after_stop_hit(monkeypatch):
     state = _scripted_state({1: "Hi ", 2: "### End", 3: " tail"}, script=[1, 2, 3])
     out = "".join(serve.stream_generate(state, "q", max_new_tokens=3, temperature=0.0))
     assert out == "Hi "  # stop hit -> truncated; " tail" and the marker stay dropped
+
+
+# --- multi-turn chat serving: history rendering pinned to chat SFT, budget, back-compat ---
+
+
+class _RecordingTok:
+    """One token per char, and RECORDS every encoded text so tests can assert the exact
+    prompt string the model was conditioned on (the last encode before generation)."""
+
+    vocab_size = 64
+
+    def __init__(self) -> None:
+        self.encoded: list[str] = []
+
+    def encode(self, text):
+        self.encoded.append(text)
+        return [ord(c) % 64 for c in text]
+
+    def decode(self, ids):
+        return "".join(chr(97 + (i % 26)) for i in ids)
+
+
+def _chat_state(block_size: int = 256):
+    torch.manual_seed(0)
+    cfg = VariantConfig(vocab_size=64, block_size=block_size, n_layer=2, n_head=4, n_embd=32,
+                        norm="rms", pos="rope", mlp="swiglu")
+    tok = _RecordingTok()
+    state = serve.ServeState(model=VariantGPT(cfg).eval(), tokenizer=tok, step=1, device="cpu",
+                             mode="chat", stop_strings=["### End", "\n### Instruction:"])
+    return state, tok
+
+
+def test_serve_prompt_pinned_to_chat_sft_rendering():
+    """THE template-pinning test: the serve-time generation prompt for a conversation plus the
+    eventual reply must be byte-identical to how chat_sft renders that SAME conversation for
+    training. If either side's template drifts, chat breaks silently — this test is the pin."""
+    from microlab.model.reference.chat_sft import END_SENTINEL, render_conversation
+
+    history = [{"user": "U1", "assistant": "A1"}, {"user": "U2", "assistant": "A2"}]
+    prompt = serve.render_chat_prompt(history, "U3")
+    train_text = "".join(
+        p + r for p, r in render_conversation(history + [{"user": "U3", "assistant": "A3"}]))
+    assert prompt + "A3" + END_SENTINEL == train_text
+    assert prompt.endswith("### Response:\n")  # generation starts where training supervises
+
+
+def test_serve_prompt_empty_history_is_single_turn_format_chat():
+    from microlab.model.reference.sft import format_chat
+
+    assert serve.render_chat_prompt([], "hi") == format_chat("hi")[0]
+
+
+def test_history_absent_or_empty_byte_identical_to_single_turn():
+    # Backward compat: no history (None or []) must condition the model on EXACTLY the
+    # single-turn template — the recording tokenizer proves the prompt bytes are unchanged.
+    from microlab.model.reference.sft import format_chat
+
+    for history in (None, []):
+        state, tok = _chat_state()
+        stream = serve.stream_generate(state, "hi", max_new_tokens=4, temperature=0.0,
+                                       history=history)
+        "".join(stream)
+        assert tok.encoded[0] == format_chat("hi")[0]
+        assert stream.turns_used is None and stream.turns_dropped is None
+
+
+def test_history_renders_multi_turn_prompt_and_reports_counts():
+    state, tok = _chat_state()
+    history = [{"user": "U1", "assistant": "A1"}]
+    stream = serve.stream_generate(state, "U2", max_new_tokens=4, temperature=0.0,
+                                   history=history)
+    "".join(stream)
+    assert tok.encoded[-1] == serve.render_chat_prompt(history, "U2")
+    assert stream.turns_used == 1 and stream.turns_dropped == 0
+
+
+def test_plan_chat_prompt_drops_leading_turns_to_fit_budget():
+    tok = _RecordingTok()
+    history = [{"user": "U1", "assistant": "A1"}, {"user": "U2", "assistant": "A2"}]
+    full = len(serve.render_chat_prompt(history, "U3"))       # 1 token per char
+    one = len(serve.render_chat_prompt(history[1:], "U3"))
+    block = one + 4  # holds the last history turn + a 4-token budget, but not both turns
+    assert block < full + 4
+    prompt, used, dropped = serve.plan_chat_prompt(tok, history, "U3", 4, block)
+    assert (used, dropped) == (1, 1)
+    assert prompt == serve.render_chat_prompt(history[1:], "U3")  # window re-rendered clean
+
+
+def test_plan_chat_prompt_raises_when_bare_turn_cannot_fit():
+    tok = _RecordingTok()
+    history = [{"user": "U1", "assistant": "A1"}]
+    with pytest.raises(ValueError, match="block_size"):
+        serve.plan_chat_prompt(tok, history, "x" * 100, 8, 64)
+
+
+def test_stream_generate_length_guard_with_history():
+    # The route-facing guard: a conversation whose bare final turn cannot fit raises
+    # eagerly (-> 400), never a silent clip.
+    state, _ = _chat_state(block_size=64)
+    with pytest.raises(ValueError, match="block_size"):
+        serve.stream_generate(state, "x" * 100, max_new_tokens=8,
+                              history=[{"user": "U1", "assistant": "A1"}])
+
+
+def test_base_run_and_raw_mode_ignore_history():
+    history = [{"user": "U1", "assistant": "A1"}]
+    # base run: raw prompt straight through, no template, no chat metadata
+    torch.manual_seed(0)
+    cfg = VariantConfig(vocab_size=64, block_size=256, n_layer=2, n_head=4, n_embd=32,
+                        norm="rms", pos="rope", mlp="swiglu")
+    tok = _RecordingTok()
+    base = serve.ServeState(model=VariantGPT(cfg).eval(), tokenizer=tok, step=1, device="cpu")
+    stream = serve.stream_generate(base, "hi", max_new_tokens=4, temperature=0.0,
+                                   history=history)
+    "".join(stream)
+    assert tok.encoded[0] == "hi"
+    assert stream.turns_used is None and stream.turns_dropped is None
+    # raw=True on a chat run: same — history is a chat-mode concept
+    state, tok = _chat_state()
+    stream = serve.stream_generate(state, "hi", max_new_tokens=4, temperature=0.0, raw=True,
+                                   history=history)
+    "".join(stream)
+    assert tok.encoded[0] == "hi"
+    assert stream.turns_used is None and stream.turns_dropped is None
+
+
+def test_endpoint_history_headers_and_validation(tmp_path, monkeypatch):
+    app = create_app(str(tmp_path))
+    monkeypatch.setattr(serve, "get_state",
+                        lambda root, run=None, reload=False: _chat_state()[0])
+    token = (tmp_path / "instance" / "api_token").read_text().strip()
+    client = app.test_client()
+    auth = {"Authorization": f"Bearer {token}"}
+    common = {"prompt": "U2", "max_new_tokens": 4, "temperature": 0.0}
+    # history carried -> 200 + turn-accounting headers for the dropped-turns indicator
+    r = client.post("/api/generate",
+                    json={**common, "history": [{"user": "U1", "assistant": "A1"}]},
+                    headers=auth)
+    assert r.status_code == 200 and r.data.decode() is not None
+    assert r.headers["X-Chat-Turns-Used"] == "1"
+    assert r.headers["X-Chat-Turns-Dropped"] == "0"
+    # no history -> byte-identical current behavior, no chat headers
+    r = client.post("/api/generate", json=common, headers=auth)
+    assert r.status_code == 200
+    assert "X-Chat-Turns-Used" not in r.headers
+    # malformed history shapes -> 400, never handed to the serving layer
+    for bad in ({"user": "x"}, [{"user": "x"}], [{"user": "x", "assistant": 3}], "nope",
+                [{"user": "", "assistant": "a"}]):
+        r = client.post("/api/generate", json={**common, "history": bad}, headers=auth)
+        assert r.status_code == 400, f"history={bad!r} should 400"
+
+
+def test_endpoint_history_on_base_run_ignored(tmp_path, monkeypatch):
+    app = create_app(str(tmp_path))
+    monkeypatch.setattr(serve, "get_state", lambda root, run=None, reload=False: _tiny_state())
+    token = (tmp_path / "instance" / "api_token").read_text().strip()
+    r = app.test_client().post(
+        "/api/generate",
+        json={"prompt": "hi", "max_new_tokens": 4, "temperature": 0.0,
+              "history": [{"user": "U1", "assistant": "A1"}]},
+        headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    assert "X-Chat-Turns-Used" not in r.headers  # ignored, not misreported as "all dropped"
