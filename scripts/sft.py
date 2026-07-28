@@ -2,12 +2,19 @@
 
     python scripts/sft.py --base-ckpt runs/350m/ckpt_13000.pt
 
-Warm-starts from a pretrained VariantGPT checkpoint and trains on Dolly-15k with PROMPT
-LOSS MASKING (only response tokens contribute to the loss — see model/reference/sft.py).
-Each response is trained with a trailing ``\\n### End`` sentinel so the model LEARNS to
-signal completion; serving stops on that string (the tokenizer has no EOS). Writes a
-run dir the console can serve directly: ckpt_<step>.pt + tokenizer.json + serve_config.json
+Warm-starts from a pretrained VariantGPT checkpoint and trains with PROMPT LOSS MASKING
+(only response tokens contribute to the loss — see model/reference/sft.py). Each response
+is trained with a trailing ``\\n### End`` sentinel so the model LEARNS to signal
+completion; serving stops on that string (the tokenizer has no EOS). Writes a run dir the
+console can serve directly: ckpt_<step>.pt + tokenizer.json + serve_config.json
 (``{"mode":"chat", ...}``), which flips the Playground into chat mode.
+
+Data: JSONL, auto-detected per line. Old single-turn rows ({instruction, context,
+response}, e.g. dolly15k/sft_mix) build exactly as before; multi-turn rows
+({"turns": [{"user", "assistant", ...}, ...]}, e.g. chat_mix built by
+scripts/build_chat_mix.py) supervise EVERY assistant turn — see
+model/reference/chat_sft.py. Chat rows whose final turn alone exceeds --block-size are
+skipped and counted (truncation already dropped their leading turns).
 """
 
 from __future__ import annotations
@@ -19,7 +26,11 @@ from pathlib import Path
 
 import torch
 
-from microlab.data.reference.loaders import load_dolly
+from microlab.model.reference.chat_sft import (
+    END_SENTINEL,
+    TurnTooLongError,
+    build_chat_example,
+)
 from microlab.model.reference.checkpoint import latest_checkpoint
 from microlab.model.reference.sft import (
     build_sft_example,
@@ -30,8 +41,6 @@ from microlab.model.reference.sft import (
 from microlab.model.reference.variants import VariantConfig, VariantGPT
 from microlab.tokenizer.fast import FastTokenizer
 
-# Trained onto the end of every response so the model learns to emit it; serving stops here.
-END_SENTINEL = "\n### End"
 # Dropped verbatim into the run dir; serve.py reads it to switch this run into chat mode.
 SERVE_CONFIG = {"mode": "chat", "stop_strings": ["### End", "\n### Instruction:"]}
 PAD_ID = 0  # matches collate_sft's default and the tokenizer convention here
@@ -55,24 +64,63 @@ def load_base_model(base_ckpt: str | Path, device: str) -> tuple[VariantGPT, obj
         vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
         n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
         mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None),
+        # context-extended bases (runs/1b-4k) carry a raised RoPE base; dropping it here
+        # would silently rebuild the RoPE cache at the 1e4 default and wreck long context
+        rope_base=getattr(cfg, "rope_base", 10000.0),
     ))
     model.load_state_dict(ckpt["model"])
     return model.to(device), cfg
 
 
-def build_examples(tok, rows: list[dict]) -> list[tuple[list[int], list[int]]]:
-    """Turn Dolly {instruction, context, response} rows into (input_ids, labels) with the
-    prompt masked. The chat template is the single source of truth (format_chat); the END
-    sentinel is appended to the response so it's part of what the model is supervised on.
-    Rows with an empty response are skipped (nothing to learn to generate)."""
+def build_examples(
+    tok, rows: list[dict], block_size: int | None = None
+) -> tuple[list[tuple[list[int], list[int]]], int]:
+    """Turn data rows into (input_ids, labels), auto-detecting the schema per row:
+
+    - {"turns": [...]}: multi-turn chat (chat_sft.build_chat_example) — every assistant
+      turn supervised, leading turns dropped to fit block_size; a row whose final turn
+      alone cannot fit is SKIPPED and counted (second return value), not silently clipped.
+    - {"instruction", ...}: the original single-turn path, byte-identical to before
+      (format_chat + response + END sentinel, prompt masked, empty responses skipped).
+
+    Any other shape raises — unrecognized data should fail loudly, not train quietly."""
     examples: list[tuple[list[int], list[int]]] = []
-    for row in rows:
-        if not row["response"].strip():
+    skipped_too_long = 0
+    for i, row in enumerate(rows):
+        if "turns" in row:
+            if block_size is None:
+                raise ValueError("block_size is required to build multi-turn chat examples")
+            try:
+                input_ids, labels, _ = build_chat_example(tok, row["turns"], block_size)
+            except TurnTooLongError:
+                skipped_too_long += 1
+                continue
+            examples.append((input_ids, labels))
+        elif "instruction" in row:
+            if not (row.get("response") or "").strip():
+                continue
+            prompt, _ = format_chat(row.get("instruction", ""), row.get("context", ""))
+            input_ids, labels = build_sft_example(
+                tok, prompt, row["response"] + END_SENTINEL)
+            examples.append((input_ids, labels))
+        else:
+            raise ValueError(
+                f"row {i}: unrecognized schema (expected 'turns' or 'instruction' key, "
+                f"got {sorted(row)})")
+    return examples, skipped_too_long
+
+
+def load_rows(path: str | Path, limit: int | None = None) -> list[dict]:
+    """Read data rows from JSONL as-is (schema is dispatched per row in build_examples,
+    so single-turn and multi-turn rows can share one file)."""
+    rows: list[dict] = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
             continue
-        prompt, _ = format_chat(row["instruction"], row.get("context", ""))
-        input_ids, labels = build_sft_example(tok, prompt, row["response"] + END_SENTINEL)
-        examples.append((input_ids, labels))
-    return examples
+        rows.append(json.loads(line))
+        if limit is not None and len(rows) >= limit:
+            break
+    return rows
 
 
 def cosine_lr(step: int, warmup: int, total: int, base_lr: float, min_lr: float) -> float:
@@ -98,8 +146,11 @@ def run_sft(base_ckpt: str | Path, data: str | Path, out: str | Path, tokenizer:
     torch.manual_seed(seed)
 
     tok = FastTokenizer.load(str(tokenizer))
-    rows = load_dolly(str(data), limit=limit)
-    examples = build_examples(tok, rows)
+    rows = load_rows(data, limit=limit)
+    examples, skipped_too_long = build_examples(tok, rows, block_size=block_size)
+    if skipped_too_long:
+        print(f"skipped {skipped_too_long} chat rows whose final turn alone exceeds "
+              f"block_size={block_size}", flush=True)
     if not examples:
         raise ValueError(f"no usable SFT examples from {data} (all responses empty?)")
 
