@@ -28,8 +28,12 @@ config = RunConfig(
     weight_decay=0.1,
     grad_clip=1.0,
     warmup_steps=50,
-    max_steps=400,
-    lr_decay_steps=400,
+    max_steps=800,
+    # Second anneal (steps 400-800, re-lifts to ~2.1e-5): v2@400 recovered benchmarks to -1.2
+    # but passkey sat at 0.93 — retrieval needs more consolidation, damage does not re-occur
+    # at these LRs. HellaSwag's -2.2 persists at ALL LRs (ABF/long-data tax; mixed-length
+    # training queued for the 16k stage).
+    lr_decay_steps=800,
     # data / io  (1 * 4096 * 128 = 524288 tokens/step * 1000 = 0.52B tokens)
     batch_size=1,
     grad_accum=128,
