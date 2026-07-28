@@ -242,3 +242,19 @@ def test_write_jsonl_roundtrips(tmp_path):
     out = tmp_path / "sub" / "chat_mix.jsonl"
     assert bcm.write_jsonl(rows, out) == 3
     assert [json.loads(line) for line in out.read_text().splitlines()] == rows
+
+
+def test_all_assistant_children_multiplies_paths():
+    # root prompter with two ranked assistant replies: default walk keeps rank-0 only;
+    # all_assistant_children follows both (down-ranked included) -> two conversations.
+    msgs = [
+        {"message_id": "p1", "parent_id": None, "role": "prompter", "text": "hi", "lang": "en"},
+        {"message_id": "a1", "parent_id": "p1", "role": "assistant", "text": "best", "rank": 0,
+         "lang": "en"},
+        {"message_id": "a2", "parent_id": "p1", "role": "assistant", "text": "worse", "rank": 1,
+         "lang": "en"},
+    ]
+    best_only = bcm.extract_oasst_conversations(msgs)
+    both = bcm.extract_oasst_conversations(msgs, all_assistant_children=True)
+    assert [c["turns"][0]["assistant"] for c in best_only] == ["best"]
+    assert sorted(c["turns"][0]["assistant"] for c in both) == ["best", "worse"]

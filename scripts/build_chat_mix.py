@@ -100,7 +100,8 @@ def _rank_key(msg: dict) -> tuple[float, str]:
     return (float("inf") if rank is None else float(rank), str(msg.get("message_id")))
 
 
-def extract_oasst_conversations(messages: list[dict], max_turns: int = MAX_TURNS) -> list[Conv]:
+def extract_oasst_conversations(messages: list[dict], max_turns: int = MAX_TURNS,
+                                all_assistant_children: bool = False) -> list[Conv]:
     """Walk OASST message trees into linear conversations (see module docstring for the
     branching policy). Exact-duplicate conversations (same text under different ids) are
     emitted once."""
@@ -127,18 +128,25 @@ def extract_oasst_conversations(messages: list[dict], max_turns: int = MAX_TURNS
         if not replies:
             emit(turns)
             return
-        best = min(replies, key=_rank_key)
-        turns = turns + [{"user": prompter["text"].strip(), "assistant": best["text"].strip()}]
-        if len(turns) >= max_turns:
-            emit(turns)
-            return
-        follow_ups = [m for m in children.get(best["message_id"], [])
-                      if m.get("role") == "prompter"]
-        if not follow_ups:
-            emit(turns)
-            return
-        for follow_up in sorted(follow_ups, key=lambda m: str(m.get("message_id"))):
-            walk(follow_up, turns)
+        # Volume-vs-rank tradeoff: default follows only the community's best-ranked reply
+        # (curated but yields ~3.7k EN paths); all_assistant_children follows EVERY reply
+        # (~18k paths incl. down-ranked ones) — chosen for the 1B chat mix because measured
+        # lab history (mix-SFT >> dolly-only) says volume+diversity wins at this scale.
+        picks = sorted(replies, key=_rank_key) if all_assistant_children else \
+            [min(replies, key=_rank_key)]
+        for pick in picks:
+            new_turns = turns + [{"user": prompter["text"].strip(),
+                                  "assistant": pick["text"].strip()}]
+            if len(new_turns) >= max_turns:
+                emit(new_turns)
+                continue
+            follow_ups = [m for m in children.get(pick["message_id"], [])
+                          if m.get("role") == "prompter"]
+            if not follow_ups:
+                emit(new_turns)
+                continue
+            for follow_up in sorted(follow_ups, key=lambda m: str(m.get("message_id"))):
+                walk(follow_up, new_turns)
 
     for root in sorted(children.get(None, []), key=lambda m: str(m.get("message_id"))):
         if root.get("role") == "prompter":
@@ -228,9 +236,12 @@ def main() -> None:
     ap.add_argument("--multi-frac", type=float, default=0.4,
                     help="target fraction of multi-turn EXAMPLES (must land in [0.3, 0.5])")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--oasst-all-children", action="store_true",
+                    help="follow every assistant reply (volume) instead of best-ranked only")
     args = ap.parse_args()
 
-    oasst = extract_oasst_conversations(load_oasst("train"))
+    oasst = extract_oasst_conversations(
+        load_oasst("train"), all_assistant_children=args.oasst_all_children)
     no_robots = load_no_robots_chat("train")
     sft_singles = load_sft_mix(args.sft_mix)
     multi = [c for c in oasst + no_robots if len(c["turns"]) > 1]
