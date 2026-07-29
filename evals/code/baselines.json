@@ -1,0 +1,35 @@
+{
+  "comment": "Pre-code-training baselines from the code-and-tool eval harness (2026-07-29). These are the floor the coding-specialist program must beat. Full per-item records + config headers: the sibling *-toolcall.jsonl / *-humaneval.jsonl files. Human-readable table: docs/code-eval-baselines.md.",
+  "humaneval": {
+    "1b-4k-chat": {
+      "ckpt_step": 4074,
+      "mode": "chat",
+      "decoding": "greedy pass@1, max_new 400",
+      "n_tasks": 164,
+      "pass@1": 0.0,
+      "failure_modes": {"syntax_error": 108, "assertion_error": 42, "name_error": 8, "other": 6, "timeout": 0}
+    }
+  },
+  "mbpp": {},
+  "toolcall": {
+    "1b-4k-chat": {
+      "ckpt_step": 4074,
+      "overall": {"n": 120, "tool_acc": 0.0417, "strict_acc": 0.0083, "arg_f1_when_tool_correct": 0.2, "parse_failures": 100},
+      "pattern": {"n": 60, "tool_acc": 0.05, "strict_acc": 0.0, "arg_f1_when_tool_correct": 0.0, "parse_failures": 48},
+      "compositional": {"n": 60, "tool_acc": 0.0333, "strict_acc": 0.0167, "arg_f1_when_tool_correct": 0.5, "parse_failures": 52},
+      "expected_tool_name_in_raw_reply": 0.15
+    },
+    "350m-sft-mix": {
+      "ckpt_step": 14193,
+      "overall": {"n": 120, "tool_acc": 0.0083, "strict_acc": 0.0083, "arg_f1_when_tool_correct": 1.0, "parse_failures": 114},
+      "pattern": {"n": 60, "tool_acc": 0.0, "strict_acc": 0.0, "arg_f1_when_tool_correct": 0.0, "parse_failures": 55},
+      "compositional": {"n": 60, "tool_acc": 0.0167, "strict_acc": 0.0167, "arg_f1_when_tool_correct": 1.0, "parse_failures": 59},
+      "expected_tool_name_in_raw_reply": 0.092
+    }
+  },
+  "deferred": {
+    "humaneval_1b_base_completion_mode": "runs/1b (base, block 1024) completion-style HumanEval — same expectation of ~0; skipped to keep GPU time brief while ablation arms train",
+    "mbpp_all_runs": "MBPP sanitized runner is implemented and tested; baseline run deferred for GPU time",
+    "passk_sampled": "pass@10 (--n 10 --temperature 0.8) deferred: 10x generation cost for a floor already at 0"
+  }
+}

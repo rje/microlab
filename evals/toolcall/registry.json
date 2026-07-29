@@ -1,0 +1,122 @@
+{
+  "comment": "Tool registry for the tool-call eval (scripts/eval_toolcall.py). Each eval item shows a SUBSET of these (its `tools` list + the always-shown get_time/clarify/none) so the prompt fits block_size 1024 on the 350M. `clarify` and `none` are answer markers, not real tools: `clarify` = a required argument is missing from the request; `none` = no listed tool can satisfy it.",
+  "tools": [
+    {"name": "get_weather", "description": "Current weather conditions for a city", "params": [
+      {"name": "city", "type": "str", "required": true},
+      {"name": "units", "type": "str", "required": false}
+    ]},
+    {"name": "get_forecast", "description": "Weather forecast for a city over the coming days", "params": [
+      {"name": "city", "type": "str", "required": true},
+      {"name": "days", "type": "int", "required": true}
+    ]},
+    {"name": "get_time", "description": "Current time in a timezone", "params": [
+      {"name": "timezone", "type": "str", "required": true}
+    ]},
+    {"name": "create_event", "description": "Add an event to the calendar", "params": [
+      {"name": "title", "type": "str", "required": true},
+      {"name": "date", "type": "str", "required": true},
+      {"name": "time", "type": "str", "required": false},
+      {"name": "duration_minutes", "type": "int", "required": false}
+    ]},
+    {"name": "list_events", "description": "List calendar events on a date", "params": [
+      {"name": "date", "type": "str", "required": true}
+    ]},
+    {"name": "send_email", "description": "Send an email message", "params": [
+      {"name": "to", "type": "str", "required": true},
+      {"name": "subject", "type": "str", "required": true},
+      {"name": "body", "type": "str", "required": true}
+    ]},
+    {"name": "search_email", "description": "Search the mailbox for messages", "params": [
+      {"name": "query", "type": "str", "required": true},
+      {"name": "folder", "type": "str", "required": false}
+    ]},
+    {"name": "send_sms", "description": "Send a text message to a phone contact", "params": [
+      {"name": "to", "type": "str", "required": true},
+      {"name": "message", "type": "str", "required": true}
+    ]},
+    {"name": "add_todo", "description": "Add a task to the to-do list", "params": [
+      {"name": "task", "type": "str", "required": true},
+      {"name": "due_date", "type": "str", "required": false},
+      {"name": "priority", "type": "str", "required": false}
+    ]},
+    {"name": "complete_todo", "description": "Mark a to-do task as done", "params": [
+      {"name": "task", "type": "str", "required": true}
+    ]},
+    {"name": "web_search", "description": "Search the web for information", "params": [
+      {"name": "query", "type": "str", "required": true}
+    ]},
+    {"name": "calculate", "description": "Evaluate an arithmetic expression", "params": [
+      {"name": "expression", "type": "str", "required": true}
+    ]},
+    {"name": "convert_units", "description": "Convert a value between measurement units", "params": [
+      {"name": "value", "type": "number", "required": true},
+      {"name": "from_unit", "type": "str", "required": true},
+      {"name": "to_unit", "type": "str", "required": true}
+    ]},
+    {"name": "convert_currency", "description": "Convert an amount between currencies", "params": [
+      {"name": "amount", "type": "number", "required": true},
+      {"name": "from_currency", "type": "str", "required": true},
+      {"name": "to_currency", "type": "str", "required": true}
+    ]},
+    {"name": "translate_text", "description": "Translate text into a target language", "params": [
+      {"name": "text", "type": "str", "required": true},
+      {"name": "target_language", "type": "str", "required": true},
+      {"name": "source_language", "type": "str", "required": false}
+    ]},
+    {"name": "set_timer", "description": "Start a countdown timer", "params": [
+      {"name": "minutes", "type": "int", "required": true},
+      {"name": "label", "type": "str", "required": false}
+    ]},
+    {"name": "set_alarm", "description": "Set an alarm for a time of day", "params": [
+      {"name": "time", "type": "str", "required": true},
+      {"name": "label", "type": "str", "required": false}
+    ]},
+    {"name": "create_note", "description": "Save a new note", "params": [
+      {"name": "title", "type": "str", "required": true},
+      {"name": "content", "type": "str", "required": true}
+    ]},
+    {"name": "search_notes", "description": "Search saved notes", "params": [
+      {"name": "query", "type": "str", "required": true}
+    ]},
+    {"name": "play_music", "description": "Play a song, album, artist or playlist", "params": [
+      {"name": "query", "type": "str", "required": true},
+      {"name": "shuffle", "type": "bool", "required": false}
+    ]},
+    {"name": "get_directions", "description": "Directions between two places", "params": [
+      {"name": "origin", "type": "str", "required": true},
+      {"name": "destination", "type": "str", "required": true},
+      {"name": "mode", "type": "str", "required": false}
+    ]},
+    {"name": "get_stock_price", "description": "Latest price for a stock ticker symbol", "params": [
+      {"name": "symbol", "type": "str", "required": true}
+    ]},
+    {"name": "search_flights", "description": "Search for flights between two airports or cities", "params": [
+      {"name": "origin", "type": "str", "required": true},
+      {"name": "destination", "type": "str", "required": true},
+      {"name": "date", "type": "str", "required": true}
+    ]},
+    {"name": "search_recipes", "description": "Find cooking recipes", "params": [
+      {"name": "query", "type": "str", "required": true},
+      {"name": "max_minutes", "type": "int", "required": false}
+    ]},
+    {"name": "set_light_state", "description": "Turn smart lights on or off in a room", "params": [
+      {"name": "room", "type": "str", "required": true},
+      {"name": "on", "type": "bool", "required": true},
+      {"name": "brightness", "type": "int", "required": false}
+    ]},
+    {"name": "set_thermostat", "description": "Set the thermostat target temperature", "params": [
+      {"name": "temperature", "type": "number", "required": true},
+      {"name": "room", "type": "str", "required": false}
+    ]},
+    {"name": "add_contact", "description": "Add a person to the address book", "params": [
+      {"name": "name", "type": "str", "required": true},
+      {"name": "phone", "type": "str", "required": false},
+      {"name": "email", "type": "str", "required": false}
+    ]},
+    {"name": "get_news", "description": "Latest news headlines, optionally on a topic", "params": [
+      {"name": "topic", "type": "str", "required": false}
+    ]},
+    {"name": "clarify", "description": "Ask the user for missing required information before any tool can be called", "params": []},
+    {"name": "none", "description": "No available tool can satisfy this request", "params": []}
+  ]
+}
