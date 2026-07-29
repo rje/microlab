@@ -727,5 +727,32 @@
     "source_url": "https://arxiv.org/abs/2306.05685",
     "pdf_url": "https://arxiv.org/pdf/2306.05685",
     "filename": "2023-zheng-judging-llm-as-a-judge-mt-bench.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "The Impact of Positional Encoding on Length Generalization in Transformers",
+    "authors": "Kazemnejad et al.",
+    "year": 2023,
+    "source_url": "https://arxiv.org/abs/2305.19466",
+    "pdf_url": "https://arxiv.org/pdf/2305.19466",
+    "filename": "2023-kazemnejad-impact-of-positional-encoding-on-length-generalization.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model",
+    "authors": "DeepSeek-AI",
+    "year": 2024,
+    "source_url": "https://arxiv.org/abs/2405.04434",
+    "pdf_url": "https://arxiv.org/pdf/2405.04434",
+    "filename": "2024-deepseek-ai-deepseek-v2.pdf"
+  },
+  {
+    "topic": "architecture",
+    "title": "Kimi Linear: An Expressive, Efficient Attention Architecture",
+    "authors": "Kimi Team",
+    "year": 2025,
+    "source_url": "https://arxiv.org/abs/2510.26692",
+    "pdf_url": "https://arxiv.org/pdf/2510.26692",
+    "filename": "2025-kimi-team-kimi-linear.pdf"
   }
 ]

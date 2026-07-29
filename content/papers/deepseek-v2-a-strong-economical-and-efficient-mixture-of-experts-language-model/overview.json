@@ -1,0 +1,45 @@
+{
+  "paperId": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model",
+  "generatedAt": "2026-07-29",
+  "depthSuggestion": "implement",
+  "tldr": "DeepSeek-V2 introduces Multi-head Latent Attention (MLA) — cache one shared low-rank latent instead of per-head K/V, then absorb the up-projections into Q and O — cutting the KV cache 93.3% while beating MHA quality, alongside DeepSeekMoE sparsity (236B total / 21B activated).",
+  "overview": "The paper that introduced Multi-head Latent Attention. Instead of compromising quality by sharing K/V heads (MQA/GQA), MLA jointly compresses keys and values into a single d_c-dimensional latent per token (c_KV = W_DKV h) from which all heads' K and V are up-projected; only the latent is cached, and at inference the up-projections are absorbed into the query and output matrices so K/V are never materialized. Because RoPE would break that absorption, a small decoupled RoPE branch (per-head rotary queries plus one shared rotary key) carries position. The result: KV cache equal to GQA with 2.25 groups but quality better than full MHA in controlled ablations. Combined with DeepSeekMoE (2 shared + 160 routed experts, 6 active, device-limited routing, three balance losses), 8.1T pretraining tokens, and YaRN extension to 128K context, DeepSeek-V2 (236B/21B) saves 42.5% of training cost vs dense DeepSeek 67B and boosts max generation throughput 5.76x.",
+  "sections": [
+    {
+      "title": "Introduction",
+      "summary": "Frames the two bottlenecks — inference-time KV cache and training FLOPs — and the two answers: MLA for attention (better-than-MHA quality with a tiny cache, where MQA/GQA trade quality away) and DeepSeekMoE for FFNs. 236B total parameters, 21B activated, 128K context."
+    },
+    {
+      "title": "Architecture: Multi-Head Latent Attention (2.1)",
+      "summary": "The core of the paper. Low-rank joint KV compression: c_KV = W_DKV h (d_c << n_h*d_h), k_C = W_UK c_KV, v_C = W_UV c_KV; cache only c_KV, and absorb W_UK into the query path and W_UV into W_O so K/V are never recomputed at inference. Queries get their own low-rank compression (d'_c) to cut training activation memory. Decoupled RoPE: RoPE between W_Q and W_UK would break absorption, so d_R-dimensional rotary queries plus one shared rotary key k_R carry position; cache is (d_c + d_R) * l per token — with d_c = 4*d_h and d_R = d_h/2, equal to GQA with 2.25 groups."
+    },
+    {
+      "title": "Architecture: DeepSeekMoE (2.2)",
+      "summary": "Fine-grained expert segmentation plus shared-expert isolation: 2 shared + 160 routed experts per MoE layer, 6 routed active per token. Device-limited routing caps each token's experts to M=3 devices; three auxiliary losses balance expert load, device load, and communication; a device-level token-dropping strategy caps compute waste."
+    },
+    {
+      "title": "Pre-Training (3.1)",
+      "summary": "8.1T-token bilingual corpus (BBPE, 100K vocab), 60 layers, d=5120, 128 heads of d_h=128, extra RMSNorms and scale factors at the low-rank bottlenecks for stability. AdamW with warmup-and-step-decay (x0.316 at 60% and 90% of tokens), peak LR 2.4e-4, 4K sequence length. YaRN (applied to the decoupled shared key only) extends 4K to 128K with 1000 steps at 32K; NIAH retrieval holds across the full 128K."
+    },
+    {
+      "title": "Evaluations and Efficiency (3.2)",
+      "summary": "With 21B activated parameters DeepSeek-V2 is top-tier among open models (MMLU 78.5, strongest open MoE at release), beating DeepSeek 67B nearly everywhere. Vs 67B: 42.5% training cost saved (172.8K vs 300.6K GPU-hours/trillion tokens), KV cache down 93.3%, and 5.76x max generation throughput (>50K tok/s on an 8xH800 node with FP8 + KV quantization)."
+    },
+    {
+      "title": "Alignment (4)",
+      "summary": "1.5M-instance SFT then GRPO-based RL (following DeepSeekMath) produce DeepSeek-V2 Chat; top-tier open-model results on MT-Bench/AlpacaEval and best-in-class Chinese performance. Skimmable for this phase — the architecture sections are the payload."
+    },
+    {
+      "title": "Appendices C-D: Full MLA Formulas and Attention Ablations",
+      "summary": "Appendix C lists the complete MLA equation set (what you would implement). Appendix D has the controlled comparisons: on 7B dense models MHA > GQA-8 > MQA on hard benchmarks; on MoE models at two scales MLA beats MHA on all four hard benchmarks while using 14% (16B model) and 4% (250B model) of MHA's KV cache."
+    }
+  ],
+  "readingFocus": [
+    "Read 2.1.2 with our GQA-conversion audit in mind: the audit found the 1B's 14 K/V heads share structure only after per-head basis alignment (raw cosine ~0, ~0.42-0.49 aligned). MLA is that finding built into the architecture — all heads generated from one learned shared latent instead of mean-pooled after the fact. MLA is a design candidate for the next specialist pretrain.",
+    "Work through the absorption trick (2.1.2 / Appendix C): caching c_KV only works because W_UK folds into the query path and W_UV into W_O by associativity — and 2.1.3 explains why RoPE breaks exactly this, forcing the decoupled rotary branch. This is the cleanest illustration anywhere of RoPE as an architectural constraint, not a free add-on.",
+    "Appendix D is the evidence that matters for us: MQA/GQA lose real quality vs MHA (Table 8), while MLA beats MHA outright with a fraction of the cache (Table 9) — directly relevant after our own 7:1 GQA conversion cost ~4 benchmark points.",
+    "Note the KV-cache accounting habit: elements per token = (d_c + d_R) * l vs 2*n_h*d_h*l. Our 1B's 172KB/token MHA cache is the same arithmetic; redo it for an MLA variant before the next pretrain parity review.",
+    "The YaRN-on-the-decoupled-key detail (3.1.4) connects to our staged 1024->4K ABF extension: position lives in a 64-dim side channel, so context extension touches only that — contrast with our full-width RoPE retuning pain.",
+    "DeepSeekMoE's three balance losses (2.2.3) extend the single load-balance loss from the Phase-3 MoE routing exercise — worth reading as the production-scale version of that hand-write."
+  ]
+}

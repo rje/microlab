@@ -119,7 +119,10 @@
       "flashattention-fast-and-memory-efficient-exact-attention-with-io-awareness",
       "switch-transformers-scaling-to-trillion-parameter-models-with-simple-and-efficient-sparsity",
       "fast-transformer-decoding-one-write-head-is-all-you-need",
-      "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints"
+      "gqa-training-generalized-multi-query-transformer-models-from-multi-head-checkpoints",
+      "the-impact-of-positional-encoding-on-length-generalization-in-transformers",
+      "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model",
+      "kimi-linear-an-expressive-efficient-attention-architecture"
     ]
   },
   {

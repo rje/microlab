@@ -1,0 +1,65 @@
+{
+  "paperId": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model",
+  "cards": [
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#1",
+      "question": "What problem does Multi-head Latent Attention (MLA) solve, and how does its KV cache compare to MHA and GQA?",
+      "answer": "MHA's KV cache (2*n_h*d_h*l elements per token) bottlenecks inference batch size and context; MQA/GQA shrink it but lose quality. MLA caches (d_c + d_R)*l elements — with DeepSeek-V2's d_c = 4*d_h and d_R = d_h/2, that's 9/2*d_h*l, equal to GQA with just 2.25 groups — while achieving quality stronger than full MHA."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#2",
+      "question": "Write the low-rank joint KV compression at the heart of MLA. What is cached?",
+      "answer": "c_KV = W_DKV * h_t (a d_c-dimensional latent, d_c << n_h*d_h); then all heads' keys and values are up-projected from it: k_C = W_UK * c_KV and v_C = W_UV * c_KV. Only c_KV (plus the small decoupled RoPE key) is cached — one shared latent per token instead of per-head K and V."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#3",
+      "question": "MLA never materializes keys or values at inference. What makes that possible?",
+      "answer": "Matrix associativity: in q^T k = (W_UQ c_Q)^T (W_UK c_KV), the up-projection W_UK can be absorbed into the query-side matrix, and W_UV can be absorbed into the output projection W_O. Attention is then computed directly against the cached latents, avoiding the cost of reconstructing per-head K/V for every cached token."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#4",
+      "question": "Why is standard RoPE incompatible with MLA's compressed KV cache, and what is the decoupled RoPE fix?",
+      "answer": "RoPE inserts a position-dependent rotation between W_UK and the query path; rotation matrices don't commute with the weight product, so the absorption trick dies and all prefix keys would need recomputing. Fix: carry position in a separate small branch — per-head rotary queries q_R (dimension d_R) and ONE shared rotary key k_R = RoPE(W_KR h_t) — concatenated onto the position-free compressed parts; k_R is cached alongside c_KV."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#5",
+      "question": "MLA also low-rank-compresses the queries (c_Q, dimension d'_c). What is that for, if it cannot shrink the KV cache?",
+      "answer": "Training memory: queries are the largest activation in attention, and compressing them (d'_c = 1536 vs d = 5120 in DeepSeek-V2) cuts activation memory during training. It's a training-efficiency choice, orthogonal to the inference-time KV saving."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#6",
+      "question": "What did DeepSeek-V2's controlled attention ablations show about MHA vs GQA/MQA, and about MLA vs MHA?",
+      "answer": "On 7B dense models (1.33T tokens), MHA clearly beats GQA-8, which beats MQA on hard benchmarks (e.g. MMLU 45.2 / 41.2 / 37.9). On MoE models at two scales, MLA beats MHA on all four hard benchmarks while using only 14% (16B-total model) and 4% (250B-total model) of MHA's KV cache — head-sharing costs quality, latent compression doesn't."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#7",
+      "question": "What are the two key ideas of DeepSeekMoE, and what expert configuration does DeepSeek-V2 use?",
+      "answer": "(1) Fine-grained expert segmentation — many small experts for better specialization; (2) shared-expert isolation — always-on experts that absorb common knowledge so routed experts don't duplicate it. DeepSeek-V2: 2 shared + 160 routed experts per layer, 6 routed activated per token, giving 236B total / 21B activated parameters."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#8",
+      "question": "How does device-limited routing bound MoE communication cost?",
+      "answer": "A token's communication cost scales with how many devices host its chosen experts. Before top-K expert selection, first pick the M devices holding the highest-affinity experts, then do top-K only among experts on those devices. With M >= 3, performance roughly matches unrestricted top-K routing while capping each token's traffic to M devices."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#9",
+      "question": "DeepSeek-V2 trains with three auxiliary balance losses. What does each one balance?",
+      "answer": "Expert-level (alpha_1=0.003): evens token counts across experts to prevent routing collapse. Device-level (alpha_2=0.05): evens compute across the device groups holding the experts. Communication-level (alpha_3=0.02): evens the tokens each device receives, so exchange traffic is balanced. Each is a frequency-times-probability product, like the classic Switch loss applied at three granularities."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#10",
+      "question": "How was DeepSeek-V2's context extended from 4K to 128K, and what part of MLA made it clean?",
+      "answer": "YaRN (scale s=40, alpha=1, beta=32, sqrt(t) factor adjusted to 0.0707*ln(s)+1), applied only to the decoupled shared key k_R — the sole place position lives in MLA — followed by 1000 training steps at 32K sequence length. NIAH retrieval then holds across the full 128K window."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#11",
+      "question": "What headline efficiency gains does DeepSeek-V2 report over its dense predecessor DeepSeek 67B?",
+      "answer": "42.5% lower training cost per trillion tokens (172.8K vs 300.6K H800 GPU-hours), a 93.3% smaller KV cache, and 5.76x higher maximum generation throughput (>50K tokens/s on one 8xH800 node, served in FP8 with ~6-bit KV quantization) — while scoring higher on almost every benchmark with only 21B activated parameters."
+    },
+    {
+      "id": "deepseek-v2-a-strong-economical-and-efficient-mixture-of-experts-language-model#12",
+      "question": "Low-rank bottlenecks can destabilize training. What two stabilizers does DeepSeek-V2 add around them?",
+      "answer": "Extra RMSNorm layers after the compressed latent vectors (c_KV and c_Q), and additional scaling factors at the width bottlenecks (the latents and the routed experts' hidden states). Both compensate for the output-scale shifts that low-rank compression and fine-grained expert segmentation introduce."
+    }
+  ]
+}

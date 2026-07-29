@@ -1,0 +1,65 @@
+{
+  "paperId": "kimi-linear-an-expressive-efficient-attention-architecture",
+  "cards": [
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#1",
+      "question": "What is Kimi Linear's headline claim, and what backs it up?",
+      "answer": "It is presented as the first hybrid linear-attention architecture to beat full attention under fair comparisons — same recipe, same 1.4T tokens, matched parameter counts — across short-context, long-context, and RL evaluations, while cutting KV cache usage by up to 75% and reaching up to 6x decoding throughput at 1M-token context."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#2",
+      "question": "Write the Kimi Delta Attention (KDA) state update, and name the one change it makes to Gated DeltaNet.",
+      "answer": "S_t = (I - beta_t k_t k_t^T) Diag(alpha_t) S_{t-1} + beta_t k_t v_t^T, with output o_t = S_t^T q_t. GDN's scalar forget gate alpha_t becomes a channel-wise diagonal gate Diag(alpha_t): each of the d_k feature dimensions gets its own forgetting rate (GLA-style fine-grained decay, combined with the delta rule)."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#3",
+      "question": "How does the online-learning view derive the delta rule and its gate?",
+      "answer": "Linear attention's state S accumulates k-v pairs with no forgetting (gradient descent on an unbounded correlation objective). DeltaNet instead takes a gradient step on the reconstruction loss (1/2)||S^T k_t - v_t||^2, giving S_t = (I - beta_t k_t k_t^T) S_{t-1} + beta_t k_t v_t^T — a rank-1 self-correcting update. The gate then acts as weight decay (data-dependent L2) on these fast weights, bounding memory lifespan."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#4",
+      "question": "KDA is a constrained DPLR transition. What is the constraint, and why does it make the kernel fast?",
+      "answer": "General DPLR uses S_t = (Diag - a_t b_t^T) S_{t-1} + k_t v_t^T with free a, b; KDA binds both to the key: a_t = beta_t k_t, b_t = k_t .* alpha_t. That removes the division-heavy secondary chunking DPLR needs for numerical stability, halves the second-level chunk computations (4 to 2), and eliminates about three matrix multiplications — roughly 100% operator speedup, ~2x DPLR kernel speed up to 64K length."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#5",
+      "question": "What is the layer pattern of the Kimi Linear architecture, and what did the hybrid-ratio ablation find?",
+      "answer": "A uniform layerwise interleave of 3 KDA layers per 1 full-attention (MLA) layer, in a Moonlight-style MoE (48B total, 3B activated). Ablation at fixed FLOPs: 3:1 gives the best validation PPL (5.65), beating pure full attention 0:1 (5.77), 1:1 (5.66), 7:1 (5.70), and 15:1 (5.82) — more full attention is not monotonically better."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#6",
+      "question": "Why does Kimi Linear use NoPE (no position encoding) in its full-attention MLA layers?",
+      "answer": "KDA's data-dependent per-channel decay already acts as the position-aware operator, so the global layers can be position-free. Practical wins: the NoPE MLA layers can be converted to highly efficient pure MQA at inference, and long-context training needs no RoPE frequency retuning (no base tuning or YaRN)."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#7",
+      "question": "What happened when Kimi Linear was built with RoPE in its global layers instead of NoPE?",
+      "answer": "Kimi Linear (RoPE) matched the NoPE version on short-context but lost on long-context evals. The explanation: RoPE's strong explicit relative signal concentrates positional bias in the global layers and overweights short-range order, while NoPE spreads positional responsibility onto KDA across depth, giving more robust length extrapolation."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#8",
+      "question": "In what sense is a gated delta rule a generalization of RoPE?",
+      "answer": "Attention with RoPE computes q_t^T (prod R_j) k_i — a fixed, orthogonal (rotation) transition matrix accumulated between positions. The gated delta rule has the same form with transition A_j (I - beta_j k_j k_j^T): a learnable, data-dependent, non-orthogonal transition. RoPE is thus the special case of a fixed multiplicative position encoding; KDA learns its own."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#9",
+      "question": "How are KDA's q, k, v, and gates produced from the token representation?",
+      "answer": "q and k: L2Norm(Swish(ShortConv(W x))) — the short depthwise convolution captures local dependencies and the L2 norm stabilizes eigenvalues; v: Swish(ShortConv(W_v x)). The per-channel forget gate alpha comes from a low-rank projection (rank = head dim) through a decay function; beta is a per-token sigmoid scalar. Head dims d_k = d_v = 128."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#10",
+      "question": "What does Kimi Linear place between the attention output and the output projection, and why?",
+      "answer": "A data-dependent sigmoid output gate (low-rank) elementwise-multiplied with a head-wise RMSNorm of the KDA output. The ablation shows removing the gate degrades PPL and a swish gate is clearly worse than sigmoid; the gating also alleviates the attention-sink phenomenon."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#11",
+      "question": "Which synthetic tasks were used to compare KDA against GDN and Mamba2, and what did they show?",
+      "answer": "Palindrome (reverse-copy), MQAR (multi-query associative recall), and stack (state tracking of 64 LIFO stacks). KDA reaches high accuracy at longer sequence lengths and converges markedly faster than GDN, while Mamba2 (multiplicative decay only, no delta rule) fails all three — evidence that fine-grained decay plus the delta rule manages finite RNN memory better."
+    },
+    {
+      "id": "kimi-linear-an-expressive-efficient-attention-architecture#12",
+      "question": "What are the main matched-scale results for Kimi Linear at 1.4T training tokens?",
+      "answer": "It outperforms both full-attention MLA and hybrid GDN-H baselines on short-context pretrain evals (e.g. MMLU 73.8 vs 71.6 MLA), SFT benchmarks, long-context at 128K (RULER 84.3 vs 81.3; average 54.5 vs 52.2), and RL math training curves; scaling-law fits give ~1.16x compute efficiency over MLA, and decoding TPOT at 1M context is 6.3x faster (1.84ms vs 11.48ms)."
+    }
+  ]
+}
