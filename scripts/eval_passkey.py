@@ -128,7 +128,9 @@ def load_for_eval(run_dir: Path, min_context: int, device: str):
     `min_context` positions when that exceeds the trained block_size. Weights are
     position-agnostic (embeddings/attention/MLP shapes don't depend on context length),
     so the strict state-dict load is unchanged; only the non-persistent cos/sin buffers
-    and the assert-guard/KV-cache capacity grow. rope_base stays the checkpoint's own.
+    and the assert-guard/KV-cache capacity grow. rope_base stays the checkpoint's own
+    (native theta, no ABF). pos="nope" checkpoints have no positional state at all —
+    the rebuild just raises block_size (nothing to extend).
 
     Returns (model, step, ckpt_cfg, eval_block)."""
     ckpt_path = latest_checkpoint(run_dir)
@@ -142,11 +144,13 @@ def load_for_eval(run_dir: Path, min_context: int, device: str):
         rope_base=getattr(cfg, "rope_base", 10000.0),
     ))
     model.load_state_dict(ckpt["model"])
+    extended = (" (NoPE: no positional state to extend; only the length guard and "
+                "KV-cache capacity grow)" if cfg.pos == "nope"
+                else " (RoPE cache extended for the probe; weights unchanged)")
     print(f"loaded {ckpt_path.name} (step {ckpt['step']}): trained block_size "
-          f"{cfg.block_size}, rope_base {getattr(cfg, 'rope_base', 10000.0):g}, "
-          f"eval context {eval_block}"
-          + (" (RoPE cache extended for the probe; weights unchanged)"
-             if eval_block > cfg.block_size else ""), flush=True)
+          f"{cfg.block_size}, pos {cfg.pos}, rope_base "
+          f"{getattr(cfg, 'rope_base', 10000.0):g}, eval context {eval_block}"
+          + (extended if eval_block > cfg.block_size else ""), flush=True)
     return model.to(device).eval(), ckpt["step"], cfg, eval_block
 
 
