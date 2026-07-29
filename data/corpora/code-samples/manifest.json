@@ -1,0 +1,109 @@
+{
+  "source_root": "data/corpora/code-samples",
+  "languages": {
+    "python": {
+      "documents": 37451,
+      "bytes": 300000271,
+      "lines": 8025774,
+      "files": 19,
+      "dropped_minified": 0,
+      "dropped_nonutf8": 0,
+      "dropped_size": 470,
+      "source": "codeparrot/github-code-clean",
+      "license": "per-doc `license` column (permissive OSS licenses)",
+      "substitution": null,
+      "code": true
+    },
+    "javascript": {
+      "documents": 34886,
+      "bytes": 300029109,
+      "lines": 9346819,
+      "files": 18,
+      "dropped_minified": 5,
+      "dropped_nonutf8": 0,
+      "dropped_size": 607,
+      "source": "codeparrot/github-code-clean",
+      "license": "per-doc `license` column (permissive OSS licenses)",
+      "substitution": null,
+      "code": true
+    },
+    "typescript": {
+      "documents": 73438,
+      "bytes": 38571361,
+      "lines": 1198703,
+      "files": 37,
+      "dropped_minified": 76,
+      "dropped_nonutf8": 0,
+      "dropped_size": 15601,
+      "source": "bleugreen/typescript-chunks",
+      "license": "upstream repo licenses (public dataset; licenses not per-doc labelled)",
+      "substitution": "the-stack-v2 TypeScript is gated (needs SWH resolution); bleugreen/typescript-chunks is a streamable non-gated TS substitute",
+      "code": true
+    },
+    "shell": {
+      "documents": 20536,
+      "bytes": 100084260,
+      "lines": 3480352,
+      "files": 11,
+      "dropped_minified": 15,
+      "dropped_nonutf8": 0,
+      "dropped_size": 967,
+      "source": "ajibawa-2023/Shell-Code-Large",
+      "license": "public dataset of shell scripts (licenses not per-doc labelled)",
+      "substitution": "no non-gated the-stack Shell config; curated shell-code dataset substitute",
+      "code": true
+    },
+    "sql": {
+      "documents": 99886,
+      "bytes": 40515768,
+      "lines": 299658,
+      "files": 50,
+      "dropped_minified": 95,
+      "dropped_nonutf8": 0,
+      "dropped_size": 19,
+      "source": "gretelai/synthetic_text_to_sql",
+      "license": "Apache-2.0 (Gretel synthetic)",
+      "substitution": "no non-gated the-stack SQL config; synthetic-SQL dataset substitute (real SQL syntax: DDL in sql_context + query in sql)",
+      "code": true
+    },
+    "json": {
+      "documents": 299400,
+      "bytes": 100000230,
+      "lines": 3892200,
+      "files": 150,
+      "dropped_minified": 19,
+      "dropped_nonutf8": 0,
+      "dropped_size": 0,
+      "source": "ibragim-bad/github-repos-metadata-40M",
+      "license": "public GitHub metadata (facts; serialized to JSON here)",
+      "substitution": "no non-gated raw-JSON-file corpus; real GitHub repo metadata rows serialized with json.dumps(indent=2) to produce representative JSON syntax",
+      "code": true
+    },
+    "markdown": {
+      "documents": 24538,
+      "bytes": 100002203,
+      "lines": 1182248,
+      "files": 13,
+      "dropped_minified": 635,
+      "dropped_nonutf8": 0,
+      "dropped_size": 302,
+      "source": "open-index/open-markdown-v2",
+      "license": "crawled markdown documents (source-site licenses vary)",
+      "substitution": null,
+      "code": false
+    },
+    "prose": {
+      "documents": 41469,
+      "bytes": 200000496,
+      "lines": 888216,
+      "files": 21,
+      "dropped_minified": 100,
+      "dropped_nonutf8": 0,
+      "dropped_size": 0,
+      "source": "local FineWeb shards (data/shards/fineweb)",
+      "license": "FineWeb (ODC-By); reused local pretraining shards",
+      "substitution": null,
+      "code": false
+    }
+  }
+}

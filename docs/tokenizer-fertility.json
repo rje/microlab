@@ -1,0 +1,459 @@
+{
+  "tokenizers": {
+    "code-49k": {
+      "vocab_size": 49152,
+      "by_language": {
+        "python": {
+          "docs": 73627,
+          "tokens": 6006255,
+          "bytes": 20000154,
+          "lines": 454649,
+          "tokens_per_byte": 0.3003104376096304,
+          "bytes_per_token": 3.329887592185147,
+          "tokens_per_line": 13.210751590787618,
+          "roundtrip_fraction": 1.0
+        },
+        "javascript": {
+          "docs": 72810,
+          "tokens": 5593782,
+          "bytes": 20000014,
+          "lines": 562500,
+          "tokens_per_byte": 0.27968890421776704,
+          "bytes_per_token": 3.575401043515818,
+          "tokens_per_line": 9.944501333333333,
+          "roundtrip_fraction": 1.0
+        },
+        "typescript": {
+          "docs": 79274,
+          "tokens": 4996565,
+          "bytes": 20000214,
+          "lines": 554929,
+          "tokens_per_byte": 0.24982557686632753,
+          "bytes_per_token": 4.002792718597677,
+          "tokens_per_line": 9.00397167925987,
+          "roundtrip_fraction": 1.0
+        },
+        "shell": {
+          "docs": 81569,
+          "tokens": 6466275,
+          "bytes": 20000060,
+          "lines": 626151,
+          "tokens_per_byte": 0.3233127800616598,
+          "bytes_per_token": 3.0929801160637305,
+          "tokens_per_line": 10.327021756732801,
+          "roundtrip_fraction": 1.0
+        },
+        "sql": {
+          "docs": 99261,
+          "tokens": 6379053,
+          "bytes": 20000155,
+          "lines": 99261,
+          "tokens_per_byte": 0.3189501781361194,
+          "bytes_per_token": 3.135285911560854,
+          "tokens_per_line": 64.26545168797414,
+          "roundtrip_fraction": 1.0
+        },
+        "json": {
+          "docs": 60200,
+          "tokens": 7931047,
+          "bytes": 20000061,
+          "lines": 782600,
+          "tokens_per_byte": 0.3965511405190214,
+          "bytes_per_token": 2.52174284177108,
+          "tokens_per_line": 10.134228213646818,
+          "roundtrip_fraction": 1.0
+        },
+        "markdown": {
+          "docs": 105368,
+          "tokens": 7148788,
+          "bytes": 20000237,
+          "lines": 135344,
+          "tokens_per_byte": 0.3574351643933019,
+          "bytes_per_token": 2.797710185278959,
+          "tokens_per_line": 52.819393545336325,
+          "roundtrip_fraction": 1.0
+        },
+        "prose": {
+          "docs": 4330,
+          "tokens": 4556646,
+          "bytes": 20001326,
+          "lines": 86634,
+          "tokens_per_byte": 0.22781719571992376,
+          "bytes_per_token": 4.389484282957246,
+          "tokens_per_line": 52.596509453563264,
+          "roundtrip_fraction": 1.0
+        }
+      },
+      "digit_probes": [
+        {
+          "text": "12345",
+          "tokens": 5,
+          "bytes": 5,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "3.14159",
+          "tokens": 7,
+          "bytes": 7,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "0xFF3A",
+          "tokens": 4,
+          "bytes": 6,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "1000000",
+          "tokens": 7,
+          "bytes": 7,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "255",
+          "tokens": 3,
+          "bytes": 3,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "2024-01-15",
+          "tokens": 10,
+          "bytes": 10,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "v1.2.3",
+          "tokens": 6,
+          "bytes": 6,
+          "roundtrip": true,
+          "digits_individually_split": true
+        }
+      ],
+      "indent": {
+        "spaces_tokens": {
+          "2": 1,
+          "4": 1,
+          "8": 1,
+          "12": 1,
+          "16": 1
+        },
+        "tab_tokens": 2,
+        "nested_snippet_tokens": 16,
+        "nested_snippet_bytes": 61
+      }
+    },
+    "code-32k": {
+      "vocab_size": 32000,
+      "by_language": {
+        "python": {
+          "docs": 73627,
+          "tokens": 6119893,
+          "bytes": 20000154,
+          "lines": 454649,
+          "tokens_per_byte": 0.3059922938593373,
+          "bytes_per_token": 3.2680561571909834,
+          "tokens_per_line": 13.46069825293798,
+          "roundtrip_fraction": 1.0
+        },
+        "javascript": {
+          "docs": 72810,
+          "tokens": 5703259,
+          "bytes": 20000014,
+          "lines": 562500,
+          "tokens_per_byte": 0.28516275038607475,
+          "bytes_per_token": 3.506769375194078,
+          "tokens_per_line": 10.139127111111112,
+          "roundtrip_fraction": 1.0
+        },
+        "typescript": {
+          "docs": 79274,
+          "tokens": 5114156,
+          "bytes": 20000214,
+          "lines": 554929,
+          "tokens_per_byte": 0.25570506395581566,
+          "bytes_per_token": 3.9107555577107935,
+          "tokens_per_line": 9.215874463219619,
+          "roundtrip_fraction": 1.0
+        },
+        "shell": {
+          "docs": 81569,
+          "tokens": 6631867,
+          "bytes": 20000060,
+          "lines": 626151,
+          "tokens_per_byte": 0.33159235522293434,
+          "bytes_per_token": 3.0157510697967855,
+          "tokens_per_line": 10.591481926883452,
+          "roundtrip_fraction": 1.0
+        },
+        "sql": {
+          "docs": 99261,
+          "tokens": 6519528,
+          "bytes": 20000155,
+          "lines": 99261,
+          "tokens_per_byte": 0.3259738737024788,
+          "bytes_per_token": 3.0677305166877114,
+          "tokens_per_line": 65.68066007797624,
+          "roundtrip_fraction": 1.0
+        },
+        "json": {
+          "docs": 60200,
+          "tokens": 7987329,
+          "bytes": 20000061,
+          "lines": 782600,
+          "tokens_per_byte": 0.3993652319360426,
+          "bytes_per_token": 2.503973606195513,
+          "tokens_per_line": 10.206144901610019,
+          "roundtrip_fraction": 1.0
+        },
+        "markdown": {
+          "docs": 105368,
+          "tokens": 7633586,
+          "bytes": 20000237,
+          "lines": 135344,
+          "tokens_per_byte": 0.38167477715389075,
+          "bytes_per_token": 2.6200316600874083,
+          "tokens_per_line": 56.4013624541908,
+          "roundtrip_fraction": 1.0
+        },
+        "prose": {
+          "docs": 4330,
+          "tokens": 4729241,
+          "bytes": 20001326,
+          "lines": 86634,
+          "tokens_per_byte": 0.23644637360542997,
+          "bytes_per_token": 4.229288801310823,
+          "tokens_per_line": 54.588741140891564,
+          "roundtrip_fraction": 1.0
+        }
+      },
+      "digit_probes": [
+        {
+          "text": "12345",
+          "tokens": 5,
+          "bytes": 5,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "3.14159",
+          "tokens": 7,
+          "bytes": 7,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "0xFF3A",
+          "tokens": 4,
+          "bytes": 6,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "1000000",
+          "tokens": 7,
+          "bytes": 7,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "255",
+          "tokens": 3,
+          "bytes": 3,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "2024-01-15",
+          "tokens": 10,
+          "bytes": 10,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "v1.2.3",
+          "tokens": 6,
+          "bytes": 6,
+          "roundtrip": true,
+          "digits_individually_split": true
+        }
+      ],
+      "indent": {
+        "spaces_tokens": {
+          "2": 1,
+          "4": 1,
+          "8": 1,
+          "12": 1,
+          "16": 1
+        },
+        "tab_tokens": 2,
+        "nested_snippet_tokens": 16,
+        "nested_snippet_bytes": 61
+      }
+    },
+    "fineweb-32k-baseline": {
+      "vocab_size": 32000,
+      "by_language": {
+        "python": {
+          "docs": 73627,
+          "tokens": 10174639,
+          "bytes": 20000154,
+          "lines": 454649,
+          "tokens_per_byte": 0.5087280327941475,
+          "bytes_per_token": 1.9656868415675486,
+          "tokens_per_line": 22.379107839234223,
+          "roundtrip_fraction": 1.0
+        },
+        "javascript": {
+          "docs": 72810,
+          "tokens": 10086252,
+          "bytes": 20000014,
+          "lines": 562500,
+          "tokens_per_byte": 0.5043122469814271,
+          "bytes_per_token": 1.9828985038248101,
+          "tokens_per_line": 17.931114666666666,
+          "roundtrip_fraction": 1.0
+        },
+        "typescript": {
+          "docs": 79274,
+          "tokens": 9424464,
+          "bytes": 20000214,
+          "lines": 554929,
+          "tokens_per_byte": 0.47121815796570976,
+          "bytes_per_token": 2.1221593079457888,
+          "tokens_per_line": 16.983188840374176,
+          "roundtrip_fraction": 1.0
+        },
+        "shell": {
+          "docs": 81569,
+          "tokens": 9402117,
+          "bytes": 20000060,
+          "lines": 626151,
+          "tokens_per_byte": 0.4701044396866809,
+          "bytes_per_token": 2.127186887804098,
+          "tokens_per_line": 15.015734223853352,
+          "roundtrip_fraction": 1.0
+        },
+        "sql": {
+          "docs": 99261,
+          "tokens": 7464872,
+          "bytes": 20000155,
+          "lines": 99261,
+          "tokens_per_byte": 0.37324070738451776,
+          "bytes_per_token": 2.679236161048709,
+          "tokens_per_line": 75.20448111544313,
+          "roundtrip_fraction": 1.0
+        },
+        "json": {
+          "docs": 60200,
+          "tokens": 8679791,
+          "bytes": 20000061,
+          "lines": 782600,
+          "tokens_per_byte": 0.43398822633590967,
+          "bytes_per_token": 2.3042099746410947,
+          "tokens_per_line": 11.090967288525428,
+          "roundtrip_fraction": 1.0
+        },
+        "markdown": {
+          "docs": 105368,
+          "tokens": 9668193,
+          "bytes": 20000237,
+          "lines": 135344,
+          "tokens_per_byte": 0.4834039216635283,
+          "bytes_per_token": 2.0686633996652737,
+          "tokens_per_line": 71.43421947038657,
+          "roundtrip_fraction": 1.0
+        },
+        "prose": {
+          "docs": 4330,
+          "tokens": 4368281,
+          "bytes": 20001326,
+          "lines": 86634,
+          "tokens_per_byte": 0.2183995701085018,
+          "bytes_per_token": 4.5787635914447815,
+          "tokens_per_line": 50.422247616409265,
+          "roundtrip_fraction": 1.0
+        }
+      },
+      "digit_probes": [
+        {
+          "text": "12345",
+          "tokens": 2,
+          "bytes": 5,
+          "roundtrip": true,
+          "digits_individually_split": false
+        },
+        {
+          "text": "3.14159",
+          "tokens": 5,
+          "bytes": 7,
+          "roundtrip": true,
+          "digits_individually_split": false
+        },
+        {
+          "text": "0xFF3A",
+          "tokens": 5,
+          "bytes": 6,
+          "roundtrip": true,
+          "digits_individually_split": true
+        },
+        {
+          "text": "1000000",
+          "tokens": 2,
+          "bytes": 7,
+          "roundtrip": true,
+          "digits_individually_split": false
+        },
+        {
+          "text": "255",
+          "tokens": 1,
+          "bytes": 3,
+          "roundtrip": true,
+          "digits_individually_split": false
+        },
+        {
+          "text": "2024-01-15",
+          "tokens": 6,
+          "bytes": 10,
+          "roundtrip": true,
+          "digits_individually_split": false
+        },
+        {
+          "text": "v1.2.3",
+          "tokens": 6,
+          "bytes": 6,
+          "roundtrip": true,
+          "digits_individually_split": true
+        }
+      ],
+      "indent": {
+        "spaces_tokens": {
+          "2": 1,
+          "4": 3,
+          "8": 7,
+          "12": 11,
+          "16": 15
+        },
+        "tab_tokens": 2,
+        "nested_snippet_tokens": 45,
+        "nested_snippet_bytes": 61
+      }
+    }
+  },
+  "languages": [
+    "python",
+    "javascript",
+    "typescript",
+    "shell",
+    "sql",
+    "json",
+    "markdown",
+    "prose"
+  ],
+  "max_bytes_per_lang": 20000000
+}
