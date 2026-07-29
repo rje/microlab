@@ -228,13 +228,40 @@ def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
 
         O = Qt P_0 + (L * (Qt K^T)) D,   Qt = A_t q_t.
 
-    Numerics: beta/A_t grows as A_t decays, so the chunk must stay short and the solve
-    must run in fp32 — hence chunk=64 and the .float() below. The decay gate is
-    initialized near 1 (see GatedDeltaNet) which keeps A_t close to 1 across 64 steps."""
+    Numerics — the NON-obvious part, and the reason this is written with decay RATIOS
+    rather than the textbook beta/A_t. Dividing by the cumulative decay A_t is
+    catastrophic: with a learned gate settling near alpha~0.5, A_64 reaches 1e-23 and
+    beta/A_t reaches 1e22. The forward pass survives (the A_t in the output term cancels
+    the 1/A_t in the write term) but the backward does not, and training NaNs. Measured,
+    not hypothesised — see the 2026-07-29 smoke failure.
+
+    So every decay here appears as a ratio A_t/A_j with j <= t, which is bounded by 1 for
+    alpha <= 1, computed in log space. Nothing in the solve or the output can exceed the
+    scale of the inputs, for any gate value:
+
+        (I + diag(beta) (G_strict * K K^T)) E = diag(beta) V - diag(beta*A) K S_0
+        O     = diag(A) Q S_0 + ((Q K^T) * G_incl) E
+        S_new = A_C S_0 + K^T diag(A_C/A) E          where G[t,j] = A_t/A_j
+
+    fp32 is still the floor for the triangular solve (see the .to(work) below)."""
     B, H, T, Dk = q.shape
     Dv = v.shape[-1]
+    T_real = T
     if T % chunk != 0:
-        raise ValueError(f"gdn_chunkwise: T={T} must be a multiple of chunk={chunk}")
+        # Right-pad to a whole number of chunks. The padding is an exact no-op on the
+        # state, not an approximation: with k=0 the delta projection (I - beta k k^T) is
+        # the identity and the write beta k v^T is zero, and with alpha=1 there is no
+        # decay — so the state after the last real token is carried through untouched.
+        # Padded outputs are sliced off below. Causality (tested) guarantees real
+        # positions cannot see the padding. Needed because generation feeds T=1..n
+        # token by token; block_size is always a multiple of chunk during training.
+        pad = chunk - (T % chunk)
+        q = F.pad(q, (0, 0, 0, pad))
+        k = F.pad(k, (0, 0, 0, pad))
+        v = F.pad(v, (0, 0, 0, pad))
+        alpha = F.pad(alpha, (0, pad), value=1.0)
+        beta = F.pad(beta, (0, pad), value=0.0)
+        T = T + pad
     dtype = q.dtype
     # Promote to AT LEAST fp32 — the triangular solve and the beta/A_t rescale are the
     # numerically delicate steps and must not run in bf16/fp16. float64 inputs stay
@@ -251,9 +278,9 @@ def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
     alpha = alpha.view(B, H, nc, chunk)
     beta = beta.view(B, H, nc, chunk)
 
-    # Per-chunk cumulative decay A_t (A at the first position of a chunk is alpha_1
-    # itself: the state entering the chunk is P_0, and step 1 already applies alpha_1).
-    A = torch.cumprod(alpha.clamp_min(1e-6), dim=-1)              # (B,H,nc,chunk)
+    # Cumulative decay per chunk, in log space so ratios are exact subtractions.
+    logA = torch.cumsum(torch.log(alpha.clamp_min(1e-30)), dim=-1)   # (B,H,nc,chunk)
+    A = torch.exp(logA)
 
     eye = torch.eye(chunk, device=q.device, dtype=q.dtype)
     strict = torch.tril(torch.ones(chunk, chunk, device=q.device, dtype=q.dtype), -1)
@@ -263,22 +290,28 @@ def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
     outs = []
     for c in range(nc):
         K, V, Q = k[:, :, c], v[:, :, c], q[:, :, c]              # (B,H,chunk,D*)
-        b, a = beta[:, :, c], A[:, :, c]                          # (B,H,chunk)
-        Qt = Q * a.unsqueeze(-1)                                  # A_t q_t
-        b_over_a = (b / a).unsqueeze(-1)                           # beta_t / A_t
+        b, a, la = beta[:, :, c], A[:, :, c], logA[:, :, c]       # (B,H,chunk)
         bcol = b.unsqueeze(-1)
 
-        M = (K @ K.transpose(-2, -1)) * strict                     # strict_tril(K K^T)
-        lhs = eye + bcol * M                                       # unit lower triangular
-        rhs = b_over_a * V - bcol * (K @ S)
-        D = torch.linalg.solve_triangular(lhs, rhs, upper=False, unitriangular=True)
+        # G[t,j] = A_t / A_j, bounded by 1 for j <= t. Never form 1/A_t.
+        # clamp_max(0) is a NO-OP on the entries we keep (logA is non-increasing, so
+        # logA_t - logA_j <= 0 whenever j <= t) and is essential for the ones we discard:
+        # above the diagonal the difference is large and POSITIVE, exp() gives +inf, and
+        # inf * 0 from the triangular mask is NaN. Masking after exp is not enough.
+        G = torch.exp((la.unsqueeze(-1) - la.unsqueeze(-2)).clamp_max(0.0))
+        M = (K @ K.transpose(-2, -1)) * (G * strict)
+        lhs = eye + bcol * M                                      # unit lower triangular
+        rhs = bcol * V - (b * a).unsqueeze(-1) * (K @ S)
+        E = torch.linalg.solve_triangular(lhs, rhs, upper=False, unitriangular=True)
 
-        attn = (Q @ K.transpose(-2, -1)) * a.unsqueeze(-1) * incl  # L * (Qt K^T)
-        outs.append(Qt @ S + attn @ D)
-        S = S + K.transpose(-2, -1) @ D                            # P_C
-        S = S * a[..., -1].unsqueeze(-1).unsqueeze(-1)             # re-apply A_C: S = A_C P_C
+        attn = (Q @ K.transpose(-2, -1)) * (G * incl)
+        outs.append(a.unsqueeze(-1) * (Q @ S) + attn @ E)
+        # S_new = A_C S_0 + K^T diag(A_C / A) E
+        ratio = torch.exp(la[..., -1:] - la)                      # (B,H,chunk), all <= 1
+        S = a[..., -1].unsqueeze(-1).unsqueeze(-1) * S \
+            + K.transpose(-2, -1) @ (ratio.unsqueeze(-1) * E)
 
-    return torch.cat(outs, dim=2).view(B, H, T, Dv).to(dtype)
+    return torch.cat(outs, dim=2).view(B, H, T, Dv)[:, :, :T_real].to(dtype)
 
 
 class GatedDeltaNet(nn.Module):
@@ -315,7 +348,13 @@ class GatedDeltaNet(nn.Module):
         self.b_proj = nn.Linear(config.n_embd, config.n_head, bias=True)
         self.g_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
         self.o_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
-        # Long-memory init: alpha ~ 0.989, beta ~ 0.5 (neutral write strength).
+        self.reset_gate_parameters()
+
+    def reset_gate_parameters(self) -> None:
+        """Long-memory init: alpha ~ 0.989 (bias 4.5), beta ~ 0.5 (neutral write). Called
+        from __init__ AND re-called by VariantGPT after its generic apply(_init_weights),
+        which otherwise overwrites these with normal(0,0.02)/zeros and starts alpha at
+        ~0.5 — a decay so fast the chunk-cumulative product underflows."""
         nn.init.zeros_(self.a_proj.weight)
         nn.init.constant_(self.a_proj.bias, 4.5)
         nn.init.zeros_(self.b_proj.weight)
@@ -478,6 +517,14 @@ class VariantGPT(nn.Module):
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.transformer.wte.weight = self.lm_head.weight
         self.apply(self._init_weights)
+        # MUST come after apply(): _init_weights treats every nn.Linear the same and
+        # would clobber the gate init below (it did — the first GDN training attempt
+        # NaN'd because alpha landed at sigmoid(0)~0.5 instead of ~0.99, driving the
+        # cumulative chunk decay to 1e-23). Any module needing an init that survives the
+        # generic pass has to re-apply it here.
+        for m in self.modules():
+            if isinstance(m, GatedDeltaNet):
+                m.reset_gate_parameters()
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):

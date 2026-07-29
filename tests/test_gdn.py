@@ -87,10 +87,65 @@ def test_causality():
     assert not torch.allclose(base[:, :, 40:], pert[:, :, 40:])
 
 
-def test_rejects_ragged_sequence():
-    q, k, v, alpha, beta = _rand(T=64)
-    with pytest.raises(ValueError, match="must be a multiple of chunk"):
-        gdn_chunkwise(q, k, v, alpha, beta, chunk=48)
+@pytest.mark.parametrize("T", [1, 5, 63, 64, 65, 100])
+def test_ragged_sequence_matches_recurrent(T):
+    """Generation feeds T=1,2,3,... token by token, so a sequence shorter than (or not a
+    multiple of) the chunk MUST work and must be exact, not approximate. Regression test:
+    the first GDN smoke run trained fine for 5 steps and then died in end-of-run sample
+    generation on T=1. Right-padding is a no-op on the state only if k=0/beta=0/alpha=1
+    is handled correctly — this is what proves it."""
+    q, k, v, alpha, beta = _rand(T=T, seed=T)
+    ref = gdn_recurrent(q, k, v, alpha, beta)
+    got = gdn_chunkwise(q, k, v, alpha, beta, chunk=64)
+    assert got.shape == ref.shape
+    assert torch.allclose(ref, got, atol=1e-8, rtol=1e-6), (
+        f"T={T} max abs diff {(ref - got).abs().max().item():.3e}"
+    )
+
+
+def test_incremental_generation_shapes():
+    """The exact call pattern sample.py uses: grow the context one token at a time."""
+    torch.manual_seed(0)
+    m = VariantGPT(_cfg(n_layer=4, hybrid_every=4, gdn_chunk=64, block_size=128))
+    idx = torch.randint(0, 64, (1, 1))
+    for _ in range(8):
+        logits, _ = m(idx)
+        assert logits.shape == (1, idx.shape[1], 64)
+        idx = torch.cat([idx, torch.randint(0, 64, (1, 1))], dim=1)
+
+
+@pytest.mark.parametrize("alpha_lo,alpha_hi", [(0.4, 0.6), (0.1, 0.9), (0.01, 0.05)])
+def test_fp32_stable_under_hostile_decay(alpha_lo, alpha_hi):
+    """REGRESSION for the 2026-07-29 NaN. The original chunkwise form divided by the
+    cumulative decay A_t; with alpha~0.5 and chunk=64, A_64 ~ 1e-23 so beta/A_t ~ 1e22.
+    The forward pass hid it (the factors cancel) but the backward NaN'd in training.
+
+    The earlier fp64 tests could not catch this — 1e22 is harmless in float64. This runs
+    at fp32, the precision training actually uses, at full chunk=64, and checks the
+    OUTPUT MAGNITUDE stays on the scale of the inputs rather than only checking for NaN,
+    because the cancellation means a broken implementation can still return finite
+    numbers on the forward pass."""
+    q, k, v, alpha, beta = _rand(T=128, seed=42, alpha_lo=alpha_lo, alpha_hi=alpha_hi)
+    q32, k32, v32 = q.float(), k.float(), v.float()
+    a32, b32 = alpha.float(), beta.float()
+    got = gdn_chunkwise(q32, k32, v32, a32, b32, chunk=64)
+    assert torch.isfinite(got).all(), "non-finite output"
+    # v is unit-normal, so outputs of order 1e2 already mean the scan is amplifying.
+    assert got.abs().max() < 1e2, f"output blew up: absmax {got.abs().max().item():.3e}"
+    ref = gdn_recurrent(q, k, v, alpha, beta).float()
+    assert torch.allclose(ref, got, atol=1e-4, rtol=1e-3), (
+        f"fp32 diverged from fp64 reference: max diff {(ref - got).abs().max().item():.3e}"
+    )
+
+
+def test_gradients_finite_under_hostile_decay():
+    """The forward hid the original bug; only the backward exposed it. So check grads."""
+    q, k, v, alpha, beta = _rand(T=128, seed=13, alpha_lo=0.3, alpha_hi=0.7)
+    q, k, v = (t.float().requires_grad_(True) for t in (q, k, v))
+    a, b = alpha.float().requires_grad_(True), beta.float().requires_grad_(True)
+    gdn_chunkwise(q, k, v, a, b, chunk=64).sum().backward()
+    for name, t in (("q", q), ("k", k), ("v", v), ("alpha", a), ("beta", b)):
+        assert torch.isfinite(t.grad).all(), f"non-finite grad wrt {name}"
 
 
 def _cfg(**kw):
@@ -128,6 +183,27 @@ def test_hybrid_forward_and_backward():
     for name, p in gdn.named_parameters():
         assert p.grad is not None, f"no grad reached {name}"
         assert torch.isfinite(p.grad).all(), f"non-finite grad in {name}"
+
+
+def test_gate_init_survives_model_init_weights():
+    """REGRESSION: VariantGPT.apply(_init_weights) treats every nn.Linear alike and
+    silently overwrote GatedDeltaNet's gate init, starting alpha at sigmoid(0)~0.5 rather
+    than ~0.99. That drove the chunk-cumulative decay to 1e-23 and NaN'd training while
+    every fp64 unit test still passed. Assert the init a full model actually ends up with,
+    not the one the layer sets in isolation."""
+    m = VariantGPT(_cfg(n_layer=4, hybrid_every=4, gdn_chunk=16))
+    for i, blk in enumerate(m.transformer.h):
+        if not blk.is_linear:
+            continue
+        g = blk.attn
+        assert torch.allclose(g.a_proj.bias, torch.full_like(g.a_proj.bias, 4.5)), \
+            f"layer {i}: decay-gate bias was clobbered ({g.a_proj.bias[0].item():.3f})"
+        assert torch.allclose(g.a_proj.weight, torch.zeros_like(g.a_proj.weight)), \
+            f"layer {i}: decay-gate weight was clobbered"
+        alpha0 = torch.sigmoid(g.a_proj.bias)[0].item()
+        assert alpha0 > 0.98, f"layer {i}: alpha starts at {alpha0:.4f}, want >0.98"
+        # And the consequence that actually matters: decay over one chunk stays sane.
+        assert alpha0 ** 64 > 1e-2, "cumulative chunk decay underflows at init"
 
 
 def test_gdn_rejects_kv_cache():
