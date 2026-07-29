@@ -1,0 +1,60 @@
+{
+  "paperId": "the-impact-of-positional-encoding-on-length-generalization-in-transformers",
+  "cards": [
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#1",
+      "question": "What is this paper's headline finding about positional encodings and length generalization in decoder-only Transformers?",
+      "answer": "Removing the positional encoding entirely (NoPE) generalizes to unseen lengths better than every explicit scheme tested. Aggregate mean reciprocal rank across 10 reasoning tasks: NoPE 0.69 > T5's Relative PE 0.55 > ALiBi 0.50 > Rotary 0.33 > APE 0.22 — and NoPE gets this without computing any extra term in attention."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#2",
+      "question": "How is the length-generalization evaluation constructed in this paper?",
+      "answer": "Each task is cast as sequence-to-sequence with a length function; training instances have length sampled U(1,L) with L=20, test instances U(1,2L), so half the test range is unseen lengths. Models (~107M decoder-only, trained from scratch per task with the LM objective) are scored by exact-match accuracy of the answer, over 10 tasks x 3 seeds."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#3",
+      "question": "Why can a decoder-only Transformer function at all without positional encoding, when an encoder-only model cannot?",
+      "answer": "The causal attention mask breaks permutation invariance: position t can only attend to positions <= t, so order information is implicitly available. An encoder-only model like BERT without PE collapses to a bag-of-words; a causal decoder does not."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#4",
+      "question": "What does Theorem 1 of the NoPE paper establish?",
+      "answer": "That the first layer of a NoPE decoder can recover absolute positions: there exist weights (W_Q, W_K, W_V, W_O, W_1, W_2) such that layer 1's attention + feed-forward writes the positions 1..T+1 into the hidden state H(1). So absolute position is representable from the causal mask alone, and SGD could in principle learn it."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#5",
+      "question": "What does Theorem 2 of the NoPE paper establish, given that layer 1 has recovered absolute positions?",
+      "answer": "That all subsequent layers can implement a relative positional encoding: there is a parameterization where the attention dot product decomposes as <q_n, k_m> = f_cnt(q,k) + f_rel(n-m), a content term plus a relative-distance term. Together with Theorem 1, NoPE can represent both absolute and relative PEs."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#6",
+      "question": "How did the authors determine which explicit PE a trained NoPE model actually resembles, and what was the result?",
+      "answer": "They compared attention distributions: for two models, take the Jensen-Shannon divergence between head attention distributions averaged over positions, then the minimum over head pairs per layer. NoPE's patterns are closest to T5's Relative PE (and farthest from APE/Rotary) — SGD learns a relative-encoding-like solution in practice."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#7",
+      "question": "What surprising behavior does Rotary (RoPE) show in this study, despite being nominally a relative encoding?",
+      "answer": "At length extrapolation Rotary performs more like APE than like the relative schemes — near the bottom of the ranking, well behind T5's Relative PE and ALiBi. Being algebraically relative does not confer the generalization benefits of the learned-relative-bias family."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#8",
+      "question": "What do the attended-distance distributions look like for the different PEs, and which shape correlates with good length generalization?",
+      "answer": "Normalizing query-to-key distance per sequence: NoPE and T5's Relative PE are bimodal (mass on both nearby and distant tokens), ALiBi is strongly recency-biased, and Rotary/APE are close to uniform. The bimodal short+long-range shape belongs to the two best generalizers, suggesting it is the more optimal attention structure."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#9",
+      "question": "Does scratchpad/chain-of-thought make the choice of positional encoding irrelevant for length generalization?",
+      "answer": "No. Across all PEs scratchpad reliably helps only the addition task, and its format (which of the five step components — input, computation, output, variable updates, remaining input — are included) strongly affects performance. A robust PE still matters; CoT alone is not a fix."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#10",
+      "question": "What happened when the authors scaled the PE comparison to 1.3B-parameter language models trained on code?",
+      "answer": "At I.I.D. lengths all variants (ALiBi, Rotary, NoPE) have similar perplexity, but at extrapolation Rotary's perplexity explodes while NoPE and ALiBi generalize to roughly 2x their 1024-token training context; beyond that ALiBi is more stable than NoPE. The small-scale ranking partially, but not fully, carries over."
+    },
+    {
+      "id": "the-impact-of-positional-encoding-on-length-generalization-in-transformers#11",
+      "question": "Why is perplexity a misleading metric for judging a positional encoding's length generalization?",
+      "answer": "Natural text is dominated by short-range dependencies, so a recency-biased scheme can score well on ppl while ignoring distant context — ALiBi's length-generalization ppl can be replicated by a plain window attention mask. Downstream tasks that require long-range use (retrieval, reasoning) expose what perplexity hides."
+    }
+  ]
+}

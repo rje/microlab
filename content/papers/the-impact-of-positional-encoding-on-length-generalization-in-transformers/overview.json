@@ -1,0 +1,48 @@
+{
+  "paperId": "the-impact-of-positional-encoding-on-length-generalization-in-transformers",
+  "generatedAt": "2026-07-29",
+  "depthSuggestion": "understand",
+  "tldr": "Kazemnejad et al. show that a decoder-only Transformer with NO positional encoding (NoPE) length-generalizes better than APE, ALiBi, Rotary, and T5's Relative PE on a battery of reasoning tasks — and prove NoPE can represent both absolute and relative positions, in practice learning something like T5's relative scheme.",
+  "overview": "A systematic study (NeurIPS 2023) of how the choice of positional encoding affects length generalization — training on short instances and testing on longer ones — in decoder-only Transformers trained from scratch. Across 10 algorithmic/reasoning tasks (copy, reverse, addition, sorting, SCAN, PCFG, ...), the aggregate ranking is NoPE > T5's Relative PE > ALiBi > Rotary > APE: removing the positional encoding entirely beats every explicit scheme, at zero extra compute. Two theorems explain why NoPE is not handicapped — the causal mask lets the first layer recover absolute positions and later layers implement relative attention — and attention-map analysis shows SGD in practice drives NoPE toward T5-Relative-like (bimodal short+long range) attention patterns. A scratchpad/CoT study and a post-submission 1.3B-parameter language-model experiment round out the evidence that explicit PEs, especially Rotary, are the weak link for extrapolation.",
+  "sections": [
+    {
+      "title": "Introduction",
+      "summary": "Length generalization is a major Transformer failure mode and PE is a suspected cause, but prior evaluations lean on perplexity, which tracks downstream extrapolation poorly. Sets up the question: which PE (if any) generalizes on downstream tasks, and does scratchpad/CoT make the choice irrelevant?"
+    },
+    {
+      "title": "Background: Positional Encoding in Transformers",
+      "summary": "Reviews the five candidates: APE (sinusoidal), T5's Relative bias (bucketed learned scalar added to QK logits), Rotary (rotate q/k by absolute position so the dot product depends on relative distance), ALiBi (linear distance penalty on logits), and NoPE. Key observation: decoder-only models are not permutation-invariant thanks to the causal mask, so NoPE is viable."
+    },
+    {
+      "title": "Model Evaluation",
+      "summary": "Setup: ~107M decoder-only models trained from scratch per task, instance lengths sampled U(1,L) with L=20 for training, tested on U(1,2L) so half the test range is unseen lengths; exact-match accuracy, 10 tasks x 3 seeds. Tasks span primitives (copy, reverse), math/algorithmic (addition, polynomial eval, sorting, summation, parity, LEGO), and classic splits (SCAN, PCFG)."
+    },
+    {
+      "title": "What Is The Effect of Positional Encoding?",
+      "summary": "All PEs fit the training lengths; the differences appear only at extrapolation. Aggregate mean reciprocal rank: NoPE 0.69 > T5-RPE 0.55 > ALiBi 0.50 > Rotary 0.33 > APE 0.22. Rotary behaves more like APE than like the relative schemes, and NoPE matches or beats T5-RPE with none of its compute overhead."
+    },
+    {
+      "title": "How Does NoPE Represent Positions?",
+      "summary": "Theorem 1: the first layer of a NoPE decoder can recover absolute positions 1..T+1 into its hidden state (the causal mask supplies the signal). Theorem 2: given that, subsequent layers can implement relative PE, with attention logits decomposing as f_cnt(q,k) + f_rel(n-m). Empirically (min-JSD distance between attention distributions), trained NoPE is closest to T5's Relative PE — SGD picks the relative solution."
+    },
+    {
+      "title": "Does Scratchpad Render The Choice of PE Irrelevant?",
+      "summary": "No: across PEs, scratchpad reliably helps only addition, and its format (which of the five step components are included) matters a lot. Attention analysis shows NoPE and T5-RPE attend bimodally (both near and far tokens), ALiBi is recency-dominated, Rotary/APE near-uniform — the bimodal pattern tracks the winners."
+    },
+    {
+      "title": "Discussion",
+      "summary": "Post-submission 1.3B LMs on StarCoder data: identical in-distribution perplexity, but at extrapolation Rotary's perplexity explodes while NoPE and ALiBi hold to ~2x the training context (ALiBi more stable beyond). Warns that perplexity flatters recency-biased PEs like ALiBi (replicable with a plain window mask), so downstream-task evaluation is essential."
+    },
+    {
+      "title": "Related Work & Conclusion",
+      "summary": "Positions the study against prior PE comparisons (mostly encoder-decoder or perplexity-based) and concludes that explicit position encodings are not essential for decoder-only Transformers — NoPE generalizes best on downstream tasks and scratchpad is not a reliable fix."
+    }
+  ],
+  "readingFocus": [
+    "This is the paper behind the lab's queued NoPE-vs-RoPE 150M ablation: note the evaluation design (train U(1,L), test U(1,2L), exact match) — length-split downstream accuracy, not perplexity, is the metric our ablation harness should mirror.",
+    "The Rotary result is the uncomfortable one for us: our 150M/1B pretrains are RoPE models, and here Rotary is closer to APE than to relative schemes at extrapolation — the same brittleness we met when extending the 1B's context (ABF retunes, passkey consolidation).",
+    "Theorems 1-2 are worth working through: the causal mask alone makes position recoverable, which is why deleting RoPE from VariantGPT is a coherent architecture, not a degenerate one.",
+    "Mind the scale caveat: the headline wins are ~107M models on synthetic tasks; at 1.3B on real code NoPE and ALiBi only hold to ~2x training context. Treat NoPE as promising-but-unproven at scale, which is exactly what the ablation is for.",
+    "The perplexity-vs-downstream section is a general eval lesson for the harness: a recency-biased model can look fine on ppl while failing retrieval-style tasks — pair any context-length claim with a task eval (our passkey probe)."
+  ]
+}

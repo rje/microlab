@@ -1,0 +1,44 @@
+{
+  "paperId": "kimi-linear-an-expressive-efficient-attention-architecture",
+  "generatedAt": "2026-07-29",
+  "depthSuggestion": "understand",
+  "tldr": "Kimi Linear interleaves a fine-grained gated delta-rule linear attention (Kimi Delta Attention) with full MLA layers at a 3:1 ratio — with NoPE on the full-attention layers — and, under matched 1.4T-token pretraining, beats full attention on short-context, long-context, and RL evals while cutting KV cache up to 75% and reaching 6x decoding throughput at 1M context.",
+  "overview": "Moonshot's technical report on a hybrid linear-attention architecture claimed to be the first to beat full attention under fair, matched-recipe comparisons. The core module, Kimi Delta Attention (KDA), upgrades Gated DeltaNet's scalar forget gate to a channel-wise diagonal gate — S_t = (I - beta_t k_t k_t^T) Diag(alpha_t) S_{t-1} + beta_t k_t v_t^T — giving each feature dimension its own forgetting rate, and implements it with a chunkwise algorithm (a constrained DPLR form with both low-rank vectors bound to k) that roughly doubles operator speed over general DPLR kernels. The model stacks 3 KDA layers per full-attention (MLA) layer, applies NoPE in the MLA layers so all position information comes from KDA's data-dependent decay, and uses a Moonlight-style MoE (48B total / 3B activated). At 1.4T tokens Kimi Linear outperforms both full MLA and hybrid GDN baselines on short-context, SFT, long-context (RULER 84.3 vs 81.3), and RL evaluations, with a ~1.16x scaling-law compute advantage over MLA and large long-context inference wins.",
+  "sections": [
+    {
+      "title": "Introduction",
+      "summary": "Motivates hybrid linear attention from the economics of agentic/RL-era decoding: quadratic attention and a linearly growing KV cache dominate long-horizon inference. Contributions: KDA (fine-grained gated delta rule), the 3:1 hybrid Kimi Linear architecture, and matched-scale 1.4T-token validation with released kernels and checkpoints."
+    },
+    {
+      "title": "Preliminary: Linear Attention and the Gated Delta Rule",
+      "summary": "Builds the lineage as online learning on a matrix-valued fast-weight state: vanilla linear attention accumulates k-v associations without forgetting; DeltaNet takes gradient steps on a reconstruction loss ||S^T k - v||^2 (the delta rule, a rank-1 Householder-style update); Gated DeltaNet adds a scalar forget gate as weight decay on the fast weights."
+    },
+    {
+      "title": "Kimi Delta Attention (3)",
+      "summary": "KDA replaces GDN's scalar gate with Diag(alpha_t) — per-channel forgetting, like GLA but combined with the delta rule. A chunkwise-parallel algorithm (WY representation + UT transform) keeps it tensor-core friendly; binding the DPLR low-rank vectors to k cuts second-level chunk computations from four to two and drops three matmuls, ~100% operator speedup and ~2x kernel speed over DPLR up to 64K length."
+    },
+    {
+      "title": "The Kimi Linear Model Architecture (4)",
+      "summary": "Moonlight-style MoE backbone; KDA heads (d_k = d_v = 128) with ShortConv+Swish on q/k/v, L2-normed q/k, low-rank per-channel forget gate, sigmoid output gate with head-wise RMSNorm (mitigates attention sinks). Layerwise uniform hybrid: 3 KDA layers per 1 full MLA layer, and NoPE in all MLA layers — KDA alone carries position and recency."
+    },
+    {
+      "title": "Experiments (5)",
+      "summary": "Synthetics (palindrome, MQAR, stack): KDA converges fastest; Mamba2 fails. Ablations: 3:1 hybrid ratio is the val-PPL sweet spot (5.65 vs 5.77 pure-full-attention and 5.82 at 15:1); sigmoid output gate and ShortConv both matter. Scaling laws (Chinchilla-style, Muon): ~1.16x compute efficiency over MLA. At 1.4T tokens Kimi Linear beats MLA and GDN-H on short-context, SFT, long-context (RULER 84.3, 128K avg 54.5 vs 52.2), and RL math training; decoding TPOT 6.3x faster than MLA at 1M context."
+    },
+    {
+      "title": "Discussions (6): KDA as Learnable Position Embedding, DPLR Relation, Complexity",
+      "summary": "Reframes RoPE as fixed multiplicative position encoding (products of rotation matrices between q and k) and gated delta rules as its learnable, data-dependent generalization — the argument for NoPE in the global layers. Details the constrained-DPLR equivalence (a = beta*k, b = k .* alpha) and gives FLOP counts: KDA is linear in T per head vs 2*T^2*d_h for full attention."
+    },
+    {
+      "title": "Related Works and Conclusion (7-8)",
+      "summary": "Maps the efficient-attention landscape (linear vs sparse; a taxonomy table of update rules from Mamba2/GLA/DeltaNet/GDN/RWKV7 to KDA) and closes by positioning Kimi Linear as a drop-in full-attention replacement for the agentic, decoding-heavy era."
+    }
+  ],
+  "readingFocus": [
+    "This is the stretch/next-generation item in the attention/position succession: after GQA (share KV heads) and MLA (compress KV to a latent), the hybrid route caches a fixed-size recurrent state for most layers and keeps only 1-in-4 full-attention layers. Note what the remaining full layers are: MLA — the successions compose.",
+    "The NoPE choice (Section 4 + 6.1) is the production-scale echo of the Kazemnejad NoPE paper in our Phase-3 readings: position comes from KDA's learned decay, and dropping RoPE from the global layers both improves long-context extrapolation (Table 5's RoPE ablation) and removes RoPE frequency retuning from long-context training — the exact pain our 1B ABF extension hit.",
+    "Read 2.2 as a derivation ladder, not background: linear attention -> delta rule -> gated delta rule -> KDA is each 'one term added' to an online-learning update. This is the mental model for reading any linear-attention paper.",
+    "The 3:1 ratio ablation (Table 1) is a model Phase-3-style experiment: one knob (hybrid ratio), clear metric (train/val PPL under fixed FLOPs), non-monotonic result — pure full attention loses to the hybrid, and so does 15:1.",
+    "Weigh the fair-comparison claims: identical recipe, 1.4T tokens, three architectures (MLA, GDN-H, Kimi Linear) — but note it is the vendor's own comparison and the quality margins are small next to the inference-efficiency margins."
+  ]
+}

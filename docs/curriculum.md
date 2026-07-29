@@ -103,6 +103,31 @@ Muon-vs-AdamW A/B on otherwise identical configs, scored as steps to equal valid
 gates its use for the 1B→2B model-growth run (ablation stretch in
 `docs/hand-write/phase4-scaling.md`).
 
+**Attention/position succession note:** the Phase-3 attention readings now carry two
+successions past what the 1B shipped. On the KV-cache axis: MHA -> GQA (share K/V heads) ->
+**MLA** (DeepSeek-V2, arXiv:2405.04434) — instead of sharing heads, compress every head's K/V
+into one low-rank latent per token (all heads up-project from a shared `c_KV`, and the
+up-projections fold into the Q and O matrices so only the latent is cached: GQA-with-2.25-groups
+cache at better-than-MHA quality). Our GQA-conversion audit found exactly the structure MLA
+exploits: the 1B's K/V heads look orthogonal in raw weight space but share ~0.42-0.49 of their
+structure after basis alignment (`docs/gqa-conversion-audit.md`) — naive mean-pooling ignores
+that shared basis, MLA *learns* it as the architecture. MLA is a design candidate for the next
+specialist pretrain. On the position axis: RoPE is no longer the settled answer. The NoPE
+result (Kazemnejad et al., arXiv:2305.19466) shows decoder-only Transformers length-generalize
+*better* with no positional encoding than with RoPE, and the frontier has started acting on
+it — Kimi K3 shipped as the first frontier model with globally-NoPE attention (see
+[Raschka's K3 architecture notes](https://sebastianraschka.com/blog/2026/kimi-k3-architecture-notes.html)).
+Our own RoPE-extension pain is the motivation in miniature: stage 1 of the staged context
+extension (1024->4k, `docs/sota-parity-1b.md`) took ABF base retuning, a redone gentler run
+after a -2pt short-context regression, and a second anneal to consolidate passkey retrieval —
+costs a position-free model would not pay. A NoPE-vs-RoPE 150M ablation is queued (being built
+now) to measure this at our scale. The stretch item is the hybrid linear-attention generation:
+Kimi Linear (arXiv:2510.26692) interleaves ~3 linear-attention (KDA) layers per full-attention
+layer — and its full layers are MLA running NoPE, so the successions compose — beating matched
+full attention while cutting KV cache up to 75%. Hand-write coverage is unchanged (RMSNorm /
+RoPE / SwiGLU / GQA / MoE routing are the graded stubs); MLA and NoPE enter through the
+readings, the queued ablation, and the next-pretrain parity review.
+
 **Honest capability note:** a from-scratch ~1B on ~20B tokens is GPT-2-XL / Pythia-1B class
 — coherent, instructable after SFT, basic reasoning after RL. It won't match modern 1–2B
 models (trained on trillions of tokens); the value is a real model built from nothing and
