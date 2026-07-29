@@ -1,0 +1,33 @@
+{
+  "header": {
+    "run": "runs/350m-sft-mix",
+    "registry": "evals/toolcall/registry.json",
+    "items": "evals/toolcall/items.jsonl",
+    "max_new": 64,
+    "limit": null
+  },
+  "ckpt_step": 14193,
+  "overall": {
+    "n": 120,
+    "tool_acc": 0.008333333333333333,
+    "strict_acc": 0.008333333333333333,
+    "arg_f1_when_tool_correct": 1.0,
+    "parse_failures": 114
+  },
+  "splits": {
+    "compositional": {
+      "n": 60,
+      "tool_acc": 0.016666666666666666,
+      "strict_acc": 0.016666666666666666,
+      "arg_f1_when_tool_correct": 1.0,
+      "parse_failures": 59
+    },
+    "pattern": {
+      "n": 60,
+      "tool_acc": 0.0,
+      "strict_acc": 0.0,
+      "arg_f1_when_tool_correct": 0.0,
+      "parse_failures": 55
+    }
+  }
+}
