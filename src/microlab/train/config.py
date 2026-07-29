@@ -29,6 +29,15 @@ class RunConfig:
     # RoPE frequency base (theta); 10000.0 was hard-coded before this field existed.
     # Groundwork for the context-extension stage (PI/YaRN want a raised base).
     rope_base: float = 10000.0
+    # None -> every layer is global attention (unchanged default). N -> Kimi-Linear-style
+    # layerwise hybrid: every Nth layer stays global attention, the other N-1 become
+    # GatedDeltaNet. N=4 is the published 3:1 linear:full ratio. `pos` then applies only
+    # to the surviving global layers (GDN carries position in its recurrence), so
+    # pos="nope" + hybrid_every=4 is the Kimi Linear config and retests the NoPE
+    # conditional from docs/nope-verdict-audit.md.
+    hybrid_every: int | None = None
+    gdn_chunk: int = 64        # chunk-parallel block length (see gdn_chunkwise numerics)
+    gdn_conv_kernel: int = 4   # short causal depthwise conv on q/k/v, as published
     # optim / schedule
     optimizer: str = "adamw"  # "adamw" | "muon" (Muon on block matrices + AdamW on the rest)
     lr: float = 3e-4
