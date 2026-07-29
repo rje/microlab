@@ -127,25 +127,41 @@ original's, truncated): muon_lr 0.01 (x0.5), 0.02 (x1 — also the run-to-run st
 point), 0.04 (x2). Reference points at step 1000: original NoPE 3.9033, RoPE 3.8210
 (gap +0.0823).
 
-RESULTS-PENDING
+RESULTS (2026-07-29, `runs/nope-audit-lr{05,10,20}`, step 1000):
+
+| arm | muon_lr | val loss @1000 | gap vs RoPE (3.8210) |
+|---|---|---|---|
+| nope-audit-lr05 | 0.01 (x0.5) | **3.8860** | +0.0650 |
+| nope-audit-lr10 | 0.02 (x1) | 3.9054 | +0.0844 |
+| nope-audit-lr20 | 0.04 (x2) | 4.1321 | +0.3111 |
+| (original NoPE arm) | 0.02 | 3.9033 | +0.0823 |
+
+The x1 rerun reproduces the original arm to 0.002 nats — the pipeline is stable. Halving
+the Muon LR is NoPE's best setting and buys **0.017 nats**, recovering ~20% of the gap;
+doubling is catastrophic. **The gap is not an LR artifact.** PASS.
 
 ## 4. Verdict classification
 
-CLASSIFICATION-PENDING
+**(iii) fair result at this scale/duration — verdict CONFIRMED.** All four protocol legs
+pass. The in-window penalty is real, is not an implementation error, is not an LR-tuning
+artifact, and is ~4.4x the measured cross-seed noise band (see (c) — note this multiplier
+is an order of magnitude smaller than the one this document originally claimed).
 
 ## Protocol status
 
 - (a) POSITIVE CONTROL: PASS (Haviv probe replicated on our NoPE arm).
-- (b) HP FAIRNESS: SWEEP-PENDING
-- (c) NOISE BAND: the Peri-LN multi-seed calibration arms (seed-1338 copies) are not yet
-  trained, so the cross-seed band is still open. Two matched-seed measurements exist
-  already: `runs/muon-ab-muon` vs `runs/nope-ab-rope` are config-identical twins (diff:
-  `out_dir` only) trained months apart — their matched-step val-loss deltas across all
-  18 eval points are max 0.0014 / mean 0.0009 nats, so the +0.057 gap is **~40x the
-  run-to-run band**; the x1 sweep rerun adds the same measurement for the NoPE arm.
-  Cross-seed variance remains for the Peri-LN lane, but note both A/B arms share one
-  seed/init/data order, so the gap is the intervention effect at that seed, and the
-  literature predicts its direction and size (2b). NOISE-PENDING
+- (b) HP FAIRNESS: **PASS** — LR sweep above; best-LR NoPE still trails RoPE by 0.065 at
+  step 1000.
+- (c) NOISE BAND: **PASS, with the original multiplier CORRECTED.** The Peri-LN seed-1338
+  arms have now trained, giving a real cross-seed band at 124M/4500 steps: |Δ| between
+  seeds is **0.0148 (pre-norm) / 0.0104 (peri-norm), mean ~0.013 nats**. The earlier
+  figure in this document — max 0.0014 / mean 0.0009 from the `muon-ab-muon` vs
+  `nope-ab-rope` config-identical twins — measures only **kernel nondeterminism at a fixed
+  seed**, not init/data-order variation, and is the wrong denominator for an architecture
+  comparison (a different architecture is effectively a fresh random draw). Against the
+  correct cross-seed band the +0.057 NoPE gap is **~4.4x**, not the ~40x originally
+  claimed. The verdict is unchanged — 4.4x still clears — but any future claim of the
+  form "Nx the noise floor" must use the cross-seed band.
 - (d) IMPLEMENTATION REVIEW: PASS (no deviation; param trees verified bit-identical at
   init, configs differ only in `pos`/`out_dir`, eval path correct for NoPE at extended
   lengths).
