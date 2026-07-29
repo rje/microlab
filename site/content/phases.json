@@ -68,7 +68,8 @@
       "humaneval-codex",
       "helm",
       "big-bench",
-      "chatbot-arena"
+      "chatbot-arena",
+      "judging-llm-as-a-judge-with-mt-bench-and-chatbot-arena"
     ]
   },
   {
@@ -241,7 +242,8 @@
     "readingPaperIds": [
       "fine-tuning-language-models-from-human-preferences",
       "training-language-models-to-follow-instructions-with-human-feedback",
-      "constitutional-ai-harmlessness-from-ai-feedback"
+      "constitutional-ai-harmlessness-from-ai-feedback",
+      "rlaif-scaling-reinforcement-learning-from-human-feedback-with-ai-feedback"
     ]
   },
   {
@@ -254,7 +256,10 @@
     "readingPaperIds": [
       "direct-preference-optimization-your-language-model-is-secretly-a-reward-model",
       "orpo-monolithic-preference-optimization-without-reference-model",
-      "kto-model-alignment-as-prospect-theoretic-optimization"
+      "kto-model-alignment-as-prospect-theoretic-optimization",
+      "a-general-theoretical-paradigm-to-understand-learning-from-human-preferences",
+      "simpo-simple-preference-optimization-with-a-reference-free-reward",
+      "disentangling-length-from-quality-in-direct-preference-optimization"
     ]
   },
   {
