@@ -177,6 +177,172 @@ class GQAAttention(nn.Module):
         return self.c_proj(y)
 
 
+def gdn_recurrent(q, k, v, alpha, beta):
+    """Reference Gated DeltaNet recurrence — the O(T) sequential form. Obviously correct
+    by construction; exists to be the test oracle for the chunkwise path, NOT to be
+    trained with (a python loop over T is ~100x too slow).
+
+    State S_t (per head) is a d_k x d_v outer-product memory:
+
+        S_t = alpha_t (I - beta_t k_t k_t^T) S_{t-1} + beta_t k_t v_t^T
+        o_t = S_t^T q_t
+
+    i.e. the DeltaNet delta rule (erase the current read along k_t before writing v_t)
+    with Mamba2-style scalar forget gate alpha_t. Shapes: q,k (B,H,T,Dk), v (B,H,T,Dv),
+    alpha,beta (B,H,T). Returns (B,H,T,Dv)."""
+    B, H, T, Dk = q.shape
+    Dv = v.shape[-1]
+    S = q.new_zeros(B, H, Dk, Dv)
+    out = []
+    eye = torch.eye(Dk, device=q.device, dtype=q.dtype)
+    for t in range(T):
+        k_t = k[:, :, t]                                   # (B,H,Dk)
+        v_t = v[:, :, t]                                   # (B,H,Dv)
+        a_t = alpha[:, :, t].unsqueeze(-1).unsqueeze(-1)    # (B,H,1,1)
+        b_t = beta[:, :, t].unsqueeze(-1).unsqueeze(-1)     # (B,H,1,1)
+        proj = eye - b_t * k_t.unsqueeze(-1) * k_t.unsqueeze(-2)   # (B,H,Dk,Dk)
+        S = a_t * (proj @ S) + b_t * (k_t.unsqueeze(-1) * v_t.unsqueeze(-2))
+        out.append((S.transpose(-2, -1) @ q[:, :, t].unsqueeze(-1)).squeeze(-1))
+    return torch.stack(out, dim=2)
+
+
+def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
+    """Chunk-parallel Gated DeltaNet — the trainable path. Mathematically identical to
+    `gdn_recurrent` (enforced by tests/test_gdn.py to ~1e-4); T/chunk sequential steps
+    instead of T.
+
+    Derivation (all within one chunk, per head). Substituting S_t = A_t P_t with the
+    cumulative decay A_t = prod_{i<=t} alpha_i turns the gated recurrence into an
+    UNgated delta rule on P with rescaled write strength and query:
+
+        P_t = (I - beta_t k_t k_t^T) P_{t-1} + (beta_t / A_t) k_t v_t^T
+        o_t = P_t^T (A_t q_t)
+
+    Writing the rank-1 update at step t as P_t = P_{t-1} + k_t d_t^T gives, for the
+    matrix D of all d_t^T in the chunk,
+
+        (I + diag(beta) M) D = diag(beta/A) V - diag(beta) K P_0,   M = strict_tril(K K^T)
+
+    a unit-lower-triangular solve. Then P_C = P_0 + K^T D and, with L the INCLUSIVE
+    lower-triangular mask (output uses the state after its own write),
+
+        O = Qt P_0 + (L * (Qt K^T)) D,   Qt = A_t q_t.
+
+    Numerics: beta/A_t grows as A_t decays, so the chunk must stay short and the solve
+    must run in fp32 — hence chunk=64 and the .float() below. The decay gate is
+    initialized near 1 (see GatedDeltaNet) which keeps A_t close to 1 across 64 steps."""
+    B, H, T, Dk = q.shape
+    Dv = v.shape[-1]
+    if T % chunk != 0:
+        raise ValueError(f"gdn_chunkwise: T={T} must be a multiple of chunk={chunk}")
+    dtype = q.dtype
+    # Promote to AT LEAST fp32 — the triangular solve and the beta/A_t rescale are the
+    # numerically delicate steps and must not run in bf16/fp16. float64 inputs stay
+    # float64 so tests can check the algebra at full precision rather than at the fp32
+    # noise floor (~1e-7), which would hide a real error of that size.
+    work = torch.float64 if dtype == torch.float64 else torch.float32
+    q, k, v = q.to(work), k.to(work), v.to(work)
+    alpha, beta = alpha.to(work), beta.to(work)
+    nc = T // chunk
+
+    q = q.view(B, H, nc, chunk, Dk)
+    k = k.view(B, H, nc, chunk, Dk)
+    v = v.view(B, H, nc, chunk, Dv)
+    alpha = alpha.view(B, H, nc, chunk)
+    beta = beta.view(B, H, nc, chunk)
+
+    # Per-chunk cumulative decay A_t (A at the first position of a chunk is alpha_1
+    # itself: the state entering the chunk is P_0, and step 1 already applies alpha_1).
+    A = torch.cumprod(alpha.clamp_min(1e-6), dim=-1)              # (B,H,nc,chunk)
+
+    eye = torch.eye(chunk, device=q.device, dtype=q.dtype)
+    strict = torch.tril(torch.ones(chunk, chunk, device=q.device, dtype=q.dtype), -1)
+    incl = torch.tril(torch.ones(chunk, chunk, device=q.device, dtype=q.dtype), 0)
+
+    S = q.new_zeros(B, H, Dk, Dv)
+    outs = []
+    for c in range(nc):
+        K, V, Q = k[:, :, c], v[:, :, c], q[:, :, c]              # (B,H,chunk,D*)
+        b, a = beta[:, :, c], A[:, :, c]                          # (B,H,chunk)
+        Qt = Q * a.unsqueeze(-1)                                  # A_t q_t
+        b_over_a = (b / a).unsqueeze(-1)                           # beta_t / A_t
+        bcol = b.unsqueeze(-1)
+
+        M = (K @ K.transpose(-2, -1)) * strict                     # strict_tril(K K^T)
+        lhs = eye + bcol * M                                       # unit lower triangular
+        rhs = b_over_a * V - bcol * (K @ S)
+        D = torch.linalg.solve_triangular(lhs, rhs, upper=False, unitriangular=True)
+
+        attn = (Q @ K.transpose(-2, -1)) * a.unsqueeze(-1) * incl  # L * (Qt K^T)
+        outs.append(Qt @ S + attn @ D)
+        S = S + K.transpose(-2, -1) @ D                            # P_C
+        S = S * a[..., -1].unsqueeze(-1).unsqueeze(-1)             # re-apply A_C: S = A_C P_C
+
+    return torch.cat(outs, dim=2).view(B, H, T, Dv).to(dtype)
+
+
+class GatedDeltaNet(nn.Module):
+    """Gated DeltaNet token mixer (Yang, Kautz & Hatamizadeh, ICLR 2025) — linear
+    attention with the delta rule plus a Mamba2-style scalar forget gate. O(1) state per
+    head instead of a growing KV cache, which is the whole reason to want it.
+
+    Block contents follow the published one: short causal depthwise conv on q/k/v, SiLU
+    then L2-normalisation on q/k (the delta rule needs unit keys to be stable), scalar
+    per-head decay and write gates, and a SiLU output gate before the out-projection.
+
+    DEVIATIONS from the paper, recorded so the verdict audit can weigh them:
+    - The decay gate is alpha = sigmoid(W_a x + bias) with bias init +4.5 (alpha ~ 0.989)
+      rather than the paper's exp(-softplus(dt) * exp(A)) discretisation. Monotone,
+      bounded in (0,1), and keeps A_t near 1 across a 64-step chunk, which the chunkwise
+      solve requires. Simpler to reason about; not identical.
+    - No head-dim expansion (the paper widens v). Kept at head_dim so the A/B against
+      attention is a token-mixer swap and not also a width change."""
+
+    def __init__(self, config: VariantConfig) -> None:
+        super().__init__()
+        assert config.n_embd % config.n_head == 0
+        self.n_head = config.n_head
+        self.head_dim = config.n_embd // config.n_head
+        self.n_embd = config.n_embd
+        self.chunk = config.gdn_chunk
+        self.qkv_proj = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
+        self.conv = nn.Conv1d(
+            3 * config.n_embd, 3 * config.n_embd, kernel_size=config.gdn_conv_kernel,
+            groups=3 * config.n_embd, bias=False,
+        )
+        self.conv_pad = config.gdn_conv_kernel - 1
+        self.a_proj = nn.Linear(config.n_embd, config.n_head, bias=True)
+        self.b_proj = nn.Linear(config.n_embd, config.n_head, bias=True)
+        self.g_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        self.o_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        # Long-memory init: alpha ~ 0.989, beta ~ 0.5 (neutral write strength).
+        nn.init.zeros_(self.a_proj.weight)
+        nn.init.constant_(self.a_proj.bias, 4.5)
+        nn.init.zeros_(self.b_proj.weight)
+        nn.init.zeros_(self.b_proj.bias)
+
+    def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
+        if kv_cache is not None:
+            raise NotImplementedError(
+                "GatedDeltaNet has a recurrent state, not a KV cache; incremental "
+                "decoding needs a separate state-carrying path (not built yet)"
+            )
+        B, T, C = x.shape
+        qkv = self.qkv_proj(x).transpose(1, 2)                     # (B,3C,T)
+        qkv = self.conv(F.pad(qkv, (self.conv_pad, 0)))            # causal depthwise
+        qkv = qkv.transpose(1, 2)
+        q, k, v = qkv.split(C, dim=2)
+        shape = (B, T, self.n_head, self.head_dim)
+        q = F.normalize(F.silu(q.view(shape)), dim=-1).transpose(1, 2)
+        k = F.normalize(F.silu(k.view(shape)), dim=-1).transpose(1, 2)
+        v = v.view(shape).transpose(1, 2)
+        alpha = torch.sigmoid(self.a_proj(x)).transpose(1, 2)      # (B,H,T)
+        beta = torch.sigmoid(self.b_proj(x)).transpose(1, 2)       # (B,H,T)
+        y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        return self.o_proj(y * F.silu(self.g_proj(x)))
+
+
 class SwiGLUMLP(nn.Module):
     """SwiGLU feed-forward (GLU variant): w2(silu(w1 x) * w3 x). Hidden dim ~ 8/3 * n_embd
     (rounded to a multiple of 8) so param count is comparable to the 4x GELU MLP."""
@@ -215,6 +381,17 @@ class VariantConfig(GPTConfig):
     # RoPE frequency base (theta). 10000.0 is the value that was hard-coded before this
     # field existed; larger bases are the lever for context extension (PI/YaRN stage).
     rope_base: float = 10000.0
+    # None -> every layer is global attention (the dense baseline; bit-identical to
+    # before this field existed). Set to N for the Kimi-Linear-style layerwise hybrid:
+    # every Nth layer (1-indexed, so the LAST of each group) stays global attention and
+    # the other N-1 are GatedDeltaNet. N=4 is the published 3:1 linear:full ratio.
+    # NOTE `pos` then applies only to the surviving global layers — GDN layers carry no
+    # positional encoding at all, position enters through the recurrence. So
+    # pos="nope" + hybrid_every=4 IS the Kimi Linear configuration, and is the arm that
+    # retests the NoPE conditional left open by docs/nope-verdict-audit.md.
+    hybrid_every: int | None = None
+    gdn_chunk: int = 64        # chunk-parallel block length; see gdn_chunkwise numerics
+    gdn_conv_kernel: int = 4   # short causal depthwise conv on q/k/v, as published
 
 
 def _make_norm(kind: str, dim: int) -> nn.Module:
@@ -222,7 +399,7 @@ def _make_norm(kind: str, dim: int) -> nn.Module:
 
 
 class VariantBlock(nn.Module):
-    def __init__(self, config: VariantConfig) -> None:
+    def __init__(self, config: VariantConfig, layer_idx: int = 0) -> None:
         super().__init__()
         # getattr: this module is sometimes handed configs unpickled from checkpoints
         # written before block_norm existed; the default reproduces that era exactly.
@@ -233,7 +410,15 @@ class VariantBlock(nn.Module):
             )
         self.block_norm = block_norm
         self.ln_1 = _make_norm(config.norm, config.n_embd)
-        if getattr(config, "n_kv_head", None) is not None:
+        # Hybrid routing: with hybrid_every=N, layers 0..N-2 of each group of N are
+        # GatedDeltaNet and layer N-1 (the last) stays global attention.
+        hybrid_every = getattr(config, "hybrid_every", None)
+        self.is_linear = (
+            hybrid_every is not None and (layer_idx + 1) % hybrid_every != 0
+        )
+        if self.is_linear:
+            self.attn = GatedDeltaNet(config)
+        elif getattr(config, "n_kv_head", None) is not None:
             self.attn = GQAAttention(config)  # rope-only; asserts on other pos values
         elif config.pos == "rope":
             self.attn = RoPECausalSelfAttention(config)
@@ -282,7 +467,9 @@ class VariantGPT(nn.Module):
         modules = dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),
             drop=nn.Dropout(config.dropout),
-            h=nn.ModuleList([VariantBlock(config) for _ in range(config.n_layer)]),
+            h=nn.ModuleList(
+                [VariantBlock(config, layer_idx=i) for i in range(config.n_layer)]
+            ),
             ln_f=_make_norm(config.norm, config.n_embd),
         )
         if config.pos == "learned":

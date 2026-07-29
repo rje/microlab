@@ -123,6 +123,9 @@ class Trainer:
                 n_kv_head=getattr(cfg, "n_kv_head", None),
                 rope_base=getattr(cfg, "rope_base", 10000.0),
                 block_norm=getattr(cfg, "block_norm", "pre"),
+                hybrid_every=getattr(cfg, "hybrid_every", None),
+                gdn_chunk=getattr(cfg, "gdn_chunk", 64),
+                gdn_conv_kernel=getattr(cfg, "gdn_conv_kernel", 4),
             )
         )
         self.model.to(self.device)
