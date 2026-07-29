@@ -18,6 +18,10 @@ class RunConfig:
     norm: str = "rms"
     pos: str = "rope"
     mlp: str = "swiglu"
+    # Block layout: "pre" -> the pre-norm block (unchanged default); "peri" -> Peri-LN,
+    # y = x + Norm(Module(Norm(x))) (arXiv 2502.02732; Gemma 2/3's pre+post sandwich).
+    # Old checkpoints unpickle without this attribute and fall back to this default.
+    block_norm: str = "pre"
     # None -> classic multi-head attention, exactly the pre-field behavior. A divisor of
     # n_head -> grouped-query attention (n_kv_head K/V heads shared across query groups).
     # Old checkpoints unpickle without this attribute and fall back to this class default.

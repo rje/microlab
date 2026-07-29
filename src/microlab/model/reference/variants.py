@@ -1,8 +1,9 @@
 """Reference architecture variants (Phase 3): RMSNorm, rotary position embeddings
-(RoPE), and a SwiGLU MLP, plus a flag-configurable GPT and helpers to build ablations.
-This file also carries grouped-query attention (GQA) and the optional KV-cache and
-gradient-checkpointing forward paths (the latter two used by Phases 6/7).
-These are the known-correct versions the owner diffs hand-written variants against."""
+(RoPE), a SwiGLU MLP, and the Peri-LN block layout, plus a flag-configurable GPT and
+helpers to build ablations. This file also carries grouped-query attention (GQA) and
+the optional KV-cache and gradient-checkpointing forward paths (the latter two used by
+Phases 6/7). These are the known-correct versions the owner diffs hand-written
+variants against."""
 
 from __future__ import annotations
 
@@ -198,6 +199,16 @@ class VariantConfig(GPTConfig):
     norm: str = "layer"   # "layer" | "rms"
     pos: str = "learned"  # "learned" | "rope" | "nope" (no positional signal at all)
     mlp: str = "gelu"     # "gelu" | "swiglu"
+    # Block layout. "pre": y = x + Module(Norm(x)) — the pre-norm block this file has
+    # always built; the default is byte-identical to before this field existed. "peri":
+    # y = x + Norm(Module(Norm(x))) — Peri-LN (arXiv 2502.02732): pre-norm PLUS an
+    # output norm (own learnable scale, init ones, type follows `norm`) on each module
+    # result before the residual add, bounding hidden-state variance growth; the exact
+    # pre+post sandwich Gemma 2/3 ship. Deliberately implements ONLY the sublayer
+    # wrapping: the paper's optional embedding-output norm is omitted (Gemma ships
+    # without it, and it would add a second mechanism to the A/B), and the paper's
+    # final-hidden-state norm already exists in every variant here as ln_f.
+    block_norm: str = "pre"
     # None -> classic multi-head attention (fused c_attn), bit-identical to before this
     # field existed. Set to a divisor of n_head for grouped-query attention (1 == MQA).
     n_kv_head: int | None = None
@@ -213,6 +224,14 @@ def _make_norm(kind: str, dim: int) -> nn.Module:
 class VariantBlock(nn.Module):
     def __init__(self, config: VariantConfig) -> None:
         super().__init__()
+        # getattr: this module is sometimes handed configs unpickled from checkpoints
+        # written before block_norm existed; the default reproduces that era exactly.
+        block_norm = getattr(config, "block_norm", "pre")
+        if block_norm not in ("pre", "peri"):
+            raise ValueError(
+                f"unknown block_norm {block_norm!r}: expected 'pre' or 'peri'"
+            )
+        self.block_norm = block_norm
         self.ln_1 = _make_norm(config.norm, config.n_embd)
         if getattr(config, "n_kv_head", None) is not None:
             self.attn = GQAAttention(config)  # rope-only; asserts on other pos values
@@ -228,13 +247,25 @@ class VariantBlock(nn.Module):
             )
         self.ln_2 = _make_norm(config.norm, config.n_embd)
         self.mlp = SwiGLUMLP(config) if config.mlp == "swiglu" else MLP(config)
+        if block_norm == "peri":
+            # Peri-LN output norms (one per sublayer, own learnable scales — RMSNorm /
+            # LayerNorm init their gains to ones, the standard init). No RNG is drawn,
+            # so shared-param init is bit-identical across "pre"/"peri" at equal seed.
+            self.ln_1_post = _make_norm(config.norm, config.n_embd)
+            self.ln_2_post = _make_norm(config.norm, config.n_embd)
 
     def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
         if kv_cache is not None:
-            x = x + self.attn(self.ln_1(x), kv_cache=kv_cache)
+            attn_out = self.attn(self.ln_1(x), kv_cache=kv_cache)
         else:
-            x = x + self.attn(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+            attn_out = self.attn(self.ln_1(x))
+        if self.block_norm == "peri":
+            attn_out = self.ln_1_post(attn_out)
+        x = x + attn_out
+        mlp_out = self.mlp(self.ln_2(x))
+        if self.block_norm == "peri":
+            mlp_out = self.ln_2_post(mlp_out)
+        x = x + mlp_out
         return x
 
 

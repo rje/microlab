@@ -122,6 +122,7 @@ class Trainer:
                 # fields existed; the defaults reproduce that era's behavior exactly.
                 n_kv_head=getattr(cfg, "n_kv_head", None),
                 rope_base=getattr(cfg, "rope_base", 10000.0),
+                block_norm=getattr(cfg, "block_norm", "pre"),
             )
         )
         self.model.to(self.device)
