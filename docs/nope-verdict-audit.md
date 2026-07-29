@@ -152,16 +152,19 @@ is an order of magnitude smaller than the one this document originally claimed).
 - (a) POSITIVE CONTROL: PASS (Haviv probe replicated on our NoPE arm).
 - (b) HP FAIRNESS: **PASS** — LR sweep above; best-LR NoPE still trails RoPE by 0.065 at
   step 1000.
-- (c) NOISE BAND: **PASS, with the original multiplier CORRECTED.** The Peri-LN seed-1338
-  arms have now trained, giving a real cross-seed band at 124M/4500 steps: |Δ| between
-  seeds is **0.0148 (pre-norm) / 0.0104 (peri-norm), mean ~0.013 nats**. The earlier
-  figure in this document — max 0.0014 / mean 0.0009 from the `muon-ab-muon` vs
-  `nope-ab-rope` config-identical twins — measures only **kernel nondeterminism at a fixed
-  seed**, not init/data-order variation, and is the wrong denominator for an architecture
-  comparison (a different architecture is effectively a fresh random draw). Against the
-  correct cross-seed band the +0.057 NoPE gap is **~4.4x**, not the ~40x originally
-  claimed. The verdict is unchanged — 4.4x still clears — but any future claim of the
-  form "Nx the noise floor" must use the cross-seed band.
+- (c) NOISE BAND: **PASS, with the original multiplier CORRECTED (twice).** Three Peri-LN
+  seed pairs have now trained (docs/periln-verdict.md), giving real bands at
+  124M/4500 steps. The +0.0573 NoPE gap is **8.8x** the pooled cross-seed sd of
+  **0.0065**, and that is the *conservative* denominator — NoPE-vs-RoPE shared a seed, so
+  it is a paired comparison, whose proper denominator is the paired-difference sd
+  (**0.0025** as measured on the Peri-LN lane), which would put it far higher. Verdict
+  unchanged; the honest floor is 8.8x.
+  History of this number, kept as a worked example of getting the denominator wrong:
+  **40x** used the twin-run band (0.0014 = kernel nondeterminism at a fixed seed — wrong
+  quantity); **4.4x** used the cross-seed *range* from only two seeds (0.013 — right kind
+  of quantity, but a range is not an sd, and it over-corrected); **8.8x** uses the pooled
+  cross-seed sd from three seeds. Any future "Nx the noise floor" claim must name which
+  band it divides by.
 - (d) IMPLEMENTATION REVIEW: PASS (no deviation; param trees verified bit-identical at
   init, configs differ only in `pos`/`out_dir`, eval path correct for NoPE at extended
   lengths).
