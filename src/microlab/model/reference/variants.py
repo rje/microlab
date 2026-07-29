@@ -92,6 +92,41 @@ class RoPECausalSelfAttention(nn.Module):
         return self.c_proj(y)
 
 
+class NoPECausalSelfAttention(nn.Module):
+    """Causal self-attention with NO positional signal at all (NoPE): raw q/k, no rotary
+    tables, no learned wpe anywhere in the model. Position is inferable only from the
+    causal mask (Kazemnejad et al., 2305.19466 — NoPE can match/beat explicit schemes and
+    length-generalize; Kimi K3 ships it at frontier scale). Deliberately mirrors
+    RoPECausalSelfAttention minus the rotation — same projection names/shapes, so the two
+    A/B arms have identical param trees — and speaks the same KV-cache protocol (there is
+    no position offset to track: cached decode just appends)."""
+
+    def __init__(self, config: GPTConfig) -> None:
+        super().__init__()
+        assert config.n_embd % config.n_head == 0
+        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.n_head = config.n_head
+        self.n_embd = config.n_embd
+        self.dropout = config.dropout
+
+    def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
+        B, T, C = x.shape
+        q, k, v = self.c_attn(x).split(self.n_embd, dim=2)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        if kv_cache is not None:
+            cache, layer = kv_cache
+            k, v = cache.append(layer, k, v)
+        y = F.scaled_dot_product_attention(
+            q, k, v, is_causal=(q.size(-2) == k.size(-2)),
+            dropout_p=self.dropout if self.training else 0.0,
+        )
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        return self.c_proj(y)
+
+
 class GQAAttention(nn.Module):
     """Grouped-query attention with RoPE: n_head query heads share n_kv_head K/V heads
     (n_kv_head == 1 is multi-query attention). Halves-to-quarters the KV projection —
@@ -161,7 +196,7 @@ class SwiGLUMLP(nn.Module):
 @dataclass
 class VariantConfig(GPTConfig):
     norm: str = "layer"   # "layer" | "rms"
-    pos: str = "learned"  # "learned" | "rope"
+    pos: str = "learned"  # "learned" | "rope" | "nope" (no positional signal at all)
     mlp: str = "gelu"     # "gelu" | "swiglu"
     # None -> classic multi-head attention (fused c_attn), bit-identical to before this
     # field existed. Set to a divisor of n_head for grouped-query attention (1 == MQA).
@@ -180,11 +215,17 @@ class VariantBlock(nn.Module):
         super().__init__()
         self.ln_1 = _make_norm(config.norm, config.n_embd)
         if getattr(config, "n_kv_head", None) is not None:
-            self.attn = GQAAttention(config)
+            self.attn = GQAAttention(config)  # rope-only; asserts on other pos values
         elif config.pos == "rope":
             self.attn = RoPECausalSelfAttention(config)
-        else:
+        elif config.pos == "nope":
+            self.attn = NoPECausalSelfAttention(config)
+        elif config.pos == "learned":
             self.attn = CausalSelfAttention(config)
+        else:
+            raise ValueError(
+                f"unknown pos {config.pos!r}: expected 'learned', 'rope', or 'nope'"
+            )
         self.ln_2 = _make_norm(config.norm, config.n_embd)
         self.mlp = SwiGLUMLP(config) if config.mlp == "swiglu" else MLP(config)
 
@@ -232,7 +273,9 @@ class VariantGPT(nn.Module):
         _, T = idx.shape
         assert T <= self.config.block_size, f"sequence length {T} > block_size"
         if kv_cache is not None:
-            assert self.config.pos == "rope", "KV cache requires the RoPE block"
+            # rope/nope attentions speak the cache protocol; the learned-pos block does not
+            assert self.config.pos in ("rope", "nope"), \
+                "KV cache requires the RoPE or NoPE block"
         x = self.transformer.wte(idx)
         if self.config.pos == "learned":
             pos = torch.arange(T, device=idx.device)
