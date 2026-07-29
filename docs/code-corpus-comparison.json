@@ -1,0 +1,219 @@
+{
+  "generated": "2026-07-29",
+  "mb_per_lang": 200.0,
+  "tokenizer": "code-49k",
+  "languages": [
+    "python",
+    "javascript",
+    "typescript"
+  ],
+  "starcoderdata_probe": {
+    "accessible": false,
+    "error": "403 Client Error. (Request ID: Root=1-6a69806a-3ed315957c68dcd70b31cee2;b7236eae-7631-4b2c-8266-97ce53ee98cf)",
+    "note": "the HF token that opens the-stack-dedup does NOT open starcoderdata; it is gated separately -- request access at https://huggingface.co/datasets/bigcode/starcoderdata"
+  },
+  "sources": {
+    "the-stack-dedup": {
+      "python": {
+        "streamed_docs": 37705,
+        "streamed_mb": 200.016386,
+        "kept_docs": 36898,
+        "survival_rate": 0.9785970030499934,
+        "drops": {
+          "size": 620,
+          "nonutf8": 0,
+          "minified": 187
+        },
+        "dup_rate": 0.0,
+        "license_coverage": 0.9641957300092826,
+        "mean_bytes": 5154.176025800856,
+        "p50_bytes": 2098.0,
+        "p90_bytes": 11454.600000000006,
+        "mean_lines": 187.8021483021483,
+        "alnum_fraction": 0.6148727048767161,
+        "tokens_per_byte": 0.2919343417623123,
+        "comment_fraction": 0.8142758142758143,
+        "mean_ident_len": 6.539908176199805
+      },
+      "javascript": {
+        "streamed_docs": 26152,
+        "streamed_mb": 200.071662,
+        "kept_docs": 24084,
+        "survival_rate": 0.920923829917406,
+        "drops": {
+          "size": 433,
+          "nonutf8": 0,
+          "minified": 1635
+        },
+        "dup_rate": 0.0,
+        "license_coverage": 0.967230039767513,
+        "mean_bytes": 4057.9693157282845,
+        "p50_bytes": 1301.0,
+        "p90_bytes": 7492.800000000003,
+        "mean_lines": 170.9656571119524,
+        "alnum_fraction": 0.6004893859748826,
+        "tokens_per_byte": 0.28723130395608987,
+        "comment_fraction": 0.6208761492698756,
+        "mean_ident_len": 6.217327936080564
+      },
+      "typescript": {
+        "streamed_docs": 69360,
+        "streamed_mb": 200.001326,
+        "kept_docs": 67274,
+        "survival_rate": 0.9699250288350635,
+        "drops": {
+          "size": 1687,
+          "nonutf8": 0,
+          "minified": 399
+        },
+        "dup_rate": 0.0,
+        "license_coverage": 0.9817906574394464,
+        "mean_bytes": 2719.068823022267,
+        "p50_bytes": 1085.0,
+        "p90_bytes": 5472.700000000004,
+        "mean_lines": 113.1455661910782,
+        "alnum_fraction": 0.6443148822278509,
+        "tokens_per_byte": 0.27769811932952904,
+        "comment_fraction": 0.5163445909337187,
+        "mean_ident_len": 7.402727095852177
+      }
+    },
+    "substitutes-fresh": {
+      "python": {
+        "streamed_docs": 25104,
+        "streamed_mb": 200.040828,
+        "kept_docs": 24811,
+        "survival_rate": 0.9883285532186106,
+        "drops": {
+          "size": 293,
+          "nonutf8": 0,
+          "minified": 0
+        },
+        "dup_rate": 0.0,
+        "license_coverage": 0.6482632249840663,
+        "mean_bytes": 8062.1947926323,
+        "p50_bytes": 2815.0,
+        "p90_bytes": 17259.0,
+        "mean_lines": 207.87269878574227,
+        "alnum_fraction": 0.6210975396149753,
+        "tokens_per_byte": 0.27987401360033415,
+        "comment_fraction": 0.8691735213474344,
+        "mean_ident_len": 6.299665878400678
+      },
+      "javascript": {
+        "streamed_docs": 23461,
+        "streamed_mb": 200.045533,
+        "kept_docs": 23072,
+        "survival_rate": 0.9834192915902988,
+        "drops": {
+          "size": 386,
+          "nonutf8": 0,
+          "minified": 3
+        },
+        "dup_rate": 0.0,
+        "license_coverage": 0.793316567921231,
+        "mean_bytes": 8625.144720873786,
+        "p50_bytes": 1654.5,
+        "p90_bytes": 12967.60000000002,
+        "mean_lines": 220.2385609500524,
+        "alnum_fraction": 0.598002796978822,
+        "tokens_per_byte": 0.27828773843314125,
+        "comment_fraction": 0.6978693677960182,
+        "mean_ident_len": 6.20995060191569
+      },
+      "typescript": {
+        "streamed_docs": 89115,
+        "streamed_mb": 39.347821,
+        "kept_docs": 73438,
+        "survival_rate": 0.8240812433372608,
+        "drops": {
+          "size": 15601,
+          "nonutf8": 0,
+          "minified": 76
+        },
+        "dup_rate": 0.0,
+        "license_coverage": null,
+        "mean_bytes": 525.2234674146899,
+        "p50_bytes": 244.0,
+        "p90_bytes": 1182.0,
+        "mean_lines": 17.023196721311475,
+        "alnum_fraction": 0.6241784891968312,
+        "tokens_per_byte": 0.25047643509390294,
+        "comment_fraction": 0.32907103825136613,
+        "mean_ident_len": 7.353305388554198
+      }
+    },
+    "substitutes-disk": {
+      "python": {
+        "streamed_docs": 749989,
+        "streamed_mb": 200.000142,
+        "kept_docs": 604885,
+        "survival_rate": 0.806525162369048,
+        "drops": {
+          "size": 145099,
+          "nonutf8": 0,
+          "minified": 5
+        },
+        "dup_rate": 0.07397604503335345,
+        "license_coverage": null,
+        "mean_bytes": 322.68051447795864,
+        "p50_bytes": 187.0,
+        "p90_bytes": 610.0,
+        "mean_lines": 7.3397520443154844,
+        "alnum_fraction": 0.6115956267752906,
+        "tokens_per_byte": 0.28156348480007926,
+        "comment_fraction": 0.4295535478765497,
+        "mean_ident_len": 6.285265361939727
+      },
+      "javascript": {
+        "streamed_docs": 727443,
+        "streamed_mb": 200.000051,
+        "kept_docs": 554709,
+        "survival_rate": 0.7625463438372491,
+        "drops": {
+          "size": 172729,
+          "nonutf8": 0,
+          "minified": 5
+        },
+        "dup_rate": 0.1840622740932633,
+        "license_coverage": null,
+        "mean_bytes": 351.1998128748587,
+        "p50_bytes": 185.0,
+        "p90_bytes": 612.0,
+        "mean_lines": 9.845286811687846,
+        "alnum_fraction": 0.5879343968003438,
+        "tokens_per_byte": 0.2783244650400531,
+        "comment_fraction": 0.402074807954627,
+        "mean_ident_len": 6.203001935483871
+      },
+      "typescript": {
+        "streamed_docs": 155606,
+        "streamed_mb": 38.239117,
+        "kept_docs": 136151,
+        "survival_rate": 0.8749726874285053,
+        "drops": {
+          "size": 19454,
+          "nonutf8": 0,
+          "minified": 1
+        },
+        "dup_rate": 0.1050892024296553,
+        "license_coverage": null,
+        "mean_bytes": 276.3433026566092,
+        "p50_bytes": 175.0,
+        "p90_bytes": 538.0,
+        "mean_lines": 7.751715710652325,
+        "alnum_fraction": 0.6234946643645514,
+        "tokens_per_byte": 0.25036058366033953,
+        "comment_fraction": 0.2809644922491084,
+        "mean_ident_len": 7.368370120468763
+      }
+    }
+  },
+  "notes": [
+    "substitutes-disk docs are blank-line-split FRAGMENTS of the original files (the .txt sample format is lossy), so its length/comment stats are not file-level; substitutes-fresh is the faithful measurement of the same upstream sources.",
+    "substitutes-disk was already cleaned once at sampling time; its sub-100% survival and its exact-dup rate are fragment artifacts (tiny fragments fail the min-size gate, short import/header fragments repeat), not new information about the underlying source.",
+    "the-stack-dedup license metadata is the max_stars_repo_licenses list; starcoderdata has no per-file license column.",
+    "typescript substitutes-disk sample is only ~38 MB total (all of it used).",
+    "the-stack tokenizes 2-4% worse under code-49k than the substitutes (tok/B column): code-49k was TRAINED on the substitute corpus, so this is an in-domain-tokenizer artifact (plus fragment effects for ts), not a corpus-quality signal."
+  ]
+}
