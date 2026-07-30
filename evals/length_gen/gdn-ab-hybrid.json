@@ -1,0 +1,203 @@
+{
+  "run": "runs/gdn-ab-hybrid",
+  "ckpt": "ckpt_4500.pt",
+  "step": 4500,
+  "pos": "rope",
+  "trained_block_size": 1024,
+  "rope_base": 10000.0,
+  "eval_block": 4124,
+  "seed": 0,
+  "loss": {
+    "data_dir": "data/shards/fineweb-100bt",
+    "tokens_per_length": 300000,
+    "lengths": [
+      1024,
+      2048,
+      4096
+    ],
+    "results": [
+      {
+        "length": 1024,
+        "n_seqs": 293,
+        "tokens": 300032,
+        "mean_loss": 3.2833238279193866,
+        "ppl": 26.664252960273416,
+        "bucket_size": 512,
+        "bucket_means": [
+          3.3491658730779648,
+          3.217481782760808
+        ]
+      },
+      {
+        "length": 2048,
+        "n_seqs": 147,
+        "tokens": 301056,
+        "mean_loss": 3.233100700461512,
+        "ppl": 25.358163264350836,
+        "bucket_size": 512,
+        "bucket_means": [
+          3.348732808843607,
+          3.192765188004289,
+          3.19762450756458,
+          3.1932802974335734
+        ]
+      },
+      {
+        "length": 4096,
+        "n_seqs": 74,
+        "tokens": 303104,
+        "mean_loss": 3.2953395487542307,
+        "ppl": 26.986575772573957,
+        "bucket_size": 512,
+        "bucket_means": [
+          3.4567257255916646,
+          3.282536314208528,
+          3.2711181139348975,
+          3.2199773542440346,
+          3.207393707083488,
+          3.3105246719391155,
+          3.2924856565233633,
+          3.321954846508757
+        ]
+      }
+    ]
+  },
+  "passkey": {
+    "lengths": [
+      512,
+      1024,
+      2048,
+      3072,
+      4096
+    ],
+    "depths": [
+      0.1,
+      0.5,
+      0.9
+    ],
+    "n": 0,
+    "max_new": 12,
+    "cells": [
+      {
+        "length": 512,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 512,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 512,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 1024,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 1024,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 1024,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 2048,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 2048,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 2048,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 3072,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 3072,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 3072,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 4096,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 4096,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 4096,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      }
+    ]
+  }
+}

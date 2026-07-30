@@ -104,7 +104,10 @@ def run_cell(model, tok, device: str, length: int, depth: float, n: int, seed: i
         samples.append({"key": key, "answer": answer, "text": text, "ok": answer == key})
     correct = sum(s["ok"] for s in samples)
     return {"length": length, "depth": depth, "n": n, "correct": correct,
-            "acc": correct / n, "samples": samples}
+            # n=0 is the documented way to skip the passkey grid and keep only the
+            # loss-vs-length curve; acc is undefined rather than 0.0 in that case
+            # (reporting 0.0 would read as "the model failed every probe").
+            "acc": (correct / n) if n else None, "samples": samples}
 
 
 def format_table(cells: list[dict]) -> str:
@@ -142,6 +145,16 @@ def load_for_eval(run_dir: Path, min_context: int, device: str):
         n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
         mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None),
         rope_base=getattr(cfg, "rope_base", 10000.0),
+        # Every architecture field a checkpoint may carry has to be threaded through here
+        # or the strict state-dict load fails. This loader had drifted: without block_norm
+        # it could load NO Peri-LN run, and without hybrid_every no GDN hybrid. Same
+        # failure class as docs/sota-parity-1b.md #8 (a reference capability unreachable
+        # from a caller). Keep in sync with
+        # microlab.model.reference.checkpoint.load_variant_from_run.
+        block_norm=getattr(cfg, "block_norm", "pre"),
+        hybrid_every=getattr(cfg, "hybrid_every", None),
+        gdn_chunk=getattr(cfg, "gdn_chunk", 64),
+        gdn_conv_kernel=getattr(cfg, "gdn_conv_kernel", 4),
     ))
     model.load_state_dict(ckpt["model"])
     extended = (" (NoPE: no positional state to extend; only the length guard and "

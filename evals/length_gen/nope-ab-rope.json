@@ -1,0 +1,203 @@
+{
+  "run": "runs/nope-ab-rope",
+  "ckpt": "ckpt_4500.pt",
+  "step": 4500,
+  "pos": "rope",
+  "trained_block_size": 1024,
+  "rope_base": 10000.0,
+  "eval_block": 4124,
+  "seed": 0,
+  "loss": {
+    "data_dir": "data/shards/fineweb-100bt",
+    "tokens_per_length": 300000,
+    "lengths": [
+      1024,
+      2048,
+      4096
+    ],
+    "results": [
+      {
+        "length": 1024,
+        "n_seqs": 293,
+        "tokens": 300032,
+        "mean_loss": 3.2918618288645662,
+        "ppl": 26.892887027289,
+        "bucket_size": 512,
+        "bucket_means": [
+          3.357552980161399,
+          3.2261706775677332
+        ]
+      },
+      {
+        "length": 2048,
+        "n_seqs": 147,
+        "tokens": 301056,
+        "mean_loss": 3.2509678580479355,
+        "ppl": 25.8153133886791,
+        "bucket_size": 512,
+        "bucket_means": [
+          3.360425711814932,
+          3.1974653273267113,
+          3.213110905722418,
+          3.2328694873276804
+        ]
+      },
+      {
+        "length": 4096,
+        "n_seqs": 74,
+        "tokens": 303104,
+        "mean_loss": 3.3713349137215918,
+        "ppl": 29.1173703029925,
+        "bucket_size": 512,
+        "bucket_means": [
+          3.4775381933920837,
+          3.3014046269714994,
+          3.2949004014746013,
+          3.261924195777529,
+          3.2825292459857405,
+          3.4309707374123453,
+          3.4330099228637128,
+          3.4884019858952247
+        ]
+      }
+    ]
+  },
+  "passkey": {
+    "lengths": [
+      512,
+      1024,
+      2048,
+      3072,
+      4096
+    ],
+    "depths": [
+      0.1,
+      0.5,
+      0.9
+    ],
+    "n": 0,
+    "max_new": 12,
+    "cells": [
+      {
+        "length": 512,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 512,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 512,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 1024,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 1024,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 1024,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 2048,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 2048,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 2048,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 3072,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 3072,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 3072,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 4096,
+        "depth": 0.1,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 4096,
+        "depth": 0.5,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      },
+      {
+        "length": 4096,
+        "depth": 0.9,
+        "n": 0,
+        "correct": 0,
+        "acc": null,
+        "samples": []
+      }
+    ]
+  }
+}
