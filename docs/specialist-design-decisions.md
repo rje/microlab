@@ -29,7 +29,7 @@ robust; the in-window +0.057 is the fragile part (single seed, RoPE-tuned HPs, 7
 horizon). Audit checks: Haviv-2022 positive controls (near-parity ppl; implicit position
 decodable from hidden states), NoPE LR sweep, noise-band placement.
 
-## 2. Normalization: Peri-LN — 2026-07-29 — CONFIRMED (n=3 seeds)
+## 2. Normalization: Peri-LN — 2026-07-29 — CONFIRMED at n=3 seeds, but UNDER-TRAINED (see protocol change)
 
 Paired effect -0.0152 nats, wins 3/3 seeds and 54/54 matched eval points, paired
 t = -10.48. Effect decays monotonically from -0.069 at step 250, so it buys early
@@ -37,19 +37,19 @@ convergence rather than a fixed gap. Variance-reduction claim (the reason we ado
 measured at a 0.69 sd ratio vs the published ">half" — directionally right, NOT resolvable
 at n=3, and explicitly not usable to justify fewer seeds later. docs/periln-verdict.md.
 
-## 3. Attention layout: GDN/KDA 3:1 hybrid — 2026-07-30 — PARITY, ADOPT-CONDITIONAL
+## 3. Attention layout: GDN/KDA 3:1 hybrid — 2026-07-30 — ADOPT
 
-Loss parity at 124M/4500 steps (+0.0024 nats, exactly at the 0.0025 paired band) while
-carrying +5% params, so param-matched it is marginally behind. Trajectory is the finding:
-the hybrid leads by -0.011 at step 1000, crosses over at ~2750, and the gap is still
-widening at 4500 — parity here should NOT be read as parity at pretrain length. The axis
+At compute-optimal (15000 steps = 0.99x Chinchilla) the hybrid WINS: 3.0544 vs dense
+3.0602, -0.0059 nats = 2.4x the paired band, leading at all 60 eval points with no
+crossover. This INVERTS the 4500-step result (+0.0024 behind), which stopped at 0.30x
+Chinchilla and had not converged. Hybrid still carries +5% params, so a param-matched
+rerun would sharpen the claim. The axis
 that decides the lane is memory, now MEASURED: 3.99x cache reduction at long context
 (36.0 -> 9.0 KB/token) with a state fixed at 1.89 MB across a 128x context range, via a new
 incremental-decode path (HybridCache + gdn_step) whose cached generation is token-identical
 to uncached. Latency is flat at 5.5 ms/token for the hybrid vs dense's 4.1 -> 7.7 ms, so
 they CROSS at ~100k context: the hybrid costs ~30% decode latency below 64k and wins above
-~100k. Scope of the win is therefore long-context specifically. Remaining gate is the
-long-run quality check (the step-2750 crossover), NOT a second seed.
+~100k. Scope of the win is therefore long-context specifically. The long-run gate is PASSED.
 
 STRONGEST evidence, and unpredicted: the hybrid LENGTH-GENERALIZES ~10x better than dense
 attention. At 4x training length it costs +0.012 nats vs dense RoPE's +0.129, and on the
@@ -63,6 +63,21 @@ recurrence supplies position. Verdict 1 stands as scoped to a DENSE stack. But
 RoPE-on-globals still beats NoPE-on-globals at extrapolation 5x (+0.012 vs +0.063), so keep
 RoPE on the globals for a long-context model; Kimi Linear's NoPE choice is not free here.
 docs/gdn-hybrid-verdict.md.
+
+## PROTOCOL CHANGE (2026-07-30): ablations must reach >=1x Chinchilla
+
+The 4500-step protocol trains to 0.30x Chinchilla-optimal and DEMONSTRABLY inverts verdicts:
+the GDN hybrid lost at 4500 steps and won at 15000, same seed/data/code. Any verdict from a
+0.3x-Chinchilla run is UNDER-TRAINED and not adoption-grade.
+
+At 124M with 160 seqs x 1024 tokens/step, >=1x Chinchilla is ~15000 steps, not 4500 (3.3x
+the cost per lane — so triage lanes rather than running them all).
+
+RETROACTIVE: verdict 2 (Peri-LN) was decided entirely inside the under-trained regime, and
+its advantage was DECAYING monotonically (-0.069 at step 250 -> -0.015 at 4500) — the same
+shape that inverted here. Re-test at ~15000 steps before carrying it into a real pretrain.
+Verdict 1 (RoPE vs NoPE) is not at risk: its gap is +0.057 in-window and +2.9 at 4x length,
+20-1000x the band, not a margin a schedule change plausibly flips.
 
 ## Pending lanes
 3. MLA vs GQA (oracle implementation next)
