@@ -13,7 +13,7 @@ short LR sweep for the losing arm rules out tuned-for-the-winner hyperparameters
 calibration lane; (d) IMPLEMENTATION REVIEW vs the source paper. Verdicts published before
 their audit carry PROVISIONAL status.
 
-## 1. Position: RoPE (pure NoPE rejected) — 2026-07-29 — PROVISIONAL, audit dispatched
+## 1. Position: RoPE (pure NoPE rejected) — 2026-07-29 — CONFIRMED (audit complete)
 
 124M twins, 4500 steps/737M tokens, identical seeds (runs/nope-ab-*; analysis
 scripts/analyze_nope_ab.py; evals/length_gen/). NoPE: +0.057 stable train-length loss
