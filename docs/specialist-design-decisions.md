@@ -50,6 +50,18 @@ to uncached. Latency is flat at 5.5 ms/token for the hybrid vs dense's 4.1 -> 7.
 they CROSS at ~100k context: the hybrid costs ~30% decode latency below 64k and wins above
 ~100k. Scope of the win is therefore long-context specifically. Remaining gate is the
 long-run quality check (the step-2750 crossover), NOT a second seed.
+
+STRONGEST evidence, and unpredicted: the hybrid LENGTH-GENERALIZES ~10x better than dense
+attention. At 4x training length it costs +0.012 nats vs dense RoPE's +0.129, and on the
+last-512-token bucket +0.039 vs +0.352 (9x). Nine of twelve layers are recurrent with no
+positional table to run off the end of. This compounds with the 4x memory result — both
+argue for the hybrid specifically at long context.
+
+Sub-verdict (closes the conditional from verdict 1): NoPE on the GLOBAL layers of a hybrid
+costs +0.063 at 4x length vs dense NoPE's +2.887 — a ~46x smaller penalty, purely because
+recurrence supplies position. Verdict 1 stands as scoped to a DENSE stack. But
+RoPE-on-globals still beats NoPE-on-globals at extrapolation 5x (+0.012 vs +0.063), so keep
+RoPE on the globals for a long-context model; Kimi Linear's NoPE choice is not free here.
 docs/gdn-hybrid-verdict.md.
 
 ## Pending lanes

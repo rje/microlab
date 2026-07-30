@@ -82,6 +82,42 @@ Caveat that cuts in the hybrid's favour: our GDN path has no fused kernels, so t
 5.5 ms is an implementation artifact, not a floor. With real kernels the constant drops and
 the crossover moves substantially earlier. Treat ~100k as a **pessimistic** bound.
 
+## The unexpected result: the hybrid length-generalizes ~10x better than dense attention
+
+Teacher-forced val loss at 1x / 2x / 4x the 1024 training length
+(`scripts/eval_length_gen.py`, 300k tokens per length, `evals/length_gen/*.json`):
+
+| arm | L=1024 | L=2048 | L=4096 | Δ at 4x | last-512 drift |
+|---|---|---|---|---|---|
+| dense NoPE | 3.3504 | 4.2915 | **6.2373** | **+2.887** | **+5.246** |
+| dense RoPE | 3.2805 | 3.2457 | 3.4099 | +0.129 | +0.352 |
+| hybrid NoPE-globals | 3.2817 | 3.2350 | 3.3448 | +0.063 | +0.191 |
+| **hybrid RoPE-globals** | 3.2833 | 3.2331 | **3.2953** | **+0.012** | **+0.039** |
+
+Three things fall out, and the first was not predicted:
+
+1. **The 3:1 hybrid extrapolates an order of magnitude better than dense attention.**
+   +0.012 nats at 4x training length vs dense RoPE's +0.129 — and on the last-512-token
+   bucket, where extrapolation hurts most, +0.039 vs +0.352 (9x). Mechanistically clean:
+   9 of 12 layers are recurrent, have no positional table to run off the end of, and their
+   decay is scale-free. **This is a far stronger argument for the architecture than loss
+   parity was**, and it compounds with the 4x memory result — both point the same way, at
+   long context.
+2. **NoPE is rescued by recurrence — the open conditional is CLOSED, affirmatively.** Dense
+   NoPE collapses (+2.887, last-bucket +5.246 — the cliff verdict 1 rejected it for). The
+   *same* NoPE on the global layers of a hybrid costs +0.063. That is a ~46x smaller
+   penalty from nothing but having the linear layers carry position. Verdict 1 stands as
+   scoped ("pure NoPE in a dense stack") and is now explicitly bounded.
+3. **But RoPE-on-globals still beats NoPE-on-globals at extrapolation** (+0.012 vs +0.063,
+   5x), while NoPE-on-globals is a hair better in-window (3.2806 vs 3.2824, inside the
+   noise band). So the two are not interchangeable, and the choice depends on the target:
+   **keep RoPE on the global layers if long context matters**, which for a coding model it
+   does. Kimi Linear's NoPE-globals choice is defensible but is not free here.
+
+Caveat: every number above is one seed, and the in-window differences (3.2805–3.2833) are
+all inside the 0.0025 paired band. The *extrapolation* differences are 5–100x that band, so
+those are the trustworthy part of this table.
+
 ## Verdict: PARITY CONFIRMED / ADOPT-CONDITIONAL — and do NOT spend a second seed on the loss
 
 Classification per the verdict-audit protocol: **(iii) fair result at this scale/duration**,
