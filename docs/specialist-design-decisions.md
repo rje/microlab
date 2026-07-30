@@ -43,10 +43,14 @@ Loss parity at 124M/4500 steps (+0.0024 nats, exactly at the 0.0025 paired band)
 carrying +5% params, so param-matched it is marginally behind. Trajectory is the finding:
 the hybrid leads by -0.011 at step 1000, crosses over at ~2750, and the gap is still
 widening at 4500 — parity here should NOT be read as parity at pretrain length. The axis
-that decides the lane is memory (analytically 4x KV reduction, 36.0 -> 9.0 KB/token, plus
-a fixed 1.77 MB state) and it is UNMEASURED: there is no incremental-decoding path yet.
-Next step is that path plus a longer run, NOT a second seed — +/-0.002 is decision-
-irrelevant. docs/gdn-hybrid-verdict.md.
+that decides the lane is memory, now MEASURED: 3.99x cache reduction at long context
+(36.0 -> 9.0 KB/token) with a state fixed at 1.89 MB across a 128x context range, via a new
+incremental-decode path (HybridCache + gdn_step) whose cached generation is token-identical
+to uncached. Latency is flat at 5.5 ms/token for the hybrid vs dense's 4.1 -> 7.7 ms, so
+they CROSS at ~100k context: the hybrid costs ~30% decode latency below 64k and wins above
+~100k. Scope of the win is therefore long-context specifically. Remaining gate is the
+long-run quality check (the step-2750 crossover), NOT a second seed.
+docs/gdn-hybrid-verdict.md.
 
 ## Pending lanes
 3. MLA vs GQA (oracle implementation next)

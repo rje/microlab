@@ -41,28 +41,46 @@ Two confounds, both recorded in the configs before the run:
    earlier 2.9x-slower estimate, which came from an uncompiled microbenchmark; under
    max-autotune at production batch the two arms are indistinguishable.)
 
-## The axis that actually decides this lane is memory, and it is UNMEASURED
+## The axis that decides this lane is memory — now MEASURED, and it validates
 
 Linear attention's premise is not better loss — it is the *same* loss for O(1) state instead
 of a KV cache growing linearly in context. Parity on loss is therefore the **expected and
 desired** outcome, not a null result. The question is what the parity buys.
 
-Analytically, with only 1 layer in 4 caching K/V:
+Measured 2026-07-30 on the RTX 6000 Ada at the real 124M config, batch 1, bf16, after
+building the incremental-decoding path (`HybridCache` + `gdn_step`, gated by
+`tests/test_gdn_cache.py` — cached generation is token-for-token identical to uncached, so
+these numbers describe the same model):
 
-| context | dense KV | hybrid total | reduction |
-|---|---|---|---|
-| 1,024 | 37.7 MB | 11.2 MB | 3.37x |
-| 4,096 | 151.0 MB | 39.5 MB | 3.82x |
-| 32,768 | 1.21 GB | 304 MB | 3.98x |
-| 262,144 | 9.66 GB | 2.42 GB | **4.00x** |
+| context | dense cache | hybrid cache | reduction | dense ms/tok | hybrid ms/tok | latency |
+|---|---|---|---|---|---|---|
+| 1,024 | 36.7 MB | 11.1 MB | 3.32x | 4.3 | 5.5 | 1.28x slower |
+| 4,096 | 150 MB | 39.4 MB | 3.81x | 4.2 | 5.5 | 1.31x slower |
+| 16,384 | 603 MB | 153 MB | 3.95x | 4.1 | 5.5 | 1.34x slower |
+| 32,768 | 1,206 MB | 303 MB | 3.98x | 4.2 | 5.5 | 1.31x slower |
+| 65,536 | 2,414 MB | 605 MB | 3.99x | 5.0 | 5.5 | 1.10x slower |
+| **131,072** | **4,830 MB** | **1,209 MB** | **3.99x** | **7.7** | **5.8** | **0.75x — hybrid FASTER** |
 
-Per-token KV drops 36.0 KB → 9.0 KB; the GDN recurrent state is a fixed **1.77 MB**
-regardless of context length.
+**Memory: claim confirmed.** Measured 3.99x against the predicted 4.00x; per-token KV drops
+36.0 KB → 9.0 KB. The recurrent state is **1.89 MB and does not move** across a 128x range of
+context length (predicted 1.77 MB — the extra 0.12 MB is the depthwise-conv history I forgot
+to count). Note the state is kept in fp32 rather than bf16, deliberately: it accumulates
+across every token and wants the precision.
 
-**These numbers are arithmetic, not measurement.** `GatedDeltaNet.forward` deliberately
-raises on `kv_cache` — there is no incremental-decoding path, because a recurrent state is not
-a KV cache and faking it would silently produce wrong continuations. So the benefit that
-justifies the architecture has not been demonstrated on this hardware.
+**Latency: the O(1) property is visible, and there is a crossover at ~100k.** The hybrid is
+*flat at ~5.5 ms/token from 1k to 131k* — that is the architectural claim, measured. Dense is
+cheaper below ~65k (4.1–4.2 ms, attention isn't the bottleneck for a 124M model at those
+lengths) and then degrades: 4.2 → 5.0 → 7.7 ms. They cross near 100k, and at 131k the hybrid
+wins 174 vs 130 tok/s.
+
+**So the honest scope of the win: this architecture is worth it for long context and costs
+you ~30% decode latency below ~64k.** Which is exactly why Kimi Linear ships it — they run
+128k+. It also means the earlier framing of "parity buys memory for free" was wrong: below
+64k the parity buys memory *and costs latency*.
+
+Caveat that cuts in the hybrid's favour: our GDN path has no fused kernels, so the flat
+5.5 ms is an implementation artifact, not a floor. With real kernels the constant drops and
+the crossover moves substantially earlier. Treat ~100k as a **pessimistic** bound.
 
 ## Verdict: PARITY CONFIRMED / ADOPT-CONDITIONAL — and do NOT spend a second seed on the loss
 
@@ -72,6 +90,10 @@ chunkwise vs a sequential reference at fp64 to ~1e-8, fp32 stability under hosti
 gradient finiteness, ragged T, causality, and an assertion that the gate init survives
 `apply(_init_weights)`).
 
+**Update after the memory measurement:** step 1 below is DONE — the incremental-decoding
+path exists and the 4x is measured, not computed. What remains is the long-run check, which
+is now the only thing gating this lane.
+
 **The next experiment is not seed 1338.** A second seed would resolve ±0.002 more precisely,
 and ±0.002 is decision-irrelevant in both directions — nobody adopts or rejects a linear
 hybrid over 0.06 perplexity. Spending 3.5 GPU-hours to sharpen a number that changes nothing
@@ -79,10 +101,10 @@ is the same mistake as ablating architecture while the data lanes sit untouched.
 
 What would actually decide it, in priority order:
 
-1. **Build the incremental-decoding state path** and measure real memory and tokens/sec at
-   4k–32k context. This converts the 4x from arithmetic into evidence, and it is the only
-   reason to prefer the hybrid at all.
-2. **Longer-run check.** The crossover at ~2750 steps and still-widening gap is the one
+1. ~~Build the incremental-decoding state path and measure memory/throughput.~~ **DONE
+   2026-07-30** — `HybridCache` + `gdn_step`, 3.99x memory confirmed, latency crossover
+   measured at ~100k context. See the table above.
+2. **Longer-run check — now the gating experiment.** The crossover at ~2750 steps and still-widening gap is the one
    genuine warning sign. Before committing this to a real pretrain, run one arm pair to
    ~15k steps and see whether the gap stabilises or keeps growing.
 3. **Param-matched rerun** (drop the output gate) only if 1 and 2 look good — it converts
