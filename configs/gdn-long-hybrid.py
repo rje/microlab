@@ -6,8 +6,18 @@ trend, not the final number, is the reason this lane is not yet adopted: "parity
 steps" may not be parity at pretrain length.
 
 This runs 15000 steps (3.3x the tokens) to answer one question: does the gap stabilise or
-keep growing? Everything else is identical to configs/gdn-ab-{dense,hybrid}.py, including
-the seed, so the first 4500 steps should reproduce those runs.
+keep growing? Everything else is identical to configs/gdn-ab-{dense,hybrid}.py, including the seed.
+
+CORRECTION (2026-07-30): I originally claimed the first 4500 steps would reproduce the
+4500-step runs as a free consistency check. That is WRONG and the claim is withdrawn —
+lr_decay_steps also changes (15000 vs 4500), so at step 4500 this run is still mid-cosine
+at a high LR while the short run had fully decayed to min_lr. Measured divergence at step
+4500 is +0.082 nats, entirely accounted for by the schedule. Same seed and data order do
+NOT imply the same trajectory when the LR schedule differs.
+
+What IS valid is the comparison WITHIN this pair: gdn-long-dense vs gdn-long-hybrid share
+seed, data order, and schedule, and differ only in hybrid_every. Do not cross-compare
+either of them against the 4500-step arms.
 """
 
 from microlab.train.config import RunConfig
