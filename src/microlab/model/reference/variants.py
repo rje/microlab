@@ -206,7 +206,30 @@ def gdn_recurrent(q, k, v, alpha, beta):
     return torch.stack(out, dim=2)
 
 
-def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
+def gdn_step(q, k, v, alpha, beta, S):
+    """Single-token Gated DeltaNet step for incremental decoding. One application of the
+    recurrence, O(1) in context length — this is the whole point of the architecture.
+    q,k (B,H,1,Dk), v (B,H,1,Dv), alpha,beta (B,H,1), S (B,H,Dk,Dv). Returns (out, S_new).
+
+    Deliberately NOT gdn_chunkwise with T=1: that would pad to a full 64-wide chunk and
+    build a 64x64 solve to advance one position."""
+    work = torch.float64 if q.dtype == torch.float64 else torch.float32
+    dtype = q.dtype
+    k_t = k[:, :, 0].to(work)                                # (B,H,Dk)
+    v_t = v[:, :, 0].to(work)
+    q_t = q[:, :, 0].to(work)
+    a = alpha[:, :, 0].to(work).unsqueeze(-1).unsqueeze(-1)  # (B,H,1,1)
+    b = beta[:, :, 0].to(work).unsqueeze(-1).unsqueeze(-1)
+    Sw = S.to(work)
+    # S = alpha (I - beta k k^T) S + beta k v^T, computed without forming (Dk,Dk):
+    #   (I - beta k k^T) S = S - beta k (k^T S)
+    kS = torch.einsum("bhd,bhdv->bhv", k_t, Sw).unsqueeze(-2)          # (B,H,1,Dv)
+    Sn = a * (Sw - b * k_t.unsqueeze(-1) * kS) + b * (k_t.unsqueeze(-1) * v_t.unsqueeze(-2))
+    out = torch.einsum("bhd,bhdv->bhv", q_t, Sn).unsqueeze(2)          # (B,H,1,Dv)
+    return out.to(dtype), Sn.to(S.dtype)
+
+
+def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64, S0=None, return_state: bool = False):
     """Chunk-parallel Gated DeltaNet — the trainable path. Mathematically identical to
     `gdn_recurrent` (enforced by tests/test_gdn.py to ~1e-4); T/chunk sequential steps
     instead of T.
@@ -286,7 +309,7 @@ def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
     strict = torch.tril(torch.ones(chunk, chunk, device=q.device, dtype=q.dtype), -1)
     incl = torch.tril(torch.ones(chunk, chunk, device=q.device, dtype=q.dtype), 0)
 
-    S = q.new_zeros(B, H, Dk, Dv)
+    S = q.new_zeros(B, H, Dk, Dv) if S0 is None else S0.to(q.dtype).clone()
     outs = []
     for c in range(nc):
         K, V, Q = k[:, :, c], v[:, :, c], q[:, :, c]              # (B,H,chunk,D*)
@@ -311,7 +334,8 @@ def gdn_chunkwise(q, k, v, alpha, beta, chunk: int = 64):
         S = a[..., -1].unsqueeze(-1).unsqueeze(-1) * S \
             + K.transpose(-2, -1) @ (ratio.unsqueeze(-1) * E)
 
-    return torch.cat(outs, dim=2).view(B, H, T, Dv)[:, :, :T_real].to(dtype)
+    y = torch.cat(outs, dim=2).view(B, H, T, Dv)[:, :, :T_real].to(dtype)
+    return (y, S) if return_state else y
 
 
 class GatedDeltaNet(nn.Module):
@@ -361,14 +385,19 @@ class GatedDeltaNet(nn.Module):
         nn.init.zeros_(self.b_proj.bias)
 
     def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
-        if kv_cache is not None:
-            raise NotImplementedError(
-                "GatedDeltaNet has a recurrent state, not a KV cache; incremental "
-                "decoding needs a separate state-carrying path (not built yet)"
-            )
         B, T, C = x.shape
+        cache, layer = (kv_cache if kv_cache is not None else (None, None))
         qkv = self.qkv_proj(x).transpose(1, 2)                     # (B,3C,T)
-        qkv = self.conv(F.pad(qkv, (self.conv_pad, 0)))            # causal depthwise
+        if cache is None:
+            qkv = self.conv(F.pad(qkv, (self.conv_pad, 0)))        # causal depthwise
+        else:
+            # Incremental: instead of zero-padding, prepend the last conv_pad raw inputs
+            # so the conv sees real history. Zero-padding mid-stream would silently
+            # change the output of every decoded token.
+            hist = cache.conv_hist(layer, B, 3 * C, self.conv_pad, qkv.dtype, qkv.device)
+            stream = torch.cat([hist, qkv], dim=2)
+            qkv = self.conv(stream)
+            cache.set_conv_hist(layer, stream[:, :, -self.conv_pad:])
         qkv = qkv.transpose(1, 2)
         q, k, v = qkv.split(C, dim=2)
         shape = (B, T, self.n_head, self.head_dim)
@@ -377,7 +406,16 @@ class GatedDeltaNet(nn.Module):
         v = v.view(shape).transpose(1, 2)
         alpha = torch.sigmoid(self.a_proj(x)).transpose(1, 2)      # (B,H,T)
         beta = torch.sigmoid(self.b_proj(x)).transpose(1, 2)       # (B,H,T)
-        y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
+        if cache is None:
+            y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
+        else:
+            S = cache.gdn_state(layer, B, self.n_head, self.head_dim, q.dtype, q.device)
+            if T == 1:
+                y, S = gdn_step(q, k, v, alpha, beta, S)
+            else:                                                   # prefill
+                y, S = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk,
+                                     S0=S, return_state=True)
+            cache.set_gdn_state(layer, S)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.o_proj(y * F.silu(self.g_proj(x)))
 

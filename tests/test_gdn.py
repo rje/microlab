@@ -206,10 +206,7 @@ def test_gate_init_survives_model_init_weights():
         assert alpha0 ** 64 > 1e-2, "cumulative chunk decay underflows at init"
 
 
-def test_gdn_rejects_kv_cache():
-    """A recurrent state is not a KV cache; serving must fail loudly rather than
-    silently produce wrong continuations."""
-    m = VariantGPT(_cfg(n_layer=4, hybrid_every=4, gdn_chunk=16))
-    gdn = m.transformer.h[0].attn
-    with pytest.raises(NotImplementedError, match="recurrent state"):
-        gdn(torch.randn(1, 16, 32), kv_cache=object())
+# NOTE: the former test_gdn_rejects_kv_cache is gone — incremental decoding is now
+# implemented (HybridCache + gdn_step). Its replacement is
+# tests/test_gdn_cache.py::test_cached_generation_matches_uncached, which is a far
+# stronger check than "raises NotImplementedError".
