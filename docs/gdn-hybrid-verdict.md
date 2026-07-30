@@ -118,7 +118,51 @@ Caveat: every number above is one seed, and the in-window differences (3.2805–
 all inside the 0.0025 paired band. The *extrapolation* differences are 5–100x that band, so
 those are the trustworthy part of this table.
 
-## Verdict: PARITY CONFIRMED / ADOPT-CONDITIONAL — and do NOT spend a second seed on the loss
+## THE 4500-STEP VERDICT WAS WRONG. At compute-optimal, the hybrid WINS.
+
+The long-run pair (15000 steps, same seed/data/schedule, differing only in `hybrid_every`)
+**inverts the 4500-step result**:
+
+| | 4500 steps | 15000 steps |
+|---|---|---|
+| tokens | 0.74B = **0.30x Chinchilla** | 2.46B = **0.99x Chinchilla** |
+| dense | 3.2800 | 3.0602 (ppl 21.33) |
+| hybrid | 3.2824 | **3.0544 (ppl 21.21)** |
+| delta | **+0.0024 — hybrid behind** | **−0.0059 — hybrid AHEAD** |
+| trajectory | led early, crossed over at step 2750, gap widening | **led at all 60 eval points, never crossed** |
+
+The final gap is 2.4x the paired noise band, and it is *stable* through the entire anneal
+(−0.0058 … −0.0067 from step 12750 to 15000). There is no crossover.
+
+**My prediction was wrong and it is worth recording why.** I predicted the gap would keep
+widening against the hybrid, reasoning that the linear layers' recency prior helps early
+while full attention's long-range capacity compounds later. The real explanation for the
+4500-step crossover is much duller: **that run stopped at 30% of Chinchilla-optimal.** At
+0.30x the ordering had not converged; at 0.99x it is stable and reversed. What looked like
+a capacity trend was an under-training artifact.
+
+### The methodological finding, which matters more than this verdict
+
+**Our standard 4500-step ablation protocol trains to 0.30x Chinchilla and can invert its own
+verdict.** Same seed, same data, same code — only the schedule length differed, and the
+answer flipped sign. That is a far bigger problem than any single lane, because:
+
+- Every verdict produced by the 4500-step protocol is now suspect on the same grounds.
+  **This explicitly includes Peri-LN** (`periln-verdict.md`), which won at 4500 steps with an
+  advantage that was *decaying monotonically* (−0.069 at step 250 → −0.015 at 4500). A
+  decaying advantage measured entirely inside the under-trained regime is exactly the shape
+  that inverted here. Peri-LN's adoption should be re-tested at ~15000 steps before it is
+  carried into a real pretrain.
+- The noise-band work (`periln-verdict.md`) fixed the *denominator* of our ablations. This
+  fixes the *duration*. Both were wrong in ways that survived multiple confident writeups.
+
+**New rule: architecture ablations run to >=1x Chinchilla-optimal tokens for the ablation
+model, or the verdict is labelled UNDER-TRAINED and is not adoption-grade.** At 124M with
+160 seqs x 1024 tokens per step that is ~15000 steps, not 4500. The cost is 3.3x per lane —
+which is precisely why cheap lanes must be triaged rather than all run (see the
+"do not spend a second seed" note below, which stands).
+
+## Verdict: ADOPT the 3:1 hybrid (superseding the earlier PARITY / ADOPT-CONDITIONAL)
 
 Classification per the verdict-audit protocol: **(iii) fair result at this scale/duration**,
 for the loss question. Implementation correctness is gated by `tests/test_gdn.py` (24 tests:
