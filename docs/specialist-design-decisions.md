@@ -29,10 +29,29 @@ robust; the in-window +0.057 is the fragile part (single seed, RoPE-tuned HPs, 7
 horizon). Audit checks: Haviv-2022 positive controls (near-parity ppl; implicit position
 decodable from hidden states), NoPE LR sweep, noise-band placement.
 
+## 2. Normalization: Peri-LN — 2026-07-29 — CONFIRMED (n=3 seeds)
+
+Paired effect -0.0152 nats, wins 3/3 seeds and 54/54 matched eval points, paired
+t = -10.48. Effect decays monotonically from -0.069 at step 250, so it buys early
+convergence rather than a fixed gap. Variance-reduction claim (the reason we adopted it)
+measured at a 0.69 sd ratio vs the published ">half" — directionally right, NOT resolvable
+at n=3, and explicitly not usable to justify fewer seeds later. docs/periln-verdict.md.
+
+## 3. Attention layout: GDN/KDA 3:1 hybrid — 2026-07-30 — PARITY, ADOPT-CONDITIONAL
+
+Loss parity at 124M/4500 steps (+0.0024 nats, exactly at the 0.0025 paired band) while
+carrying +5% params, so param-matched it is marginally behind. Trajectory is the finding:
+the hybrid leads by -0.011 at step 1000, crosses over at ~2750, and the gap is still
+widening at 4500 — parity here should NOT be read as parity at pretrain length. The axis
+that decides the lane is memory (analytically 4x KV reduction, 36.0 -> 9.0 KB/token, plus
+a fixed 1.77 MB state) and it is UNMEASURED: there is no incremental-decoding path yet.
+Next step is that path plus a longer run, NOT a second seed — +/-0.002 is decision-
+irrelevant. docs/gdn-hybrid-verdict.md.
+
 ## Pending lanes
-2. Peri-LN vs Pre-LN (arms launched 2026-07-29; also calibrates ladder noise band)
 3. MLA vs GQA (oracle implementation next)
-4. GDN/KDA hybrid vs full attention (the big one; carries the NoPE-conditional)
+4. GDN/KDA long-run + incremental-decoding memory measurement (see verdict 3);
+   NoPE-on-globals arm is now a one-line config change
 5. MoBA / ASA (conditional on 4)
 6. mHC (opportunistic)
 Data lanes: mix ablation incl. constant-vs-staged-curriculum arm and general-first-vs-
