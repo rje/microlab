@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -133,4 +135,14 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    rc = main()
+    # os._exit rather than a normal return: HF `datasets` streaming leaves aiohttp/pyarrow
+    # worker threads alive, and CPython's finalizer aborts with
+    #   Fatal Python error: PyGILState_Release: thread state must be current when releasing
+    # AFTER all data is safely written. The first run of this script wrote 3.0B math tokens,
+    # printed "done:", then core-dumped on shutdown — which under `set -e` killed the arxiv
+    # and commits ingests that were queued behind it. Skipping finalisation avoids a crash
+    # that can only happen once the work is complete.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(rc)
