@@ -1,5 +1,30 @@
 # Peri-LN verdict + the lab's three noise bands
 
+> **DEMOTED 2026-07-31 after the compute-optimal retest.** Everything below was measured at
+> 4500 steps = 0.30x Chinchilla, the under-trained regime the GDN lane later proved can
+> distort verdicts. Re-run at 15000 steps (0.99x Chinchilla), Pre-LN vs Peri-LN, same seed
+> and schedule:
+>
+> | | 4500 steps | 15000 steps |
+> |---|---|---|
+> | Pre-LN | 3.2878 | 3.0622 (ppl 21.37) |
+> | Peri-LN | 3.2755 | 3.0602 (ppl 21.33) |
+> | effect | **-0.0152** | **-0.0020** |
+>
+> The SIGN held — Peri-LN led at every matched point and did not invert the way the GDN
+> hybrid did. But the magnitude collapsed ~8x and now sits BELOW the 0.0025 paired band,
+> i.e. it is no longer resolvable by our own standard. The decaying trend flagged below was
+> real; it decayed toward zero rather than through it.
+>
+> **Practical reading: Peri-LN buys early convergence and almost nothing at compute-optimal.
+> KEEP it (no cost, consistent sign, plausible variance benefit) but stop citing it as a
+> quality win, and do not use it as evidence the ablation ladder finds real improvements.**
+>
+> Caveat: the retest is ONE seed pair, not the three below, and its Peri-LN arm is
+> `runs/gdn-long-dense` — a config-identical run made for another purpose. Enough to detect
+> an inversion; not enough to resolve 0.0020.
+
+
 Six 124M arms, 4500 steps each, FineWeb-100BT, identical except `block_norm` and `seed`:
 `runs/periln-ab-{pre,peri}[-s1338][-s1339]` (seeds 1337/1338/1339).
 Analysis: `scripts/analyze_periln_ab.py`.

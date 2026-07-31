@@ -29,10 +29,12 @@ robust; the in-window +0.057 is the fragile part (single seed, RoPE-tuned HPs, 7
 horizon). Audit checks: Haviv-2022 positive controls (near-parity ppl; implicit position
 decodable from hidden states), NoPE LR sweep, noise-band placement.
 
-## 2. Normalization: Peri-LN — 2026-07-29 — CONFIRMED at n=3 seeds, but UNDER-TRAINED (see protocol change)
+## 2. Normalization: Peri-LN — 2026-07-31 — KEEP, but DEMOTED (effect ~= noise at compute-optimal)
 
-Paired effect -0.0152 nats, wins 3/3 seeds and 54/54 matched eval points, paired
-t = -10.48. Effect decays monotonically from -0.069 at step 250, so it buys early
+RETESTED at 15000 steps (0.99x Chinchilla): effect shrinks from -0.0152 to -0.0020, BELOW
+the 0.0025 paired band. Sign held (no inversion), magnitude did not. Keep it — free, no
+risk — but it is not a quality win and must not be cited as one. Original 4500-step result:
+paired effect -0.0152, 3/3 seeds, 54/54 eval points, paired t = -10.48. Effect decays monotonically from -0.069 at step 250, so it buys early
 convergence rather than a fixed gap. Variance-reduction claim (the reason we adopted it)
 measured at a 0.69 sd ratio vs the published ">half" — directionally right, NOT resolvable
 at n=3, and explicitly not usable to justify fewer seeds later. docs/periln-verdict.md.
