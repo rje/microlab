@@ -67,6 +67,13 @@ class RunConfig:
     compile_mode: str = "default"  # "max-autotune" autotunes Triton kernels (slow compile,
     #                                ~29% faster steady-state on the 1B — worth it for long runs)
     log_interval: int = 50
+    # Which shard dir this run trains on. None -> take it from --data-dir (the historical
+    # behaviour). SET IT for any ablation whose intervention IS the data: the code
+    # repetition lane's two arms were byte-identical configs distinguished only by a
+    # --data-dir in a launcher script under /tmp, so the experiment was not legible from
+    # the repo at all. scripts/preflight_lane.py hard-fails on identical arms for exactly
+    # this reason.
+    data_dir: str | None = None
     out_dir: str = "runs/pretrain"
     device: str = "cuda"
     dtype: str = "bfloat16"

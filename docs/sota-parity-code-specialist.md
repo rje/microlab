@@ -12,21 +12,37 @@ the 0.5B where the config implies 64; intermediate 4,864 for the 3B where it is 
 151,646 where it is 151,936). **Do not copy hyperparameters out of that table — use the
 configs.**
 
+## Reading the "ours" column
+
+**CORRECTION (2026-07-31, after owner review).** The first draft headed this column "Ours
+(proposed)", which was wrong and misleading: it merged three different kinds of thing and
+presented all of them as decisions we had made.
+
+- **[DECIDED]** — an actual verdict with evidence behind it (decisions log).
+- **[ABLATION]** — a scratch default in `code-base.py` that exists only so ablation arms are
+  mutually comparable. **Never proposed for a pretrain.** Listing these as "ours" made it
+  look as though we had chosen MHA and 1024 context. We had not; they are unset defaults,
+  which is precisely the failure mode this review exists to catch.
+- **[OPEN]** — not decided either way. The data mix is the important one: it was ALWAYS a
+  pending data lane, and the owner had already raised that code-only pretraining is uncommon
+  before this review ran. Presenting it here as a new finding was a mistake.
+
 ## The cohort at our size class
 
-| | Ours (proposed) | Qwen2.5-Coder-1.5B | DeepSeek-Coder-1.3B | StarCoder2-3B |
+| | Ours | Qwen2.5-Coder-1.5B | DeepSeek-Coder-1.3B | StarCoder2-3B |
 |---|---|---|---|---|
-| attention | **GDN 3:1 hybrid** | GQA | **MHA** | GQA |
-| n_head : n_kv_head | 12 : **absent = MHA** | 12 : **2** | 16 : 16 | 24 : **2** |
-| pretrain ctx (θ) | **1024 (1e4)** | 8192 (1e4) | ~4096 (1e4) | 4096 (1e5) |
-| shipped ctx (θ) | **none planned** | **32768 (1e6)** | 16384 (1e5) | 16384 (1e6) + SWA 4096 |
-| vocab | **49,152** | 151,936 | 32,256 | **49,152** |
+| position | **[DECIDED]** RoPE on globals (NoPE tested, rejected) | RoPE | RoPE | RoPE |
+| attention | **[DECIDED]** GDN 3:1 hybrid | GQA | **MHA** | GQA |
+| n_head : n_kv_head | **[ABLATION]** 12 : absent = MHA | 12 : **2** | 16 : 16 | 24 : **2** |
+| pretrain ctx (θ) | **[ABLATION]** 1024 (1e4) | 8192 (1e4) | ~4096 (1e4) | 4096 (1e5) |
+| shipped ctx (θ) | **[OPEN]** not yet planned | **32768 (1e6)** | 16384 (1e5) | 16384 (1e6) + SWA 4096 |
+| vocab | **[DECIDED]** 49,152 | 151,936 | 32,256 | **49,152** |
 | norm / act | RMSNorm Peri-LN / SwiGLU | RMSNorm pre / SwiGLU | RMSNorm pre / SwiGLU | LayerNorm pre / **GELU non-gated** |
-| QK-norm | **undecided** | no | no | no |
+| QK-norm | **[OPEN]** | no | no | no |
 | tied emb | yes | yes | no | yes |
-| training tokens | **?** (corpus 27.35B) | 5.5T (continued from 18T) | 2T from scratch | 3.3T over **622B unique = 4.98 epochs** |
-| data mix | **100% code** | 70% code / 20% text / 10% math | 87 / 10 / 3 | code + math/wiki (7B only) |
-| FIM | **not implemented** | yes, rate unpublished | yes, **rate 0.5 PSM** | ~0.25 effective |
+| training tokens | **[OPEN]** (corpus 27.35B) | 5.5T (continued from 18T) | 2T from scratch | 3.3T over **622B unique = 4.98 epochs** |
+| data mix | **[OPEN]** — lane pending, not a plan | 70% code / 20% text / 10% math | 87 / 10 / 3 | code + math/wiki (7B only) |
+| FIM | **[OPEN]** not implemented | yes, rate unpublished | yes, **rate 0.5 PSM** | ~0.25 effective |
 
 ## Verdicts
 
@@ -71,7 +87,10 @@ configs.**
    high LR. **Use the head_dim variant (Qwen3/Gemma3), not the full-projected-dim variant
    (OLMo 2).** Recorded as a deliberate divergence from the code table that puts us in line
    with the general consensus.
-7. **Data mix: 100% code → CHANGE.** **Every single cohort model mixes in natural language
+7. **Data mix → the lane was already open; this review only supplies the cohort numbers.**
+   Not a new finding: the owner flagged that code-only pretraining is uncommon before this
+   review, and a mix ablation has been on the pending-lane list throughout. What is new is
+   the cohort's actual ratios. **Every single cohort model mixes in natural language
    and math**: Qwen2.5-Coder 70/20/10, DeepSeek-Coder 87/10/3, CodeLlama 85/8/7,
    DeepSeek-Coder-V2-Lite 60/30/10. Pure-code pretraining is a divergence from the entire
    field and we have no evidence for it. This is the same class of miss as the 1B's
@@ -91,6 +110,13 @@ configs.**
     retest put it at −0.0020 nats, below our noise band. Free to keep, but it is not load-
     bearing and should not be defended.
 11. **Tied embeddings → CHOSEN.** Matches Qwen2.5-Coder and StarCoder2 at our scale.
+12. **Position: RoPE on the global layers → CHOSEN (measured, not inherited).** Omitted from
+    the first draft of this review, which was an error — it is a decided divergence question
+    and belongs here. We trained the NoPE-on-globals arm (the literal Kimi Linear config) and
+    it LOST on length generalisation: +0.063 nats at 4x training length vs RoPE-globals'
+    +0.012, a 5x gap, while being a hair better in-window (inside the noise band). The whole
+    cohort uses RoPE, so this is convergence rather than divergence — but it was reached by
+    our own measurement. See `gdn-hybrid-verdict.md`.
 
 ## What this review changes
 

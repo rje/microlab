@@ -63,6 +63,7 @@ config = RunConfig(
     ckpt_interval=1000,
     ckpt_keep=2,         # ablation run: rolling recovery only, no permanent trajectory
     log_interval=25,
+    data_dir="data/shards/code-stack-30b",
     out_dir="runs/code-rep-fresh",
     device="cuda",
     dtype="bfloat16",

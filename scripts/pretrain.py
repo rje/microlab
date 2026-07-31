@@ -59,13 +59,26 @@ def load_config(path: str):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("config", help="path to a config module (e.g. configs/150m.py)")
-    ap.add_argument("--data-dir", default="data/shards", help="dir with train/val .bin shards")
+    ap.add_argument("--data-dir", default=None,
+                    help="dir with train/val .bin shards; overrides cfg.data_dir when the "
+                         "config does not set one. Passing a value that CONTRADICTS a "
+                         "config's data_dir is an error, not a silent override.")
     ap.add_argument("--init-ckpt", default=None,
                     help="warm-start: load model WEIGHTS ONLY from this checkpoint "
                          "(fresh optimizer, step 0); out_dir must have no checkpoints")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
+    # Resolve the data dir from config and CLI. A contradiction is an ERROR: silently
+    # letting the CLI win would mean a config could claim one corpus while the run used
+    # another, which is exactly how the repetition lane's intervention became invisible.
+    cfg_dd = getattr(cfg, "data_dir", None)
+    if cfg_dd and args.data_dir and Path(cfg_dd) != Path(args.data_dir):
+        raise SystemExit(
+            f"data-dir conflict: config says {cfg_dd!r}, --data-dir says {args.data_dir!r}. "
+            f"Pick one — a run must not disagree with its own config about what it trained on."
+        )
+    args.data_dir = cfg_dd or args.data_dir or "data/shards"
     # match the model's vocab to the tokenizer that produced the shards
     tok_path = Path(args.data_dir) / "tokenizer.json"
     tok = None
