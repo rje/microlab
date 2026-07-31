@@ -81,6 +81,33 @@ shape that inverted here. Re-test at ~15000 steps before carrying it into a real
 Verdict 1 (RoPE vs NoPE) is not at risk: its gap is +0.057 in-window and +2.9 at 4x length,
 20-1000x the band, not a margin a schedule change plausibly flips.
 
+## PARITY REVIEW (2026-07-31) — 4 CHANGEs required before any pretrain
+
+docs/sota-parity-code-specialist.md, run BEFORE committing a pretrain this time.
+
+CHANGE 1 n_kv_head=2 on the global layers. Cohort finding: n_kv_head=2 is an ABSOLUTE
+  budget, not a ratio, for everything under ~3B (Qwen2.5-Coder uses 2 at 0.5/1.5/3B;
+  StarCoder2-3B uses 2 at 24 heads). Currently absent from our configs = full MHA = the 1B's
+  exact error, and it compounds with our measured 4x hybrid KV reduction.
+CHANGE 2 Staged context: pretrain 4-8k (theta 1e4) then ABF to 16-32k (theta 1e6). The whole
+  cohort does this and it is cheap (StarCoder2 200B tokens ~6% of budget; DeepSeek 1000
+  steps). 4k is fine as a stage, not as a shipped number; floor is 16k, mode at our size 32k.
+CHANGE 3 Non-code slice in the mix. EVERY cohort model mixes NL+math (70/20/10, 87/10/3,
+  85/8/7, 60/30/10). 100% code is a divergence from the entire field with no evidence behind
+  it — same class of miss as the 1B's FineWeb-only. Blocked on retokenising to code-49k.
+CHANGE 4 FIM at 0.5 PSM. Universal in the cohort; DeepSeek ran the ablation (100% FIM
+  maximises HumanEval-FIM but gives "the weakest code completion capability").
+NEW: adopt QK-norm (head_dim variant, Qwen3/Gemma3 style). Absent from every flagship code
+  specialist but standard in the 2025/26 general small-model lineage; cheap, buys LR
+  stability. A deliberate, recorded divergence.
+CONFIRMED CHOSEN: vocab 49,152 (independently matches StarCoder2); the GDN 3:1 hybrid, which
+  is our one genuine architectural divergence — no cohort code model uses linear attention,
+  nearest precedent is Qwen3-Coder-Next at ~25x our size with the same 3:1 ratio.
+BIGGEST OPEN RISK: token budget. Cohort trains 2T-5.5T; our corpus is 27.35B (~100x short)
+  and TypeScript already exhausted the permissive Stack at 7.38B. StarCoder2 is the
+  precedent that helps: 3.3T tokens over 622B unique = 4.98 EPOCHS. That is exactly what the
+  running repetition lane measures.
+
 ## Pending lanes
 3. MLA vs GQA (oracle implementation next)
 4. GDN/KDA long-run + incremental-decoding memory measurement (see verdict 3);
