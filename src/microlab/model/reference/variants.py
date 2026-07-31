@@ -206,6 +206,90 @@ def gdn_recurrent(q, k, v, alpha, beta):
     return torch.stack(out, dim=2)
 
 
+def kda_recurrent(q, k, v, alpha, beta):
+    """Reference KDA (Kimi Delta Attention) recurrence — the oracle for the fused kernel.
+
+    KDA generalises Gated DeltaNet by making the forget gate PER-CHANNEL instead of one
+    scalar per head. That is the whole difference, and it is the difference that matters
+    for NoPE-on-globals: if the recurrence is what carries positional information, a
+    diagonal gate of width K carries ~K times more of it than a single scalar.
+
+        S_t = Diag(alpha_t) (I - beta_t k_t k_t^T) S_{t-1} + beta_t k_t v_t^T
+        o_t = S_t^T q_t
+
+    Shapes: q,k (B,H,T,Dk), v (B,H,T,Dv), alpha (B,H,T,Dk) <- per-channel, beta (B,H,T).
+    Set alpha to a broadcast scalar per head and this reduces exactly to gdn_recurrent,
+    which tests/test_kda.py asserts."""
+    B, H, T, Dk = q.shape
+    Dv = v.shape[-1]
+    S = q.new_zeros(B, H, Dk, Dv)
+    eye = torch.eye(Dk, device=q.device, dtype=q.dtype)
+    out = []
+    for t in range(T):
+        k_t, v_t = k[:, :, t], v[:, :, t]
+        a_t = alpha[:, :, t].unsqueeze(-1)                      # (B,H,Dk,1) diagonal
+        b_t = beta[:, :, t].unsqueeze(-1).unsqueeze(-1)
+        proj = eye - b_t * k_t.unsqueeze(-1) * k_t.unsqueeze(-2)
+        S = a_t * (proj @ S) + b_t * (k_t.unsqueeze(-1) * v_t.unsqueeze(-2))
+        out.append((S.transpose(-2, -1) @ q[:, :, t].unsqueeze(-1)).squeeze(-1))
+    return torch.stack(out, dim=2)
+
+
+def _fla_kda(q, k, v, alpha, beta):
+    """Fused KDA kernel. alpha is per-channel (B,H,T,Dk), linear space; fla wants log."""
+    if q.dtype == torch.float64 or not q.is_cuda:
+        return None
+    try:
+        from fla.ops.kda import chunk_kda
+    except ImportError:
+        return None
+    dt = q.dtype if q.dtype in (torch.bfloat16, torch.float16) else torch.bfloat16
+    o = chunk_kda(
+        q=q.permute(0, 2, 1, 3).contiguous().to(dt),
+        k=k.permute(0, 2, 1, 3).contiguous().to(dt),
+        v=v.permute(0, 2, 1, 3).contiguous().to(dt),
+        g=torch.log(alpha.clamp_min(1e-30)).permute(0, 2, 1, 3).contiguous().float(),
+        beta=beta.permute(0, 2, 1).contiguous().to(dt),
+        scale=1.0,
+    )
+    o = o[0] if isinstance(o, tuple) else o
+    return o.permute(0, 2, 1, 3).to(q.dtype)
+
+
+def _fla_gdn(q, k, v, alpha, beta):
+    """Fused Triton path (flash-linear-attention). Returns None when unavailable or when
+    the caller wants exact float64, so the reference stays the oracle.
+
+    Equivalence with gdn_recurrent is verified in tests/test_gdn_fused.py: the kernel lands
+    at 0.74x the bf16 REPRESENTATION floor against our float64 reference, with correlation
+    1.000000 over 1024 steps — same recurrence, computed in bf16.
+
+    Why this exists: our gdn_chunkwise is a python loop of T/chunk sequential iterations
+    that must run in fp32, because torch.linalg.solve_triangular has no bfloat16 CUDA
+    kernel. Measured 23-31x slower than fused, and the gap does NOT shrink with context.
+    A correctness oracle cannot be a training kernel."""
+    # Decline on CPU (Triton is CUDA-only) and on float64 (the oracle path). Returning
+    # None rather than raising keeps the reference implementation as a real fallback, so
+    # CPU tests and debugging still exercise the same module.
+    if q.dtype == torch.float64 or not q.is_cuda:
+        return None
+    try:
+        from fla.ops.gated_delta_rule import chunk_gated_delta_rule
+    except ImportError:
+        return None
+    dt = q.dtype if q.dtype in (torch.bfloat16, torch.float16) else torch.bfloat16
+    o = chunk_gated_delta_rule(
+        q=q.permute(0, 2, 1, 3).contiguous().to(dt),
+        k=k.permute(0, 2, 1, 3).contiguous().to(dt),
+        v=v.permute(0, 2, 1, 3).contiguous().to(dt),
+        g=torch.log(alpha.clamp_min(1e-30)).permute(0, 2, 1).contiguous().float(),
+        beta=beta.permute(0, 2, 1).contiguous().to(dt),
+        scale=1.0,   # q/k are already L2-normalised; fla would otherwise apply 1/sqrt(K)
+    )
+    o = o[0] if isinstance(o, tuple) else o
+    return o.permute(0, 2, 1, 3).to(q.dtype)
+
+
 def gdn_step(q, k, v, alpha, beta, S):
     """Single-token Gated DeltaNet step for incremental decoding. One application of the
     recurrence, O(1) in context length — this is the whole point of the architecture.
@@ -362,13 +446,21 @@ class GatedDeltaNet(nn.Module):
         self.head_dim = config.n_embd // config.n_head
         self.n_embd = config.n_embd
         self.chunk = config.gdn_chunk
+        # Fused kernel for training; the pure-PyTorch scan remains the oracle and the
+        # fallback. Set gdn_fused=False to force the reference path (tests, debugging).
+        self.fused = getattr(config, "gdn_fused", True)
         self.qkv_proj = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
         self.conv = nn.Conv1d(
             3 * config.n_embd, 3 * config.n_embd, kernel_size=config.gdn_conv_kernel,
             groups=3 * config.n_embd, bias=False,
         )
         self.conv_pad = config.gdn_conv_kernel - 1
-        self.a_proj = nn.Linear(config.n_embd, config.n_head, bias=True)
+        self.gate = getattr(config, "gdn_gate", "scalar")
+        if self.gate not in ("scalar", "channel"):
+            raise ValueError(f"unknown gdn_gate {self.gate!r}: expected 'scalar' or 'channel'")
+        # KDA emits one decay per (head, head_dim) channel; GDN one per head.
+        a_out = config.n_head * self.head_dim if self.gate == "channel" else config.n_head
+        self.a_proj = nn.Linear(config.n_embd, a_out, bias=True)
         self.b_proj = nn.Linear(config.n_embd, config.n_head, bias=True)
         self.g_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
         self.o_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
@@ -404,11 +496,26 @@ class GatedDeltaNet(nn.Module):
         q = F.normalize(F.silu(q.view(shape)), dim=-1).transpose(1, 2)
         k = F.normalize(F.silu(k.view(shape)), dim=-1).transpose(1, 2)
         v = v.view(shape).transpose(1, 2)
-        alpha = torch.sigmoid(self.a_proj(x)).transpose(1, 2)      # (B,H,T)
+        if self.gate == "channel":                                  # KDA: (B,H,T,Dh)
+            alpha = torch.sigmoid(self.a_proj(x)).view(B, T, self.n_head, self.head_dim)
+            alpha = alpha.transpose(1, 2)
+        else:                                                       # GDN: (B,H,T)
+            alpha = torch.sigmoid(self.a_proj(x)).transpose(1, 2)
         beta = torch.sigmoid(self.b_proj(x)).transpose(1, 2)       # (B,H,T)
         if cache is None:
-            y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
+            if self.gate == "channel":
+                y = _fla_kda(q, k, v, alpha, beta) if self.fused else None
+                if y is None:
+                    y = kda_recurrent(q, k, v, alpha, beta)   # oracle fallback (slow)
+            else:
+                y = _fla_gdn(q, k, v, alpha, beta) if self.fused else None
+                if y is None:
+                    y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
         else:
+            if self.gate == "channel":
+                raise NotImplementedError(
+                    "KDA incremental decode needs a per-channel gdn_step; use gdn_gate="
+                    "'scalar' for cached generation until that exists")
             S = cache.gdn_state(layer, B, self.n_head, self.head_dim, q.dtype, q.device)
             if T == 1:
                 y, S = gdn_step(q, k, v, alpha, beta, S)
@@ -469,6 +576,12 @@ class VariantConfig(GPTConfig):
     hybrid_every: int | None = None
     gdn_chunk: int = 64        # chunk-parallel block length; see gdn_chunkwise numerics
     gdn_conv_kernel: int = 4   # short causal depthwise conv on q/k/v, as published
+    gdn_fused: bool = True     # use the fused Triton kernel; False forces the reference
+    # "scalar" -> Gated DeltaNet (one forget gate per head). "channel" -> KDA (Kimi Delta
+    # Attention): a per-channel diagonal gate, ~head_dim times the capacity. Kimi Linear's
+    # results come from the channel gate; our first hybrid used scalar and we then drew
+    # conclusions about the KDA lineage from it.
+    gdn_gate: str = "scalar"
 
 
 def _make_norm(kind: str, dim: int) -> nn.Module:
