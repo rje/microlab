@@ -68,6 +68,11 @@ config = RunConfig(
     max_steps=15000,
     lr_decay_steps=15000,
     # data / io
+    # 32k context needs BOTH of these; without them the run OOMs on a 48GB card. Measured:
+    # fused CE takes 32768-token steps from 27.70 -> 15.40 GB (44%), and grad checkpointing
+    # is what made the whole context-scaling benchmark fit in the first place.
+    grad_checkpoint=True,
+    fused_ce=True,
     batch_size=1,
     grad_accum=8,
     compile=True,

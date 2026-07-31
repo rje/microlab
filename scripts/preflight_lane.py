@@ -111,6 +111,20 @@ def main() -> int:
                             f"training kernel (measured 23-31x slower, gap does not shrink "
                             f"with context).")
 
+        # Memory. Measured at 1B: 32768-token steps cost 27.70 GB with a naive loss path
+        # and 15.40 GB with fused CE; grad checkpointing is assumed throughout. A long-context
+        # config without both OOMs on a 48GB card — which is exactly how the first frontier
+        # smoke run died, after the gate had passed it.
+        tok_per_micro = c.batch_size * c.block_size
+        if tok_per_micro >= 16384:
+            if not getattr(c, "grad_checkpoint", False):
+                hard.append(f"{Path(path).name}: {tok_per_micro:,} tokens per micro-batch "
+                            f"without grad_checkpoint — will OOM on a 48GB card.")
+            if not getattr(c, "fused_ce", False):
+                warn.append(f"{Path(path).name}: {tok_per_micro:,} tokens per micro-batch "
+                            f"without fused_ce; the loss path is ~half of training memory "
+                            f"(measured 44% saving at 32k).")
+
         # The 1B's three documented errors, checked mechanically.
         if getattr(c, "global_attn", "gqa") == "mla":
             lora = getattr(c, "mla_kv_lora", 512)
