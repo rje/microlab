@@ -94,7 +94,10 @@ def main() -> int:
 
     src, out = Path(a.src), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    state_path = out / "pack-state.json"
+    # Per-SPLIT state. A shared file meant the val pass read the train pass's completed
+    # state (repo_i == len(order)) and exited having written nothing — the resumability
+    # feature silently skipping the whole job.
+    state_path = out / f"pack-state-{a.split}.json"
 
     print(f"indexing {src/'attribution.jsonl'} ...", flush=True)
     repos, total, nfiles = build_index(src / "attribution.jsonl", a.split)
