@@ -19,6 +19,16 @@ Checks:
   3. PARITY GAPS   n_kv_head / block_size / rope_base unset -> the 1B's three errors.
                    WARN (legitimate for ablations), never silent.
   4. SEEDS         a paired A/B needs >= 2 seeds to be adoption-grade; 1 is PROVISIONAL.
+  5. TRAINABILITY  an architecture must be affordable AT THE CONTEXT ITS BENEFITS REQUIRE.
+                   The GDN hybrid was adopted on long-context wins (4x KV, ~10x length
+                   generalisation, decode crossover at ~100k) and validated entirely at
+                   1024 tokens. Measured cost vs dense, same GPU, fixed tokens/step:
+                       ctx    1024   2048   4096   8192   16384
+                       ratio  2.29x  2.83x  3.90x  5.77x  9.33x
+                   It gets WORSE with context — the opposite of the architecture — because
+                   our scan is a Python loop of T/chunk sequential steps against fused
+                   FlashAttention. Adopting an architecture you cannot train at its target
+                   context wastes the whole run, so this is a hard failure, not a warning.
 """
 
 from __future__ import annotations
@@ -72,14 +82,47 @@ def main() -> int:
                    f"Need ~{int(20*params/(c.batch_size*c.grad_accum*c.block_size))} steps.")
             (warn if a.allow_under_trained else hard).append(msg)
 
+        # TRAINABILITY. Measured 2026-07-31 at 124M, fixed 16384 tokens/step, both arms
+        # under identical conditions. Ratios are hybrid/dense wall-clock per step.
+        # Two tables, because the answer depends entirely on which kernel you run.
+        # UNFUSED: our pure-PyTorch scan (fp32, T/chunk sequential triangular solves).
+        # FUSED: flash-linear-attention Triton kernels. Both measured token-matched at 1B
+        # with an optimizer step, median of 10 iters.
+        UNFUSED = {1024: 2.29, 2048: 2.83, 4096: 3.90, 8192: 5.77, 16384: 9.33}
+        FUSED   = {4096: 1.37, 8192: 1.18, 16384: 1.06, 32768: 0.90}
+        fused = getattr(c, "gdn_fused", True)
+        HYBRID_COST = FUSED if fused else UNFUSED
+        if getattr(c, "hybrid_every", None) is not None:
+            near = min(HYBRID_COST, key=lambda t: abs(t - c.block_size))
+            cost = HYBRID_COST[near]
+            if cost > 2.0:
+                hard.append(
+                    f"{Path(path).name}: hybrid at block_size {c.block_size} costs ~{cost:.1f}x "
+                    f"dense per step ({'fused' if fused else 'UNFUSED pure-PyTorch scan'}). "
+                    f"The hybrid's benefits are long-context benefits; if it cannot be "
+                    f"trained there it cannot deliver them."
+                    + ("" if fused else "  Set gdn_fused=True — fused measured 0.90x at 32k."))
+            elif cost > 1.2:
+                warn.append(f"{Path(path).name}: hybrid costs ~{cost:.1f}x dense at "
+                            f"block_size {c.block_size}.")
+            if not fused and c.block_size >= 4096:
+                warn.append(f"{Path(path).name}: gdn_fused=False at block_size "
+                            f"{c.block_size} — the reference scan is an ORACLE, not a "
+                            f"training kernel (measured 23-31x slower, gap does not shrink "
+                            f"with context).")
+
         # The 1B's three documented errors, checked mechanically.
-        if getattr(c, "n_kv_head", None) is None:
+        if getattr(c, "global_attn", "gqa") == "mla":
+            lora = getattr(c, "mla_kv_lora", 512)
+            print(f"  global attention: MLA, cache {lora} values/token "
+                  f"(per-head distinct K/V; NoPE so no decoupled-rope dims)")
+        elif getattr(c, "n_kv_head", None) is None:
             warn.append(f"{Path(path).name}: n_kv_head unset -> full MHA. Cohort ships "
                         f"n_kv_head=2 below ~3B (sota-parity-code-specialist.md).")
         if c.block_size <= 2048:
             warn.append(f"{Path(path).name}: block_size {c.block_size}. Fine for an "
                         f"ablation; the cohort floor for a SHIPPED model is 16k.")
-        if getattr(c, "rope_base", 10000.0) == 10000.0 and c.block_size > 4096:
+        if c.pos != "nope" and getattr(c, "rope_base", 10000.0) == 10000.0 and c.block_size > 4096:
             warn.append(f"{Path(path).name}: rope_base 1e4 with block_size "
                         f"{c.block_size}; 1e6 is the standard pairing above 4k.")
 

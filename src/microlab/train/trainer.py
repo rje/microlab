@@ -126,11 +126,21 @@ class Trainer:
                 hybrid_every=getattr(cfg, "hybrid_every", None),
                 gdn_chunk=getattr(cfg, "gdn_chunk", 64),
                 gdn_conv_kernel=getattr(cfg, "gdn_conv_kernel", 4),
+                # Every architecture field must be threaded here or the config silently
+                # cannot reach the model. This is the THIRD time that gap has bitten
+                # (docs/sota-parity-1b.md #8: the 1B shipped MHA because RunConfig never
+                # exposed n_kv_head). Keep in sync with VariantConfig.
+                gdn_fused=getattr(cfg, "gdn_fused", True),
+                gdn_gate=getattr(cfg, "gdn_gate", "scalar"),
+                global_attn=getattr(cfg, "global_attn", "gqa"),
+                mla_kv_lora=getattr(cfg, "mla_kv_lora", 512),
+                qk_norm=getattr(cfg, "qk_norm", False),
             )
         )
         self.model.to(self.device)
         self.raw_model = self.model  # state_dict source of truth (survives torch.compile)
         self.raw_model.grad_checkpoint = cfg.grad_checkpoint
+        self.raw_model.fused_ce = getattr(cfg, "fused_ce", False)
         # TF32 for any fp32 matmuls autocast leaves alone (the head, some reductions) — free.
         if self.device.startswith("cuda"):
             torch.set_float32_matmul_precision("high")

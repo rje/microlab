@@ -38,6 +38,12 @@ class RunConfig:
     hybrid_every: int | None = None
     gdn_chunk: int = 64        # chunk-parallel block length (see gdn_chunkwise numerics)
     gdn_conv_kernel: int = 4   # short causal depthwise conv on q/k/v, as published
+    gdn_fused: bool = True     # fused Triton kernel; False forces the reference path
+    gdn_gate: str = "scalar"   # "scalar" = Gated DeltaNet | "channel" = KDA (per-channel)
+    global_attn: str = "gqa"   # global-attention layer in a hybrid: "gqa" | "mla"
+    mla_kv_lora: int = 512     # MLA latent width == cached values/token (NoPE: no rope dims)
+    qk_norm: bool = False      # RMSNorm on q/k, head_dim variant (Qwen3/Gemma-3)
+    fused_ce: bool = False     # fused linear+cross-entropy (Liger); 40-44% off train memory
     # optim / schedule
     optimizer: str = "adamw"  # "adamw" | "muon" (Muon on block matrices + AdamW on the rest)
     lr: float = 3e-4

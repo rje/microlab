@@ -559,6 +559,13 @@ class MLAAttention(nn.Module):
         self.kv_b_proj = nn.Linear(self.kv_lora, config.n_head * 2 * self.head_dim,
                                    bias=False)
         self.o_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        # Per-head_dim RMSNorm on q/k (Qwen3/Gemma-3 placement), not over the full
+        # projected dim (OLMo 2). Applied AFTER the head reshape so each head is
+        # normalised independently.
+        self.qk_norm = getattr(config, "qk_norm", False)
+        if self.qk_norm:
+            self.q_norm = RMSNorm(self.head_dim)
+            self.k_norm = RMSNorm(self.head_dim)
 
     def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
         if kv_cache is not None:
@@ -570,6 +577,8 @@ class MLAAttention(nn.Module):
         c_kv = self.kv_a_norm(self.kv_a_proj(x))                  # (B,T,kv_lora) <- cached
         kv = self.kv_b_proj(c_kv).view(B, T, self.n_head, 2 * self.head_dim)
         k, v = kv.transpose(1, 2).split(self.head_dim, dim=-1)    # (B,H,T,Dh) each, DISTINCT
+        if self.qk_norm:
+            q, k = self.q_norm(q), self.k_norm(k)
         y = F.scaled_dot_product_attention(
             q, k, v, is_causal=True,
             dropout_p=self.dropout if self.training else 0.0,
@@ -637,6 +646,12 @@ class VariantConfig(GPTConfig):
     # RoPE, so its cache is exactly mla_kv_lora values/token.
     global_attn: str = "gqa"
     mla_kv_lora: int = 512
+    # QK-norm: RMSNorm on q and k before attention. Standard since OLMo 2 (Nov 2024),
+    # Gemma 3 and Qwen3 — but absent from EVERY flagship code specialist, because those are
+    # 2024-vintage. Two variants exist and they are not the same thing: OLMo 2 normalises
+    # over the FULL projected dim (n_head*head_dim), Qwen3/Gemma 3 over head_dim only. We
+    # take the head_dim variant (the newer consensus). Buys stability at high LR.
+    qk_norm: bool = False
 
 
 def _make_norm(kind: str, dim: int) -> nn.Module:
