@@ -10,9 +10,28 @@ Differences from the FineWeb ablation configs, all forced by the corpus:
 Duration is 15000 steps = 2.46B tokens = 0.99x Chinchilla for 124M, per the protocol change
 of 2026-07-30: a 4500-step lane is 0.30x Chinchilla and can invert its own verdict.
 
-DEPENDENCY: Peri-LN is currently under retest at 15000 steps (runs/periln-long-*). If that
-retest overturns verdict 2, every lane built on this base inherits the change — but since
-all data arms share the architecture, the RELATIVE data comparison stays valid.
+PERI-LN NOTE (resolved 2026-07-31): the retest at 15000 steps shrank Peri-LN's effect from
+-0.0152 to -0.0020 nats, below the 0.0025 paired band — kept because it is free, but it is
+not a quality win. Immaterial to these lanes either way: all data arms share the
+architecture, so the RELATIVE data comparison is unaffected.
+
+!! THIS IS AN ABLATION CONFIG, NOT A PRETRAIN CONFIG. !!
+Its block_size (1024), absent n_kv_head (= full MHA on the 3 global layers) and absent
+rope_base (= 10000) are ALL THREE of the divergences docs/sota-parity-1b.md flagged as
+must-fix on the 1B. They are acceptable here — short-context ablations are cheap and the
+data lanes only need arms to be mutually comparable — and they are RECORDED here precisely
+so they cannot ride along into a pretrain config the way they did last time (parity review
+finding #8: defaults that never surfaced as questions).
+
+Two are load-bearing beyond parity:
+- block_size 1024 exercises almost NONE of what the GDN hybrid was adopted for (4x KV
+  reduction, ~10x better length generalisation, latency crossover at ~100k). A data lane
+  measured here is still valid for DATA questions; do not read it as validating the
+  architecture at length.
+- full MHA on the global layers is the exact error that cost the 1B an 8x KV cache.
+
+Before any pretrain: run the parity review (docs/sota-parity-code-specialist.md) and set
+n_kv_head, block_size and rope_base deliberately.
 
 Shard->language map (verified by decoding samples, 100M tokens per shard):
   train-00000..00099 Python | 00100..00199 JavaScript | 00200..00273 TypeScript
