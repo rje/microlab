@@ -52,30 +52,106 @@ restarts.
 
 ## Storage and data staging
 
-Corpus footprint today, and it grows with the remaining slices:
+### What we are actually storing
+
+Slices on disk today (`du` on `data/shards`):
 
 | slice | size |
 |---|---|
-| code-repo-32k | 52 GB |
-| web-49k | 15 GB |
-| math-49k | 5.7 GB |
-| arxiv + commits + markdown | ~10 GB (in progress) |
-| **mixed corpus (final)** | **~55 GB** (27B tokens x 2 bytes) |
+| code-repo-32k | 54.8 GB |
+| web-49k | 16.0 GB |
+| math-49k | 6.0 GB |
+| arxiv-49k | 14.8 GB |
+| commits-49k | <0.1 GB |
+| **raw slices total** | **91.6 GB** |
 
-**Stage to persistent/network storage, never instance-local.** Spot instances vanish; the
-data must outlive them. Upload once, mount for every subsequent run.
+The raw slices stay local. What ships is the **built mix — 27B tokens x 2 bytes = 54 GB**,
+because the mix builder samples from the slices at the target ratios rather than shipping
+all of them. Plus checkpoints at **16.6 GB each**; keeping ten is 166 GB.
 
-Options, in the order I would try them:
-1. **Provider network volume** (Lambda persistent filesystem, RunPod network volume). Fast,
-   attached at boot, survives preemption. Costs a few $/month.
-2. **HuggingFace Hub private dataset.** Free, good bandwidth, already in our stack, and
-   gives versioning for free. Slower to pull on each new instance (~55 GB), so pair it with
-   a network volume rather than re-downloading per run.
-3. **S3/R2/GCS.** Most flexible, needs credentials plumbing.
+**Steady-state bucket: ~220 GB. Egress: ~54 GB per training run.**
 
-**Pull the data before the GPUs start billing where possible** — some providers bill from
-instance start, so downloading 55 GB at instance boot is dead money. A network volume
-prepared in advance avoids that entirely.
+### Recommendation: Cloudflare R2 as the canonical store, instance-local NVMe as the hot path
+
+Priced against the three real options, at our 220 GB / 54-GB-per-run shape and four runs a
+month (216 GB egress):
+
+| | storage/mo | egress/mo | **total/mo** | note |
+|---|---|---|---|---|
+| **Cloudflare R2** | $3.15 | **$0.00** | **$3.15** | $0.015/GB-mo, egress free unconditionally, 10 GB free tier |
+| Backblaze B2 | $1.53 | $0.00 | $1.53 | $6.95/TB-mo; egress free to 3x stored (660 GB for us) |
+| AWS S3 Standard | $5.06 | $19.44 | $24.50 | $0.023/GB-mo + **$0.09/GB out** |
+| RunPod network volume | $15.40 | n/a | $15.40 | $0.07/GB-mo under 1 TB; region-pinned |
+
+**S3 is the one to avoid, and egress is the entire reason** — $48.60 of pure transfer cost
+over a ten-run project, on a project whose GPU budget is ~$250. R2 and B2 both make that
+number zero.
+
+Between R2 and B2 the difference is $1.62/month, which is noise. **Take R2**, for two
+reasons that are not about price:
+- Its free egress has **no cap to reason about**. B2's is free up to 3x average monthly
+  storage, so a burst of runs against a small bucket could cross it. R2 has no such edge.
+- **It makes co-location a non-issue.** With S3/GCS you must place the bucket in the same
+  region as the GPUs or pay cross-cloud egress, which constrains which provider and region
+  you can rent from — exactly the wrong constraint when chasing spot capacity. With free
+  egress, the bucket is equidistant from every provider and we rent wherever it is cheapest.
+
+Both are S3-compatible, so `boto3`/`rclone`/`s5cmd` work unchanged and the choice is
+reversible for the cost of one copy.
+
+### Why NOT a provider network volume
+
+This reverses the earlier draft of this document, which said "stage to network storage,
+never instance-local." That was wrong on the arithmetic.
+
+A network volume costs $15.40/month (RunPod, 220 GB) and **pins the job to one
+datacenter** — you can only start pods in the volume's region, which shrinks the spot pool
+we are specifically trying to shop across. What it buys is avoiding a re-pull after
+preemption. Priced:
+
+- 54 GB pull at 10 Gbps = **0.7 min = $0.19** of GPU time at $16/h.
+- 54 GB pull at 1 Gbps = 7.2 min = $1.92.
+
+At $0.19–1.92 per restart, the $15.40/month volume only pays for itself somewhere north of
+eight restarts a month, and it costs us region flexibility to get there. Lambda's 8xH100
+instances ship 22 TiB of local SSD; there is no capacity argument either.
+
+**So: pull the mix from R2 to instance-local NVMe at job start.** The corpus is
+re-pullable, so losing it with the instance costs a minute, not a day.
+
+### Checkpoints: the one thing that genuinely must leave the instance
+
+Instance-local disk dies with a preempted spot instance, so rolling recovery checkpoints on
+local NVMe are worthless as preemption insurance — that is the exact failure they exist to
+cover. **Recovery checkpoints go to R2.**
+
+Two consequences to design for, both of which need measuring in the shakedown:
+
+1. **The upload must be asynchronous.** 16.6 GB at ~1 Gbps is ~133 s. At a 400-step cadence
+   (~27 min) a synchronous write is ~8% of wall-clock — roughly **$16 on a $200 run**, paid
+   for doing nothing. Overlapping the upload with the next steps makes it free.
+2. **Shard the upload across ranks.** Each of the 8 ranks uploading its own slice gives 8
+   parallel streams, which object storage serves far better than one.
+
+Ingress to R2 is free and operations are negligible: 16.6 GB in 100 MB multipart chunks is
+~166 Class A ops, so a full 12 h run's ~27 checkpoints costs about **$0.02** in requests.
+
+### HuggingFace Hub: the durable public copy, not the working store
+
+Push the built mix and its **attribution manifest** to a Hub dataset repo. This is not the
+training data path — it is the archival and provenance copy, and the attribution manifest is
+a hard shipping requirement under the Stack v1 dedup agreement. Free, versioned, and it
+survives us deleting the R2 bucket. Do not put 27-minute checkpoints there.
+
+### Concretely
+
+1. `rclone`/`s5cmd` the built mix (54 GB) to `r2://microlab-corpus/mix-v1/` once.
+2. Job start pulls it to instance NVMe with parallel workers; measure the wall-clock in the
+   shakedown, since it is the one number here we have not observed.
+3. Rolling checkpoints upload async, rank-sharded, to `r2://microlab-ckpt/<run>/`.
+4. Milestones additionally get pushed to the Hub at the end of the run.
+5. Prune rolling checkpoints to `ckpt_keep` on R2 too, or the 220 GB assumption drifts —
+   27 unpruned checkpoints is 448 GB, which would triple the storage line.
 
 ## Checkpoints
 
@@ -89,8 +165,9 @@ should be ~15-30 minutes of work. At a plausible 2M-token global batch, 21B toke
 supports this split (`ckpt_interval` + `ckpt_keep` for rolling, `ckpt_milestone_interval`
 for permanent), which was built for the 1B. Keep milestones at e.g. every 2,000 steps.
 
-**Write checkpoints to the network volume, not instance disk**, for the same reason as the
-data. Retrieval afterwards is then just a download from the volume or a push to the Hub.
+**Write checkpoints to R2, not instance disk** — see the storage section. Local disk dies
+with a preempted instance, which defeats the entire purpose of a recovery checkpoint.
+Retrieval afterwards is a download from the bucket.
 
 ## Pre-flight checklist for the rented run
 
@@ -109,11 +186,13 @@ Run all of this BEFORE the instance is billing:
 
 | failure | cost | mitigation |
 |---|---|---|
-| spot preemption | work since last checkpoint | 400-step cadence to a network volume |
+| spot preemption | work since last checkpoint | 400-step cadence, uploaded to R2 |
 | a rank hangs (NCCL) | silent, full-price burn | shakedown test + a wall-clock watchdog |
 | MFU far below estimate | 1.5-2x the projected bill | measure in the shakedown, not the real run |
-| data not staged, downloads on GPU time | ~1 h x $16 | network volume prepared in advance |
-| compile every restart | ~15 min x $16/h per restart | persist the inductor cache to the volume |
+| synchronous checkpoint upload | ~8% of wall-clock, ~$16/run | async, rank-sharded upload |
+| slow pull from object storage | $0.19-1.92 per job start | parallel workers; measure in the shakedown |
+| unpruned checkpoints on R2 | 448 GB not 220 GB, 3x the storage line | apply `ckpt_keep` to the bucket, not just disk |
+| compile every restart | ~15 min x $16/h per restart | persist the inductor cache to R2 |
 | config wrong (the 1B's MHA class of error) | the whole run | preflight gate + parity review |
 | Muon wrong under DDP | trains a different algorithm, invisibly | verify the all-reduce ordering explicitly |
 
