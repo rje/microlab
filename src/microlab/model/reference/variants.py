@@ -527,6 +527,56 @@ class GatedDeltaNet(nn.Module):
         return self.o_proj(y * F.silu(self.g_proj(x)))
 
 
+class MLAAttention(nn.Module):
+    """Multi-head Latent Attention (DeepSeek-V2), NoPE variant — the global-attention layer
+    of the Kimi Linear pattern.
+
+    Instead of SHARING key/value heads across query groups (GQA), MLA COMPRESSES K/V into a
+    single low-rank latent c_kv of width `mla_kv_lora`, caches only that, and up-projects it
+    back into per-head K and V. Every head gets its own K/V; the bottleneck is the latent
+    rank, not the head count.
+
+    Because these layers are NoPE (position is carried by the KDA recurrence), DeepSeek's
+    decoupled-RoPE split is unnecessary and omitted: there is no position-dependent term that
+    would block folding the up-projection, so the cache is exactly `mla_kv_lora` values per
+    token. At our shape that is 512 — IDENTICAL to GQA(2) — while GQA(2) shares one K/V head
+    across 7 queries. Costs ~25% more params per layer (9.18M vs 7.34M).
+
+    Cache note: `kv_cache` here stores the LATENT, not K/V, so it does not speak the KVCache
+    protocol. Incremental decode raises rather than silently mis-caching."""
+
+    def __init__(self, config: VariantConfig) -> None:
+        super().__init__()
+        assert config.n_embd % config.n_head == 0
+        self.n_head = config.n_head
+        self.head_dim = config.n_embd // config.n_head
+        self.n_embd = config.n_embd
+        self.dropout = config.dropout
+        self.kv_lora = config.mla_kv_lora
+        self.q_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        self.kv_a_proj = nn.Linear(config.n_embd, self.kv_lora, bias=False)
+        self.kv_a_norm = RMSNorm(self.kv_lora)
+        self.kv_b_proj = nn.Linear(self.kv_lora, config.n_head * 2 * self.head_dim,
+                                   bias=False)
+        self.o_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
+
+    def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
+        if kv_cache is not None:
+            raise NotImplementedError(
+                "MLA caches the compressed latent, not K/V; it does not speak the KVCache "
+                "protocol. A latent-caching decode path is not built yet.")
+        B, T, C = x.shape
+        q = self.q_proj(x).view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        c_kv = self.kv_a_norm(self.kv_a_proj(x))                  # (B,T,kv_lora) <- cached
+        kv = self.kv_b_proj(c_kv).view(B, T, self.n_head, 2 * self.head_dim)
+        k, v = kv.transpose(1, 2).split(self.head_dim, dim=-1)    # (B,H,T,Dh) each, DISTINCT
+        y = F.scaled_dot_product_attention(
+            q, k, v, is_causal=True,
+            dropout_p=self.dropout if self.training else 0.0,
+        )
+        return self.o_proj(y.transpose(1, 2).contiguous().view(B, T, C))
+
+
 class SwiGLUMLP(nn.Module):
     """SwiGLU feed-forward (GLU variant): w2(silu(w1 x) * w3 x). Hidden dim ~ 8/3 * n_embd
     (rounded to a multiple of 8) so param count is comparable to the 4x GELU MLP."""
@@ -582,6 +632,11 @@ class VariantConfig(GPTConfig):
     # results come from the channel gate; our first hybrid used scalar and we then drew
     # conclusions about the KDA lineage from it.
     gdn_gate: str = "scalar"
+    # Global-attention layer type in a hybrid: "gqa" (n_kv_head sharing) or "mla" (latent
+    # compression, DeepSeek-V2 / Kimi Linear). With NoPE globals MLA needs no decoupled
+    # RoPE, so its cache is exactly mla_kv_lora values/token.
+    global_attn: str = "gqa"
+    mla_kv_lora: int = 512
 
 
 def _make_norm(kind: str, dim: int) -> nn.Module:
@@ -608,6 +663,8 @@ class VariantBlock(nn.Module):
         )
         if self.is_linear:
             self.attn = GatedDeltaNet(config)
+        elif getattr(config, "global_attn", "gqa") == "mla":
+            self.attn = MLAAttention(config)
         elif getattr(config, "n_kv_head", None) is not None:
             self.attn = GQAAttention(config)  # rope-only; asserts on other pos values
         elif config.pos == "rope":
