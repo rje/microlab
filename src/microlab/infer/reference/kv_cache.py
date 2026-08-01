@@ -16,13 +16,49 @@ class KVCache:
     see the same positions each step)."""
 
     def __init__(self, n_layer: int, batch_size: int, n_kv_head: int, capacity: int,
-                 head_dim: int, dtype=torch.float32, device="cpu") -> None:
+                 head_dim: int, dtype=torch.float32, device="cpu",
+                 kv_lora: int | None = None) -> None:
         self.n_layer = n_layer
         self.capacity = capacity
         self.seq_len = 0
+        self.kv_lora = kv_lora
         shape = (batch_size, n_kv_head, capacity, head_dim)
-        self.k = [torch.zeros(shape, dtype=dtype, device=device) for _ in range(n_layer)]
-        self.v = [torch.zeros(shape, dtype=dtype, device=device) for _ in range(n_layer)]
+        # MLA caches the compressed LATENT and up-projects K/V from it each step, so its
+        # layers allocate `latent` INSTEAD of k/v — never both. This lives on the base
+        # class, not only on HybridCache, because scoping cache work to the one config we
+        # happened to ship is exactly how MLA ended up decode-incapable.
+        if kv_lora is None:
+            self.k = [torch.zeros(shape, dtype=dtype, device=device)
+                      for _ in range(n_layer)]
+            self.v = [torch.zeros(shape, dtype=dtype, device=device)
+                      for _ in range(n_layer)]
+            self.latent = [None] * n_layer
+        else:
+            self.k = [None] * n_layer
+            self.v = [None] * n_layer
+            self.latent = [torch.zeros((batch_size, capacity, kv_lora),
+                                       dtype=dtype, device=device)
+                           for _ in range(n_layer)]
+
+    def append_latent(self, layer: int, c: torch.Tensor):
+        """MLA's counterpart to append(): cache the compressed latent (B,T,kv_lora).
+
+        Same protocol as append() — prefill or single-token step, full view returned, the
+        LAST layer advances seq_len — so a model can mix latent and K/V layers and every
+        layer still agrees on the position counter."""
+        buf = self.latent[layer]
+        if buf is None:
+            raise AssertionError(
+                f"layer {layer} has no latent buffer; build the cache with kv_lora set "
+                f"(global_attn='mla') before calling append_latent")
+        t = c.size(1)
+        assert self.seq_len == 0 or t == 1, "full prefill or single-token steps only"
+        assert self.seq_len + t <= self.capacity, "latent cache overflow"
+        buf[:, self.seq_len:self.seq_len + t] = c
+        out = buf[:, : self.seq_len + t]
+        if layer == self.n_layer - 1:
+            self.seq_len += t
+        return out
 
     def append(self, layer: int, k: torch.Tensor, v: torch.Tensor):
         t = k.size(2)
@@ -44,6 +80,11 @@ class KVCache:
         for t in self.k + self.v:
             if t is not None:
                 used += t.element_size() * t[:, :, : max(self.seq_len, 1)].numel()
+        # Latent buffers are the MLA equivalent and belong in the same total, or the
+        # memory comparison silently reports zero for an MLA model.
+        for t in self.latent:
+            if t is not None:
+                used += t.element_size() * t[:, : max(self.seq_len, 1)].numel()
         return used
 
     def state_bytes(self) -> int:
@@ -65,10 +106,11 @@ class HybridCache(KVCache):
 
     def __init__(self, n_layer: int, batch_size: int, n_kv_head: int, capacity: int,
                  head_dim: int, linear_layers: set[int], n_head: int,
-                 dtype=torch.float32, device="cpu") -> None:
+                 dtype=torch.float32, device="cpu", kv_lora: int | None = None) -> None:
         self.n_layer = n_layer
         self.capacity = capacity
         self.seq_len = 0
+        self.kv_lora = kv_lora
         self.linear_layers = set(linear_layers)
         # seq_len is advanced by the LAST layer's append() (inherited protocol), so the
         # last layer must be a global-attention one or the position counter never moves.
@@ -83,12 +125,21 @@ class HybridCache(KVCache):
         self._device = device
         shape = (batch_size, n_kv_head, capacity, head_dim)
         # None for linear layers — the whole point is that these are never allocated.
-        self.k = [None if i in self.linear_layers
-                  else torch.zeros(shape, dtype=dtype, device=device)
-                  for i in range(n_layer)]
-        self.v = [None if i in self.linear_layers
-                  else torch.zeros(shape, dtype=dtype, device=device)
-                  for i in range(n_layer)]
+        # When the globals are MLA they hold a latent instead, so k/v stay None there too
+        # and `latent` carries them; a global layer is never allocated in both lists.
+        globals_use_latent = kv_lora is not None
+
+        def _kv(i):
+            if i in self.linear_layers or globals_use_latent:
+                return None
+            return torch.zeros(shape, dtype=dtype, device=device)
+
+        self.k = [_kv(i) for i in range(n_layer)]
+        self.v = [_kv(i) for i in range(n_layer)]
+        self.latent = [torch.zeros((batch_size, capacity, kv_lora),
+                                   dtype=dtype, device=device)
+                       if globals_use_latent and i not in self.linear_layers else None
+                       for i in range(n_layer)]
         self._state: dict[int, torch.Tensor] = {}
         self._conv: dict[int, torch.Tensor] = {}
         self._n_head = n_head
@@ -144,11 +195,14 @@ def build_cache(model, batch_size: int, device, dtype=torch.float32):
     n_kv = cfg.n_kv_head if getattr(cfg, "n_kv_head", None) else cfg.n_head
     head_dim = cfg.n_embd // cfg.n_head
     linear = {i for i, b in enumerate(model.transformer.h) if getattr(b, "is_linear", False)}
+    # MLA global layers cache a latent of width mla_kv_lora instead of per-head K/V.
+    kv_lora = (cfg.mla_kv_lora if getattr(cfg, "global_attn", "gqa") == "mla" else None)
     if not linear:
         return KVCache(cfg.n_layer, batch_size, n_kv, cfg.block_size, head_dim,
-                       dtype=dtype, device=device)
+                       dtype=dtype, device=device, kv_lora=kv_lora)
     return HybridCache(cfg.n_layer, batch_size, n_kv, cfg.block_size, head_dim,
-                       linear_layers=linear, n_head=cfg.n_head, dtype=dtype, device=device)
+                       linear_layers=linear, n_head=cfg.n_head, dtype=dtype, device=device,
+                       kv_lora=kv_lora)
 
 
 @torch.no_grad()

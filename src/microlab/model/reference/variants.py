@@ -206,7 +206,7 @@ def gdn_recurrent(q, k, v, alpha, beta):
     return torch.stack(out, dim=2)
 
 
-def kda_recurrent(q, k, v, alpha, beta):
+def kda_recurrent(q, k, v, alpha, beta, S0=None, return_state: bool = False):
     """Reference KDA (Kimi Delta Attention) recurrence — the oracle for the fused kernel.
 
     KDA generalises Gated DeltaNet by making the forget gate PER-CHANNEL instead of one
@@ -222,7 +222,7 @@ def kda_recurrent(q, k, v, alpha, beta):
     which tests/test_kda.py asserts."""
     B, H, T, Dk = q.shape
     Dv = v.shape[-1]
-    S = q.new_zeros(B, H, Dk, Dv)
+    S = q.new_zeros(B, H, Dk, Dv) if S0 is None else S0.to(q.dtype)
     eye = torch.eye(Dk, device=q.device, dtype=q.dtype)
     out = []
     for t in range(T):
@@ -232,11 +232,16 @@ def kda_recurrent(q, k, v, alpha, beta):
         proj = eye - b_t * k_t.unsqueeze(-1) * k_t.unsqueeze(-2)
         S = a_t * (proj @ S) + b_t * (k_t.unsqueeze(-1) * v_t.unsqueeze(-2))
         out.append((S.transpose(-2, -1) @ q[:, :, t].unsqueeze(-1)).squeeze(-1))
-    return torch.stack(out, dim=2)
+    y = torch.stack(out, dim=2)
+    return (y, S) if return_state else y
 
 
-def _fla_kda(q, k, v, alpha, beta):
-    """Fused KDA kernel. alpha is per-channel (B,H,T,Dk), linear space; fla wants log."""
+def _fla_kda(q, k, v, alpha, beta, S0=None, return_state: bool = False):
+    """Fused KDA kernel. alpha is per-channel (B,H,T,Dk), linear space; fla wants log.
+
+    `S0`/`return_state` carry the recurrent state so this can serve as the PREFILL path of
+    cached generation: the Python oracle is O(T) sequential and a 32k prefill through it
+    would take minutes per sample."""
     if q.dtype == torch.float64 or not q.is_cuda:
         return None
     try:
@@ -251,7 +256,16 @@ def _fla_kda(q, k, v, alpha, beta):
         g=torch.log(alpha.clamp_min(1e-30)).permute(0, 2, 1, 3).contiguous().float(),
         beta=beta.permute(0, 2, 1).contiguous().to(dt),
         scale=1.0,
+        initial_state=None if S0 is None else S0.to(dt),
+        output_final_state=return_state,
     )
+    if return_state:
+        if not isinstance(o, tuple) or len(o) < 2:
+            raise RuntimeError(
+                "chunk_kda did not return a final state despite output_final_state=True; "
+                "cached generation would silently restart the recurrence each step")
+        y, S = o[0], o[1]
+        return y.permute(0, 2, 1, 3).to(q.dtype), S
     o = o[0] if isinstance(o, tuple) else o
     return o.permute(0, 2, 1, 3).to(q.dtype)
 
@@ -291,9 +305,18 @@ def _fla_gdn(q, k, v, alpha, beta):
 
 
 def gdn_step(q, k, v, alpha, beta, S):
-    """Single-token Gated DeltaNet step for incremental decoding. One application of the
-    recurrence, O(1) in context length — this is the whole point of the architecture.
-    q,k (B,H,1,Dk), v (B,H,1,Dv), alpha,beta (B,H,1), S (B,H,Dk,Dv). Returns (out, S_new).
+    """Single-token step for incremental decoding, for BOTH gate kinds. One application of
+    the recurrence, O(1) in context length — this is the whole point of the architecture.
+    q,k (B,H,1,Dk), v (B,H,1,Dv), beta (B,H,1), S (B,H,Dk,Dv). Returns (out, S_new).
+
+    `alpha` selects the gate and is the only difference between Gated DeltaNet and KDA:
+      - (B,H,1)    scalar per head     -> GDN, broadcasts over all rows of S
+      - (B,H,1,Dk) per channel         -> KDA, scales each row of S independently
+    Both are the same recurrence S_t = Diag(a_t)(I - b_t k k^T) S_{t-1} + b_t k v^T; the
+    scalar case is the diagonal one with a constant diagonal. Handling them in one function
+    is deliberate — a near-duplicate `kda_step` would be free to drift from this one, and
+    drift between paths that are supposed to be equivalent is precisely the bug class that
+    left the channel gate with no decode path at all.
 
     Deliberately NOT gdn_chunkwise with T=1: that would pad to a full 64-wide chunk and
     build a 64x64 solve to advance one position."""
@@ -302,7 +325,8 @@ def gdn_step(q, k, v, alpha, beta, S):
     k_t = k[:, :, 0].to(work)                                # (B,H,Dk)
     v_t = v[:, :, 0].to(work)
     q_t = q[:, :, 0].to(work)
-    a = alpha[:, :, 0].to(work).unsqueeze(-1).unsqueeze(-1)  # (B,H,1,1)
+    a0 = alpha[:, :, 0].to(work)                             # (B,H) or (B,H,Dk)
+    a = a0.unsqueeze(-1).unsqueeze(-1) if a0.dim() == 2 else a0.unsqueeze(-1)
     b = beta[:, :, 0].to(work).unsqueeze(-1).unsqueeze(-1)
     Sw = S.to(work)
     # S = alpha (I - beta k k^T) S + beta k v^T, computed without forming (Dk,Dk):
@@ -512,14 +536,18 @@ class GatedDeltaNet(nn.Module):
                 if y is None:
                     y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
         else:
-            if self.gate == "channel":
-                raise NotImplementedError(
-                    "KDA incremental decode needs a per-channel gdn_step; use gdn_gate="
-                    "'scalar' for cached generation until that exists")
             S = cache.gdn_state(layer, B, self.n_head, self.head_dim, q.dtype, q.device)
             if T == 1:
+                # One function for both gates — `alpha` carries the difference. See
+                # gdn_step's docstring.
                 y, S = gdn_step(q, k, v, alpha, beta, S)
-            else:                                                   # prefill
+            elif self.gate == "channel":                            # KDA prefill
+                out = _fla_kda(q, k, v, alpha, beta, S0=S, return_state=True) \
+                    if self.fused else None
+                if out is None:                                     # CPU / float64 oracle
+                    out = kda_recurrent(q, k, v, alpha, beta, S0=S, return_state=True)
+                y, S = out
+            else:                                                   # GDN prefill
                 y, S = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk,
                                      S0=S, return_state=True)
             cache.set_gdn_state(layer, S)
@@ -542,8 +570,13 @@ class MLAAttention(nn.Module):
     token. At our shape that is 512 — IDENTICAL to GQA(2) — while GQA(2) shares one K/V head
     across 7 queries. Costs ~25% more params per layer (9.18M vs 7.34M).
 
-    Cache note: `kv_cache` here stores the LATENT, not K/V, so it does not speak the KVCache
-    protocol. Incremental decode raises rather than silently mis-caching."""
+    Cache note: `kv_cache` stores the LATENT, not per-head K/V, via `append_latent`. Each
+    decode step re-applies `kv_b_proj` to the whole cached history, which is O(S) work per
+    token where a K/V cache would be O(1). That is the honest cost of this reference form:
+    the MEMORY claim is exact, the compute is not yet optimal. DeepSeek's fix is
+    "absorption" — folding kv_b_proj into q_proj/o_proj so K/V is never materialised and
+    attention runs directly against the latent. That is an optimisation to A/B against this
+    oracle, exactly as the fused GDN kernels are A/B'd against `gdn_recurrent`."""
 
     def __init__(self, config: VariantConfig) -> None:
         super().__init__()
@@ -568,19 +601,26 @@ class MLAAttention(nn.Module):
             self.k_norm = RMSNorm(self.head_dim)
 
     def forward(self, x: torch.Tensor, kv_cache=None) -> torch.Tensor:
-        if kv_cache is not None:
-            raise NotImplementedError(
-                "MLA caches the compressed latent, not K/V; it does not speak the KVCache "
-                "protocol. A latent-caching decode path is not built yet.")
         B, T, C = x.shape
         q = self.q_proj(x).view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         c_kv = self.kv_a_norm(self.kv_a_proj(x))                  # (B,T,kv_lora) <- cached
-        kv = self.kv_b_proj(c_kv).view(B, T, self.n_head, 2 * self.head_dim)
-        k, v = kv.transpose(1, 2).split(self.head_dim, dim=-1)    # (B,H,T,Dh) each, DISTINCT
+        if kv_cache is not None:
+            # Cache the LATENT and up-project the full history. Only c_kv is stored, so
+            # what this allocates is exactly the memory claim: kv_lora values per token,
+            # independent of n_head. See KVCache.append_latent.
+            cache, layer = kv_cache
+            c_kv = cache.append_latent(layer, c_kv)
+        S = c_kv.size(1)
+        kv = self.kv_b_proj(c_kv).view(B, S, self.n_head, 2 * self.head_dim)
+        k, v = kv.transpose(1, 2).split(self.head_dim, dim=-1)    # (B,H,S,Dh) each, DISTINCT
         if self.qk_norm:
             q, k = self.q_norm(q), self.k_norm(k)
+        # Same convention as the other attention modules: causal during prefill (T == S),
+        # OFF for a single-token step, where the new token legitimately attends to every
+        # cached position. `is_causal=True` at T=1 aligns top-left and would let the token
+        # see only position 0.
         y = F.scaled_dot_product_attention(
-            q, k, v, is_causal=True,
+            q, k, v, is_causal=(q.size(-2) == k.size(-2)),
             dropout_p=self.dropout if self.training else 0.0,
         )
         return self.o_proj(y.transpose(1, 2).contiguous().view(B, T, C))

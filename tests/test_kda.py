@@ -61,3 +61,54 @@ def test_fused_kda_matches_reference_within_bf16_floor(T):
     assert err < 5 * floor, f"T={T}: err {err:.2e} vs bf16 floor {floor:.2e}"
     corr = torch.corrcoef(torch.stack([got.double().cpu().flatten(), ref.flatten()]))[0, 1]
     assert corr > 0.999, f"correlation {corr:.6f} — different recurrence, not precision"
+
+
+def test_kda_step_matches_recurrent_at_float64():
+    """The decode oracle for the CHANNEL gate: stepping one token at a time must
+    reproduce the full recurrence exactly.
+
+    gdn_step serves both gates — `alpha` shape selects which. The channel gate had no
+    decode path at all until the generation gate was widened to cover the architecture we
+    actually train, so this is the equivalence that path is held to, at the same 1e-10 bar
+    as the scalar gate's."""
+    from microlab.model.reference.variants import gdn_step, kda_recurrent
+
+    B, H, T, Dk, Dv = 2, 3, 12, 8, 8
+    g = torch.Generator().manual_seed(7)
+    q = torch.randn(B, H, T, Dk, generator=g, dtype=torch.float64)
+    k = torch.nn.functional.normalize(
+        torch.randn(B, H, T, Dk, generator=g, dtype=torch.float64), dim=-1)
+    v = torch.randn(B, H, T, Dv, generator=g, dtype=torch.float64)
+    # per-CHANNEL gate: (B,H,T,Dk), the thing that distinguishes KDA from GDN
+    alpha = 0.9 + 0.1 * torch.rand(B, H, T, Dk, generator=g, dtype=torch.float64)
+    beta = torch.rand(B, H, T, generator=g, dtype=torch.float64)
+
+    ref = kda_recurrent(q, k, v, alpha, beta)
+    S = torch.zeros(B, H, Dk, Dv, dtype=torch.float64)
+    for t in range(T):
+        o, S = gdn_step(q[:, :, t:t + 1], k[:, :, t:t + 1], v[:, :, t:t + 1],
+                        alpha[:, :, t:t + 1], beta[:, :, t:t + 1], S)
+        assert torch.allclose(ref[:, :, t:t + 1], o, atol=1e-10, rtol=1e-8), f"step {t}"
+
+
+def test_kda_prefill_then_step_matches_one_shot():
+    """Prefill with S0 carried out, then step — the exact split cached generation uses."""
+    from microlab.model.reference.variants import gdn_step, kda_recurrent
+
+    B, H, T, Dk, Dv, pre = 2, 3, 12, 8, 8, 7
+    g = torch.Generator().manual_seed(11)
+    q = torch.randn(B, H, T, Dk, generator=g, dtype=torch.float64)
+    k = torch.nn.functional.normalize(
+        torch.randn(B, H, T, Dk, generator=g, dtype=torch.float64), dim=-1)
+    v = torch.randn(B, H, T, Dv, generator=g, dtype=torch.float64)
+    alpha = 0.9 + 0.1 * torch.rand(B, H, T, Dk, generator=g, dtype=torch.float64)
+    beta = torch.rand(B, H, T, generator=g, dtype=torch.float64)
+
+    ref = kda_recurrent(q, k, v, alpha, beta)
+    y0, S = kda_recurrent(q[:, :, :pre], k[:, :, :pre], v[:, :, :pre],
+                          alpha[:, :, :pre], beta[:, :, :pre], return_state=True)
+    assert torch.allclose(ref[:, :, :pre], y0, atol=1e-10, rtol=1e-8)
+    for t in range(pre, T):
+        o, S = gdn_step(q[:, :, t:t + 1], k[:, :, t:t + 1], v[:, :, t:t + 1],
+                        alpha[:, :, t:t + 1], beta[:, :, t:t + 1], S)
+        assert torch.allclose(ref[:, :, t:t + 1], o, atol=1e-10, rtol=1e-8), f"step {t}"

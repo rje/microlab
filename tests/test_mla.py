@@ -5,9 +5,9 @@ K/V. Because our global layers are NoPE, DeepSeek's decoupled-RoPE split is unne
 omitted — which is also why an earlier arithmetic comparison wrongly rejected MLA: it
 priced in 64 rope dims this design does not contain.
 """
-import pytest
 import torch
 
+from microlab.infer.reference.kv_cache import build_cache
 from microlab.model.reference.variants import MLAAttention, VariantConfig, VariantGPT
 
 
@@ -64,10 +64,41 @@ def test_latent_is_the_only_thing_worth_caching():
         assert c.shape[-1] == lora, "latent width must not depend on head count"
 
 
-def test_rejects_kv_cache_rather_than_mis_caching():
-    a = MLAAttention(_cfg())
-    with pytest.raises(NotImplementedError, match="compressed latent"):
-        a(torch.randn(1, 16, 256), kv_cache=object())
+def test_decode_matches_full_forward():
+    """MLA's cached step must reproduce the full-sequence forward exactly.
+
+    This replaces a test that asserted MLA *refused* to decode. Writing that assertion
+    turned an unfinished feature into a specified one, which is how the shipping
+    architecture reached a 35-hour training run with no way to generate from it."""
+    torch.manual_seed(0)
+    cfg = _cfg(mla_kv_lora=32)
+    m = VariantGPT(cfg).eval()
+    idx = torch.randint(0, cfg.vocab_size, (2, 20))
+    with torch.no_grad():
+        full, _ = m(idx)                                  # one shot over the whole prompt
+        cache = build_cache(m, idx.size(0), idx.device)
+        m(idx[:, :12], kv_cache=cache)                    # prefill
+        steps = []
+        for t in range(12, 20):                           # then one token at a time
+            nxt, _ = m(idx[:, t:t + 1], kv_cache=cache)
+            steps.append(nxt)
+    stepwise = torch.cat(steps, dim=1)
+    assert torch.allclose(full[:, 12:], stepwise, atol=1e-4), (
+        f"cached decode diverged from the full forward by "
+        f"{(full[:, 12:] - stepwise).abs().max():.2e}")
+
+
+def test_cache_holds_latents_not_kv():
+    """The memory claim, asserted on the cache the model actually allocates: kv_lora
+    values per token per global layer, and no per-head K/V buffers at all."""
+    cfg = _cfg(mla_kv_lora=32)
+    m = VariantGPT(cfg).eval()
+    cache = build_cache(m, 1, "cpu")
+    assert all(t is None for t in cache.k), "MLA must not allocate K buffers"
+    assert all(t is None for t in cache.v), "MLA must not allocate V buffers"
+    latents = [t for t in cache.latent if t is not None]
+    assert latents, "no latent buffer was allocated"
+    assert all(t.shape[-1] == 32 for t in latents)
 
 
 def test_forward_backward_finite():

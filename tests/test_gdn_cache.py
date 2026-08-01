@@ -69,18 +69,33 @@ def test_prefill_then_step_matches_full_sequence():
         assert torch.allclose(ref[:, :, t:t+1], o, atol=1e-10, rtol=1e-8), f"step {t}"
 
 
-@pytest.mark.parametrize("hybrid_every", [None, 4])
-def test_cached_generation_matches_uncached(hybrid_every):
+# Every architecture we can TRAIN must appear here. This gate was previously parameterised
+# over `hybrid_every` only, so it kept testing the GQA hybrid after the global layers were
+# switched to MLA: green suite, and the shipping architecture had no decode path at all.
+# One row per trainable combination is the whole point — if a config can be trained, it
+# must be able to generate.
+ARCHS = {
+    "dense-gqa": dict(hybrid_every=None),
+    "hybrid-gqa": dict(hybrid_every=4),
+    "hybrid-mla-nope": dict(hybrid_every=4, global_attn="mla", pos="nope",
+                            gdn_gate="channel", mla_kv_lora=32, qk_norm=True),
+    "dense-mla-nope": dict(hybrid_every=None, global_attn="mla", pos="nope",
+                           mla_kv_lora=32),
+}
+
+
+@pytest.mark.parametrize("arch", list(ARCHS), ids=list(ARCHS))
+def test_cached_generation_matches_uncached(arch):
     """THE correctness gate. Same guarantee the dense cache already provides; if this
-    fails, the hybrid's cached path is producing different text and any memory saving is
+    fails, the cached path is producing different text and any memory saving is
     meaningless."""
     torch.manual_seed(0)
-    m = VariantGPT(_cfg(hybrid_every=hybrid_every)).eval()
+    m = VariantGPT(_cfg(**ARCHS[arch])).eval()
     idx = torch.randint(0, 128, (2, 12))
     slow = generate(m, idx.clone(), max_new_tokens=24, temperature=0.0)
     fast = generate_cached(m, idx.clone(), max_new_tokens=24, temperature=0.0)
     assert torch.equal(slow, fast), (
-        f"hybrid_every={hybrid_every}: cached and uncached generation diverged at "
+        f"{arch}: cached and uncached generation diverged at "
         f"position {(slow != fast).float().argmax().item()}"
     )
 

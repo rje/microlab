@@ -56,6 +56,51 @@ def est_params(c) -> int:
     return 12 * c.n_layer * c.n_embd ** 2 + c.vocab_size * c.n_embd
 
 
+ARCH_FIELDS = ("norm", "pos", "mlp", "block_norm", "n_kv_head", "rope_base",
+               "hybrid_every", "gdn_chunk", "gdn_conv_kernel", "gdn_gate",
+               "global_attn", "mla_kv_lora", "qk_norm")
+
+
+def decode_check(c) -> str | None:
+    """Can a model with THIS architecture actually generate? Returns an error, or None.
+
+    Deliberately empirical: it instantiates the architecture the config names at toy size
+    and runs cached generation against the uncached path. A lookup table of "which
+    combinations decode" would drift out of date exactly like every other hand-maintained
+    list in this repo has.
+
+    This check exists because the frontier config trained for 35 hours and then could not
+    be evaluated: MLA had no latent-cache path and KDA's channel gate had no step
+    function, so the decisive test (passkey retrieval) was unrunnable on the artifact we
+    had paid for. Every other gate here asks whether a run will COMPLETE. This one asks
+    whether its output will be USABLE."""
+    import torch
+
+    from microlab.infer.reference.kv_cache import generate_cached
+    from microlab.model.reference.sample import generate
+    from microlab.model.reference.variants import VariantConfig, VariantGPT
+
+    arch = {k: getattr(c, k) for k in ARCH_FIELDS if hasattr(c, k)}
+    every = arch.get("hybrid_every")
+    # Enough layers that a hybrid alternates at least twice and ends on a global layer.
+    n_layer = 2 * every if every else 4
+    arch.update(vocab_size=64, block_size=32, n_layer=n_layer, n_head=4, n_embd=64,
+                dropout=0.0)
+    try:
+        m = VariantGPT(VariantConfig(**arch)).eval()
+        idx = torch.randint(0, 64, (1, 4))
+        slow = generate(m, idx.clone(), max_new_tokens=6, temperature=0.0)
+        fast = generate_cached(m, idx.clone(), max_new_tokens=6, temperature=0.0)
+    except NotImplementedError as e:
+        return f"architecture cannot decode: {e}"
+    except Exception as e:                      # noqa: BLE001 - report, do not swallow
+        return f"decode check errored ({type(e).__name__}): {e}"
+    if not torch.equal(slow, fast):
+        return ("cached and uncached generation disagree — the model would produce "
+                "different text at inference than the architecture defines")
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -124,6 +169,15 @@ def main() -> int:
                 warn.append(f"{Path(path).name}: {tok_per_micro:,} tokens per micro-batch "
                             f"without fused_ce; the loss path is ~half of training memory "
                             f"(measured 44% saving at 32k).")
+
+        # DECODE. A config that trains but cannot generate produces an artifact no eval
+        # can use. Hard failure: it makes the expensive run worthless, and it is cheap to
+        # find out here.
+        err = decode_check(c)
+        if err:
+            hard.append(f"{Path(path).name}: {err}")
+        else:
+            print("  decode: cached generation matches uncached")
 
         # The 1B's three documented errors, checked mechanically.
         if getattr(c, "global_attn", "gqa") == "mla":
