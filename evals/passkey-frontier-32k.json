@@ -1,0 +1,1452 @@
+{
+  "run": "runs/frontier-32k",
+  "ckpt": "ckpt_15000.pt",
+  "step": 15000,
+  "trained_block_size": 32768,
+  "rope_base": 10000.0,
+  "eval_block": 32796,
+  "lengths": [
+    1024,
+    4096,
+    8192,
+    16384,
+    32768
+  ],
+  "depths": [
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    0.9
+  ],
+  "n": 8,
+  "seed": 0,
+  "max_new": 12,
+  "cells": [
+    {
+      "length": 1024,
+      "depth": 0.1,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "28335",
+          "answer": "28335",
+          "text": " 28335. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "16602",
+          "answer": "16602",
+          "text": " 16602. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "20804",
+          "answer": "20804",
+          "text": " 20804. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "79401",
+          "answer": "79401",
+          "text": " 79401. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "74573",
+          "answer": "74573",
+          "text": " 74573. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "58075",
+          "answer": "58075",
+          "text": " 58075. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "18755",
+          "answer": "18755",
+          "text": " 18755. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "88251",
+          "answer": "88251",
+          "text": " 88251. Remember it. 8",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "21582",
+          "answer": "21582",
+          "text": " 21582. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "44614",
+          "answer": "44614",
+          "text": " 44614. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "96875",
+          "answer": "96875",
+          "text": " 96875. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "94801",
+          "answer": "94801",
+          "text": " 94801. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "61437",
+          "answer": "61437",
+          "text": " 61437. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "57332",
+          "answer": "57332",
+          "text": " 57332. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "32092",
+          "answer": "32092",
+          "text": " 32092. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "82384",
+          "answer": "82384",
+          "text": " 82384. Remember it. 8",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "80151",
+          "answer": "80151",
+          "text": " 80151. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "38725",
+          "answer": "38725",
+          "text": " 38725. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "96309",
+          "answer": "96309",
+          "text": " 96309. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "33991",
+          "answer": "33991",
+          "text": " 33991. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "94900",
+          "answer": "94900",
+          "text": " 94900. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "50755",
+          "answer": "50755",
+          "text": " 50755. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "95488",
+          "answer": "95488",
+          "text": " 95488. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "65621",
+          "answer": "65621",
+          "text": " 65621. Remember it. 6",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.75,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "18580",
+          "answer": "18580",
+          "text": " 18580. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "52700",
+          "answer": "52700",
+          "text": " 52700. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "13634",
+          "answer": "13634",
+          "text": " 13634. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "67933",
+          "answer": "67933",
+          "text": " 67933. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "83621",
+          "answer": "83621",
+          "text": " 83621. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "97424",
+          "answer": "97424",
+          "text": " 97424. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "60049",
+          "answer": "60049",
+          "text": " 60049. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "78244",
+          "answer": "78244",
+          "text": " 78244. Remember it. 7",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "41635",
+          "answer": "41635",
+          "text": " 41635. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "48797",
+          "answer": "48797",
+          "text": " 48797. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "69750",
+          "answer": "69750",
+          "text": " 69750. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "28355",
+          "answer": "28355",
+          "text": " 28355. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "26524",
+          "answer": "26524",
+          "text": " 26524. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "12946",
+          "answer": "12946",
+          "text": " 12946. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "87258",
+          "answer": "87258",
+          "text": " 87258. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "46987",
+          "answer": "46987",
+          "text": " 46987. Remember it. 4",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.1,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "29377",
+          "answer": "29377",
+          "text": " 29377. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "23477",
+          "answer": "23477",
+          "text": " 23477. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "16383",
+          "answer": "16383",
+          "text": " 16383. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "80841",
+          "answer": "80841",
+          "text": " 80841. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "23536",
+          "answer": "23536",
+          "text": " 23536. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "52659",
+          "answer": "52659",
+          "text": " 52659. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "45843",
+          "answer": "45843",
+          "text": " 45843. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "80124",
+          "answer": "80124",
+          "text": " 80124. Remember it. 8",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "76304",
+          "answer": "76304",
+          "text": " 76304. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "99541",
+          "answer": "99541",
+          "text": " 99541. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "43881",
+          "answer": "43881",
+          "text": " 43881. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "41236",
+          "answer": "41236",
+          "text": " 41236. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "20368",
+          "answer": "20368",
+          "text": " 20368. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "90462",
+          "answer": "90462",
+          "text": " 90462. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "26690",
+          "answer": "26690",
+          "text": " 26690. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "29258",
+          "answer": "29258",
+          "text": " 29258. Remember it. 2",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "55761",
+          "answer": "55761",
+          "text": " 55761. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "16388",
+          "answer": "16388",
+          "text": " 16388. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "26749",
+          "answer": "26749",
+          "text": " 26749. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "23378",
+          "answer": "23378",
+          "text": " 23378. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "39206",
+          "answer": "39206",
+          "text": " 39206. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "97911",
+          "answer": "97911",
+          "text": " 97911. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "16886",
+          "answer": "16886",
+          "text": " 16886. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "26598",
+          "answer": "26598",
+          "text": " 26598. Remember it. 2",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.75,
+      "n": 8,
+      "correct": 4,
+      "acc": 0.5,
+      "samples": [
+        {
+          "key": "55687",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "48893",
+          "answer": "48893",
+          "text": " 48893. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "25612",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "62331",
+          "answer": "62331",
+          "text": " 62331. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "32585",
+          "answer": "32585",
+          "text": " 32585. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "97185",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "57766",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "16892",
+          "answer": "16892",
+          "text": " 16892. Remember it. 1",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "55154",
+          "answer": "55154",
+          "text": " 55154. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "22202",
+          "answer": "22202",
+          "text": " 22202. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "84187",
+          "answer": "84187",
+          "text": " 84187. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "12728",
+          "answer": "12728",
+          "text": " 12728. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "49613",
+          "answer": "49613",
+          "text": " 49613. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "94915",
+          "answer": "94915",
+          "text": " 94915. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "14198",
+          "answer": "14198",
+          "text": " 14198. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "15825",
+          "answer": "15825",
+          "text": " 15825. Remember it. 1",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 8192,
+      "depth": 0.1,
+      "n": 8,
+      "correct": 4,
+      "acc": 0.5,
+      "samples": [
+        {
+          "key": "69495",
+          "answer": "69495",
+          "text": " 69495. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "12963",
+          "answer": "12345678901",
+          "text": " 12345678901",
+          "ok": false
+        },
+        {
+          "key": "75185",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "10339",
+          "answer": "10339",
+          "text": " 10339. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "23349",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "47959",
+          "answer": "47959",
+          "text": " 47959. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "50159",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "65265",
+          "answer": "65265",
+          "text": " 65265. Remember it. 6",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 8192,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 4,
+      "acc": 0.5,
+      "samples": [
+        {
+          "key": "16450",
+          "answer": "16450",
+          "text": " 16450. Remember it.\n\n",
+          "ok": true
+        },
+        {
+          "key": "46386",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "32575",
+          "answer": "32575",
+          "text": " 32575. Remember it.\n\n",
+          "ok": true
+        },
+        {
+          "key": "87904",
+          "answer": "87904",
+          "text": " 87904. Remember it.\n\n",
+          "ok": true
+        },
+        {
+          "key": "99731",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "20518",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "87067",
+          "answer": "87067",
+          "text": " 87067. Remember it.\n\n",
+          "ok": true
+        },
+        {
+          "key": "89393",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 8192,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 4,
+      "acc": 0.5,
+      "samples": [
+        {
+          "key": "41327",
+          "answer": "41327",
+          "text": " 41327. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "17201",
+          "answer": "17201",
+          "text": " 17201. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "21893",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "41272",
+          "answer": "41272",
+          "text": " 41272. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "50646",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "20623",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "40952",
+          "answer": "40952",
+          "text": " 40952. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "95182",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 8192,
+      "depth": 0.75,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "11380",
+          "answer": "11380",
+          "text": " 11380. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "76261",
+          "answer": "76261",
+          "text": " 76261. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "55570",
+          "answer": "55570",
+          "text": " 55570. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "14719",
+          "answer": "14719",
+          "text": " 14719. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "38887",
+          "answer": "38887",
+          "text": " 38887. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "76009",
+          "answer": "76009",
+          "text": " 76009. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "49661",
+          "answer": "49661",
+          "text": " 49661. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "88200",
+          "answer": "88200",
+          "text": " 88200. Remember it. 8",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 8192,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "88572",
+          "answer": "88572",
+          "text": " 88572. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "89909",
+          "answer": "89909",
+          "text": " 89909. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "17476",
+          "answer": "17476",
+          "text": " 17476. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "59569",
+          "answer": "59569",
+          "text": " 59569. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "89275",
+          "answer": "89275",
+          "text": " 89275. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "29079",
+          "answer": "29079",
+          "text": " 29079. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "59511",
+          "answer": "59511",
+          "text": " 59511. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "18319",
+          "answer": "18319",
+          "text": " 18319. Remember it. 1",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 16384,
+      "depth": 0.1,
+      "n": 8,
+      "correct": 0,
+      "acc": 0.0,
+      "samples": [
+        {
+          "key": "49358",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "71691",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "63421",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "62984",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "22983",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "74485",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "96186",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "28082",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 16384,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 0,
+      "acc": 0.0,
+      "samples": [
+        {
+          "key": "38765",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "64824",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "84255",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "25619",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "49719",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "86333",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "24644",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "96840",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 16384,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 2,
+      "acc": 0.25,
+      "samples": [
+        {
+          "key": "50001",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "27991",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "52345",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "20070",
+          "answer": "20070",
+          "text": " 20070. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "84957",
+          "answer": "84957",
+          "text": " 84957. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "60229",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "76553",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "75382",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 16384,
+      "depth": 0.75,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "17827",
+          "answer": "17827",
+          "text": " 17827. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "78403",
+          "answer": "78403",
+          "text": " 78403. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "29127",
+          "answer": "29127",
+          "text": " 29127. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "14035",
+          "answer": "14035",
+          "text": " 14035. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "32430",
+          "answer": "32430",
+          "text": " 32430. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "98829",
+          "answer": "98829",
+          "text": " 98829. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "50034",
+          "answer": "50034",
+          "text": " 50034. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "70664",
+          "answer": "70664",
+          "text": " 70664. Remember it. 7",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 16384,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 1,
+      "acc": 0.125,
+      "samples": [
+        {
+          "key": "89346",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "68858",
+          "answer": "68858",
+          "text": " 68858. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "58777",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "53772",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "50234",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "91765",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "26691",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "91486",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 32768,
+      "depth": 0.1,
+      "n": 8,
+      "correct": 0,
+      "acc": 0.0,
+      "samples": [
+        {
+          "key": "67615",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "11034",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "88259",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "26531",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "47285",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "49278",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "90092",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        },
+        {
+          "key": "11252",
+          "answer": null,
+          "text": " the key that you want to pass to the pass key.",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 32768,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 7,
+      "acc": 0.875,
+      "samples": [
+        {
+          "key": "43680",
+          "answer": "43680",
+          "text": " 43680. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "27637",
+          "answer": "27637",
+          "text": " 27637. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "34086",
+          "answer": "34086",
+          "text": " 34086. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "73629",
+          "answer": "73629",
+          "text": " 73629. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "94147",
+          "answer": "94147",
+          "text": " 94147. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "58599",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "33105",
+          "answer": "33105",
+          "text": " 33105. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "20605",
+          "answer": "20605",
+          "text": " 20605. Remember it. 2",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 32768,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 6,
+      "acc": 0.75,
+      "samples": [
+        {
+          "key": "68002",
+          "answer": "68002",
+          "text": " 68002. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "51224",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "84450",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "14258",
+          "answer": "14258",
+          "text": " 14258. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "70354",
+          "answer": "70354",
+          "text": " 70354. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "37607",
+          "answer": "37607",
+          "text": " 37607. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "36313",
+          "answer": "36313",
+          "text": " 36313. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "37430",
+          "answer": "37430",
+          "text": " 37430. Remember it. 3",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 32768,
+      "depth": 0.75,
+      "n": 8,
+      "correct": 0,
+      "acc": 0.0,
+      "samples": [
+        {
+          "key": "89041",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "51089",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "24768",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "97370",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "33482",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "68045",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "45536",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        },
+        {
+          "key": "61952",
+          "answer": null,
+          "text": " the pass key. The pass key is the pass key.",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 32768,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 2,
+      "acc": 0.25,
+      "samples": [
+        {
+          "key": "35048",
+          "answer": "35048",
+          "text": " 35048. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "44601",
+          "answer": "44601",
+          "text": " 44601. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "21376",
+          "answer": null,
+          "text": " the key that you want to pass the pass key to the",
+          "ok": false
+        },
+        {
+          "key": "28922",
+          "answer": null,
+          "text": " the key that you want to pass the pass key to the",
+          "ok": false
+        },
+        {
+          "key": "80352",
+          "answer": null,
+          "text": " the key that you want to pass the pass key to the",
+          "ok": false
+        },
+        {
+          "key": "85474",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "53158",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        },
+        {
+          "key": "82012",
+          "answer": null,
+          "text": " the key that you want to pass the key to the pass",
+          "ok": false
+        }
+      ]
+    }
+  ]
+}
