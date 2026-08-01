@@ -22,6 +22,32 @@ from pathlib import Path
 import numpy as np
 from tokenizers import Tokenizer
 
+COMMIT_FIELDS = ("message", "subject", "old_file", "new_file",
+                 "old_contents", "new_contents")
+
+
+def render_commit(rec: dict) -> str:
+    """Render a CommitPack record as one pretraining document.
+
+    Copying a single text column is wrong for this corpus. `new_contents` alone is just
+    more source code, which the code slice already supplies 65% of; the thing a commits
+    slice uniquely teaches is the PAIRING of a natural-language intent with the edit that
+    realises it. So the document keeps the message and both sides of the change.
+
+    Missing fields raise rather than degrade to a partial document: a silently
+    message-less "commit" would train the model on exactly the association we are paying
+    for, minus the supervision.
+    """
+    missing = [f for f in COMMIT_FIELDS if not isinstance(rec.get(f), str)]
+    if missing:
+        raise KeyError(f"commit record lacks {missing}; got columns {sorted(rec)}")
+    # `message` is the full text and usually starts with `subject`; prefer it, and only
+    # add `subject` when it genuinely carries something message does not.
+    msg = rec["message"].strip() or rec["subject"].strip()
+    return (f"{msg}\n\n"
+            f"--- a/{rec['old_file']}\n{rec['old_contents']}\n"
+            f"+++ b/{rec['new_file']}\n{rec['new_contents']}\n")
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
@@ -32,6 +58,15 @@ def main() -> int:
     ap.add_argument("--text-field", default=None,
                     help="column holding the text; auto-detected when omitted")
     ap.add_argument("--config", default=None)
+    ap.add_argument("--data-files", default=None,
+                    help="load these files directly (a URL/glob) instead of resolving the "
+                         "dataset by id. Needed for repos that ship a loading SCRIPT, which "
+                         "`datasets` refuses to execute: bigcode/commitpackft fails with "
+                         "'Dataset scripts are no longer supported, but found "
+                         "commitpackft.py' even though its data is plain JSONL.")
+    ap.add_argument("--format", default="auto", choices=("auto", "commit"),
+                    help="'commit' renders a CommitPack-style record (subject + before/after "
+                         "contents) instead of copying one text column")
     ap.add_argument("--hf-split", default="train")
     ap.add_argument("--max-tokens", type=int, default=0, help="0 = whole dataset")
     ap.add_argument("--val-tokens", type=int, default=10_000_000)
@@ -55,14 +90,27 @@ def main() -> int:
         print(f"already complete: {done['train_tokens']:,} tokens")
         return 0
 
-    ds = load_dataset(a.dataset, a.config, split=a.hf_split, streaming=True)
+    if a.data_files:
+        ds = load_dataset("json", data_files=a.data_files, split=a.hf_split, streaming=True)
+    else:
+        ds = load_dataset(a.dataset, a.config, split=a.hf_split, streaming=True)
     first = next(iter(ds))
-    field = a.text_field or next(
-        (k for k in ("text", "content", "markdown", "new_contents", "message")
-         if k in first and isinstance(first[k], str)), None)
-    if field is None:
-        raise SystemExit(f"could not find a text column in {list(first)}; pass --text-field")
-    print(f"text column: {field!r}  (columns: {list(first)})", flush=True)
+
+    if a.format == "commit":
+        render = render_commit
+        render(first)                       # fail now, not 2 hours into the stream
+        print(f"format: commit  (columns: {list(first)})", flush=True)
+    else:
+        field = a.text_field or next(
+            (k for k in ("text", "content", "markdown", "new_contents", "message")
+             if k in first and isinstance(first[k], str)), None)
+        if field is None:
+            raise SystemExit(
+                f"could not find a text column in {list(first)}; pass --text-field")
+        print(f"text column: {field!r}  (columns: {list(first)})", flush=True)
+
+        def render(rec, _f=field):
+            return rec.get(_f)
 
     manifests = {"train": [], "val": []}
     for sp in ("train", "val"):
@@ -92,7 +140,7 @@ def main() -> int:
         rows += 1
         if rows <= done["rows"]:
             continue
-        t = rec.get(field)
+        t = render(rec)
         if not isinstance(t, str) or not t.strip():
             continue
         texts.append(t)
