@@ -256,7 +256,10 @@ def _fla_kda(q, k, v, alpha, beta, S0=None, return_state: bool = False):
         g=torch.log(alpha.clamp_min(1e-30)).permute(0, 2, 1, 3).contiguous().float(),
         beta=beta.permute(0, 2, 1).contiguous().to(dt),
         scale=1.0,
-        initial_state=None if S0 is None else S0.to(dt),
+        # fp32, and not `dt`: fla asserts this, and it is right to. The recurrent state is
+        # carried across every decode step, so bf16 rounding would accumulate where the
+        # per-step activations do not.
+        initial_state=None if S0 is None else S0.float(),
         output_final_state=return_state,
     )
     if return_state:
@@ -536,7 +539,11 @@ class GatedDeltaNet(nn.Module):
                 if y is None:
                     y = gdn_chunkwise(q, k, v, alpha, beta, chunk=self.chunk)
         else:
-            S = cache.gdn_state(layer, B, self.n_head, self.head_dim, q.dtype, q.device)
+            # fp32 state regardless of the model's compute dtype: it is carried across
+            # every step of the whole generation, so rounding accumulates here in a way it
+            # does not for per-step activations. fla asserts fp32 for the same reason.
+            S = cache.gdn_state(layer, B, self.n_head, self.head_dim,
+                                torch.float32, q.device)
             if T == 1:
                 # One function for both gates — `alpha` carries the difference. See
                 # gdn_step's docstring.

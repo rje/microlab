@@ -1,0 +1,220 @@
+{
+  "run": "runs/frontier-32k",
+  "ckpt": "ckpt_15000.pt",
+  "step": 15000,
+  "trained_block_size": 32768,
+  "rope_base": 10000.0,
+  "eval_block": 32768,
+  "lengths": [
+    1024,
+    4096
+  ],
+  "depths": [
+    0.1,
+    0.5,
+    0.9
+  ],
+  "n": 4,
+  "seed": 0,
+  "max_new": 12,
+  "cells": [
+    {
+      "length": 1024,
+      "depth": 0.1,
+      "n": 4,
+      "correct": 4,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "28335",
+          "answer": "28335",
+          "text": " 28335. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "16602",
+          "answer": "16602",
+          "text": " 16602. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "20804",
+          "answer": "20804",
+          "text": " 20804. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "79401",
+          "answer": "79401",
+          "text": " 79401. Remember it. 7",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.5,
+      "n": 4,
+      "correct": 4,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "80151",
+          "answer": "80151",
+          "text": " 80151. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "38725",
+          "answer": "38725",
+          "text": " 38725. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "96309",
+          "answer": "96309",
+          "text": " 96309. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "33991",
+          "answer": "33991",
+          "text": " 33991. Remember it. 3",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.9,
+      "n": 4,
+      "correct": 4,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "41635",
+          "answer": "41635",
+          "text": " 41635. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "48797",
+          "answer": "48797",
+          "text": " 48797. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "69750",
+          "answer": "69750",
+          "text": " 69750. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "28355",
+          "answer": "28355",
+          "text": " 28355. Remember it. 2",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.1,
+      "n": 4,
+      "correct": 4,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "29377",
+          "answer": "29377",
+          "text": " 29377. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "23477",
+          "answer": "23477",
+          "text": " 23477. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "16383",
+          "answer": "16383",
+          "text": " 16383. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "80841",
+          "answer": "80841",
+          "text": " 80841. Remember it. 8",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.5,
+      "n": 4,
+      "correct": 4,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "55761",
+          "answer": "55761",
+          "text": " 55761. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "16388",
+          "answer": "16388",
+          "text": " 16388. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "26749",
+          "answer": "26749",
+          "text": " 26749. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "23378",
+          "answer": "23378",
+          "text": " 23378. Remember it. 2",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4096,
+      "depth": 0.9,
+      "n": 4,
+      "correct": 4,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "55154",
+          "answer": "55154",
+          "text": " 55154. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "22202",
+          "answer": "22202",
+          "text": " 22202. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "84187",
+          "answer": "84187",
+          "text": " 84187. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "12728",
+          "answer": "12728",
+          "text": " 12728. Remember it. 1",
+          "ok": true
+        }
+      ]
+    }
+  ]
+}
