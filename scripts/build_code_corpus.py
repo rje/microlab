@@ -117,9 +117,14 @@ def license_ok(licenses) -> bool:
 
 STACK_REPO = "bigcode/the-stack-dedup"
 STACK_DIRS = {"python": "data/python", "javascript": "data/javascript",
-              "typescript": "data/typescript"}
+              "typescript": "data/typescript", "markdown": "data/markdown"}
+# Markdown is prose, not code, and it is in the mix for a different reason: READMEs and
+# docs are where a code model sees natural-language explanation of code. It flows through
+# the identical license-filter and attribution path as the source languages, which is the
+# point of adding it here rather than via the plain text ingest.
 STACK_LANG_NAMES = {"python": "Python", "javascript": "JavaScript",
-                    "typescript": "TypeScript"}
+                    "typescript": "TypeScript", "markdown": "Markdown"}
+PROSE_LANGS = frozenset({"markdown"})
 STACK_COLUMNS = ["content", "hexsha", "max_stars_repo_name", "max_stars_repo_path",
                  "max_stars_repo_licenses", "lang"]
 
@@ -545,7 +550,10 @@ class CorpusBuilder:
         if expected is not None and row.lang != expected:
             raise RuntimeError(f"language partition mismatch for {lang!r}: row.lang="
                                f"{row.lang!r} (file {row.file_idx} row {row.row_idx})")
-        text, reason = clean_one(row.content, code=True, min_chars=self.cfg.min_chars,
+        # Markdown is prose: the code rules flag unwrapped natural-text paragraphs as
+        # minified blobs, so it takes the gate's PROSE path instead.
+        text, reason = clean_one(row.content, code=lang not in PROSE_LANGS,
+                                 min_chars=self.cfg.min_chars,
                                  max_chars=self.cfg.max_chars)
         if reason is not None:
             ls[f"dropped_{reason}"] += 1

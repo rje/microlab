@@ -362,3 +362,25 @@ def test_completed_build_is_a_noop_on_rerun(tmp_path, tok_path):
 def test_near_dedup_hook_is_explicitly_unimplemented():
     assert mod.near_dup_reason("any text") is None  # keeps everything today
     assert "MinHash" in mod.near_dup_reason.__doc__
+
+
+def test_markdown_is_gated_as_prose_not_code():
+    """A README paragraph is one long unwrapped line; the CODE rules call that minified.
+
+    Markdown entered the mix for the docs slice, and routing it through the code path
+    would silently drop ordinary prose files.
+    """
+    b = _load("build_code_corpus")
+    c = _load("build_code_tokenizer_corpora")
+
+    para = "This project provides a fast, dependency-free parser. " * 40  # ~2.1k chars
+    doc = f"# Title\n\n{para}\n"
+    assert "markdown" in b.PROSE_LANGS
+    assert c.looks_minified(doc, code=True) is True     # would be dropped as code
+    assert c.looks_minified(doc, code=False) is False   # kept as prose
+
+
+def test_markdown_partition_is_registered():
+    b = _load("build_code_corpus")
+    assert b.STACK_DIRS["markdown"] == "data/markdown"
+    assert b.STACK_LANG_NAMES["markdown"] == "Markdown"
