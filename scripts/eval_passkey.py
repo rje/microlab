@@ -37,8 +37,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import torch  # noqa: E402
 
 from microlab.infer.reference.kv_cache import generate_cached  # noqa: E402
-from microlab.model.reference.checkpoint import latest_checkpoint  # noqa: E402
-from microlab.model.reference.variants import VariantConfig, VariantGPT  # noqa: E402
+from microlab.model.reference.checkpoint import (  # noqa: E402
+    latest_checkpoint,
+    variant_config_from_ckpt,
+)
+from microlab.model.reference.variants import VariantGPT  # noqa: E402
 from microlab.tokenizer.fast import FastTokenizer  # noqa: E402
 
 PREAMBLE = (
@@ -140,22 +143,11 @@ def load_for_eval(run_dir: Path, min_context: int, device: str):
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     cfg = ckpt["cfg"]
     eval_block = max(cfg.block_size, min_context)
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=eval_block, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None),
-        rope_base=getattr(cfg, "rope_base", 10000.0),
-        # Every architecture field a checkpoint may carry has to be threaded through here
-        # or the strict state-dict load fails. This loader had drifted: without block_norm
-        # it could load NO Peri-LN run, and without hybrid_every no GDN hybrid. Same
-        # failure class as docs/sota-parity-1b.md #8 (a reference capability unreachable
-        # from a caller). Keep in sync with
-        # microlab.model.reference.checkpoint.load_variant_from_run.
-        block_norm=getattr(cfg, "block_norm", "pre"),
-        hybrid_every=getattr(cfg, "hybrid_every", None),
-        gdn_chunk=getattr(cfg, "gdn_chunk", 64),
-        gdn_conv_kernel=getattr(cfg, "gdn_conv_kernel", 4),
-    ))
+    # block_size is the ONE field this loader overrides: the probe runs past the trained
+    # window. Everything else comes from the checkpoint via the shared helper — hand-
+    # maintaining the list here is what broke Peri-LN, then hybrid, then the whole
+    # frontier stack.
+    model = VariantGPT(variant_config_from_ckpt(cfg, block_size=eval_block))
     model.load_state_dict(ckpt["model"])
     extended = (" (NoPE: no positional state to extend; only the length guard and "
                 "KV-cache capacity grow)" if cfg.pos == "nope"

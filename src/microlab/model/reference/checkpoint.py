@@ -3,11 +3,34 @@ interp report, the inference bench, and the console's serving endpoint."""
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import torch
 
 from microlab.model.reference.variants import VariantConfig, VariantGPT
+
+
+def variant_config_from_ckpt(cfg, **overrides) -> VariantConfig:
+    """Rebuild a VariantConfig from a checkpoint's stored config.
+
+    Fields are enumerated from the dataclass rather than listed by hand. The hand-written
+    list this replaces drifted TWICE: first missing `block_norm`/`hybrid_every` (so it
+    could load no Peri-LN or hybrid run), then missing all five frontier fields —
+    `gdn_gate`, `global_attn`, `mla_kv_lora`, `qk_norm`, `gdn_fused` — which made every
+    eval script unable to load a frontier checkpoint at all. The failure was a shape
+    mismatch deep in a strict state-dict load, far from the cause.
+
+    A field the checkpoint lacks falls back to the dataclass default, which is correct and
+    deliberate: checkpoints predating a field must rebuild as that era's model. What makes
+    this safe rather than a silent guess is `test_variant_config_round_trips_every_field`,
+    which fails the moment a new field can be lost in transit.
+    """
+    out = {f.name: getattr(cfg, f.name)
+           for f in dataclasses.fields(VariantConfig) if hasattr(cfg, f.name)}
+    out["dropout"] = 0.0                       # inference: never inherit train-time dropout
+    out.update(overrides)
+    return VariantConfig(**out)
 
 
 def latest_checkpoint(run_dir: Path) -> Path:
@@ -28,19 +51,6 @@ def load_variant_from_run(run_dir: Path, device: str = "cpu") -> tuple[VariantGP
     that onto the GPU too (~11GB for the 1B), which can OOM a training run sharing the device.
     Inference never needs the optimizer state, so it stays on CPU and is freed with ``ckpt``."""
     ckpt = torch.load(latest_checkpoint(run_dir), map_location="cpu", weights_only=False)
-    cfg = ckpt["cfg"]
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp,
-        # getattr: checkpoints from before these fields existed lack the attributes; the
-        # defaults reproduce that era's model exactly (fused MHA, base 10000, pre-norm).
-        n_kv_head=getattr(cfg, "n_kv_head", None),
-        rope_base=getattr(cfg, "rope_base", 10000.0),
-        block_norm=getattr(cfg, "block_norm", "pre"),
-        hybrid_every=getattr(cfg, "hybrid_every", None),
-        gdn_chunk=getattr(cfg, "gdn_chunk", 64),
-        gdn_conv_kernel=getattr(cfg, "gdn_conv_kernel", 4),
-    ))
+    model = VariantGPT(variant_config_from_ckpt(ckpt["cfg"]))
     model.load_state_dict(ckpt["model"])
     return model.to(device).eval(), ckpt["step"]
