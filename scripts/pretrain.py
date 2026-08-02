@@ -84,8 +84,22 @@ def main() -> None:
     tok = None
     if tok_path.exists():
         tok = FastTokenizer.load(str(tok_path))
-        cfg.vocab_size = tok.vocab_size
-        print(f"vocab_size set from tokenizer: {cfg.vocab_size}")
+        if cfg.vocab_size < tok.vocab_size:
+            # The model could not emit the tokenizer's highest ids; raising to fit is the
+            # safety property this override exists for.
+            print(f"vocab_size raised to fit the tokenizer: "
+                  f"{cfg.vocab_size} -> {tok.vocab_size}")
+            cfg.vocab_size = tok.vocab_size
+        elif cfg.vocab_size > tok.vocab_size:
+            # A LARGER config vocab is a deliberate pad, not a mistake, and must not be
+            # clobbered. Adding the 3 FIM sentinels took the tokenizer to 49,155, which is
+            # divisible by neither 8 nor 64 — a badly shaped embedding/lm_head matmul on
+            # every step of a multi-week run. The config pads to 49,280 = 385 x 128.
+            # (This assignment previously overwrote the pad unconditionally.)
+            print(f"vocab_size {cfg.vocab_size} > tokenizer {tok.vocab_size}: keeping the "
+                  f"config's padding ({cfg.vocab_size - tok.vocab_size} unused rows)")
+        else:
+            print(f"vocab_size matches the tokenizer: {cfg.vocab_size}")
 
     # Make the run dir self-contained: co-locate the tokenizer with the checkpoints so the
     # console can serve this run without guessing which tokenizer produced it (decoding a
