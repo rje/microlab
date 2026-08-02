@@ -82,27 +82,48 @@ class SliceReader:
         self.files = [data_dir / s["file"] for s in man["shards"]]
         self.total = man["total_tokens"]
         self.eot = eot
-        self.shard_i = 0
+        self.cur_shard = 0        # shard the loaded `docs` came from
+        self.next_shard = 0       # next shard to load
         self.docs: list[np.ndarray] = []
         self.doc_i = 0
+        self._resuming = False
 
     def state(self) -> dict:
-        return {"shard_i": self.shard_i, "doc_i": self.doc_i}
+        """(shard, index-within-that-shard). Both halves must refer to the SAME shard —
+        an earlier version stored a `doc_i` that was an index into whichever shard
+        happened to be loaded, which is what made resume and shard-advance disagree."""
+        return {"cur_shard": self.cur_shard, "doc_i": self.doc_i}
 
     def restore(self, st: dict) -> None:
-        self.shard_i, self.doc_i = st["shard_i"], st["doc_i"]
+        self.next_shard = st["cur_shard"]
+        self.doc_i = st["doc_i"]
         self.docs = []
+        self._resuming = True
 
     def next_doc(self) -> np.ndarray | None:
         while self.doc_i >= len(self.docs):
-            if self.shard_i >= len(self.files):
+            if self.next_shard >= len(self.files):
                 return None                       # slice exhausted
-            arr = np.fromfile(self.files[self.shard_i], dtype=np.uint16)
+            arr = np.fromfile(self.files[self.next_shard], dtype=np.uint16)
+            self.cur_shard = self.next_shard
+            self.next_shard += 1
             self.docs = split_documents(arr, self.eot)
-            self.shard_i += 1
-            if self.doc_i >= len(self.docs):      # resumed past this shard
-                self.doc_i -= len(self.docs)
-                self.docs = []
+            # Reset to the start of the newly loaded shard. WITHOUT this, doc_i carried
+            # over from the previous shard, so the `doc_i >= len(docs)` test fired again
+            # and the shard was dropped whole: a 3-shard slice yielded shards 0 and 2 and
+            # silently skipped 1. That is a third of the corpus missing, and it showed up
+            # only as slices exhausting far earlier than their token counts allow.
+            if self._resuming:
+                self._resuming = False            # doc_i already indexes THIS shard
+                if self.doc_i >= len(self.docs):
+                    # The checkpoint landed exactly on a shard boundary: this shard is
+                    # fully consumed, so advance rather than replay it. Resetting doc_i
+                    # to 0 here instead would re-emit the whole shard on every resume.
+                    self.doc_i = 0
+                    self.docs = []
+                    continue
+            else:
+                self.doc_i = 0
         d = self.docs[self.doc_i]
         self.doc_i += 1
         return d
