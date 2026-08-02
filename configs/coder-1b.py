@@ -39,7 +39,7 @@ from microlab.train.config import RunConfig
 
 config = RunConfig(
     # model — ~1.04B params
-    vocab_size=49152,
+    vocab_size=49280,   # 49,152 base + 3 FIM sentinels, padded to 385x128
     block_size=32768,
     n_layer=24,
     n_head=14,

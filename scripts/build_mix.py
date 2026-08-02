@@ -53,6 +53,25 @@ SLICES = {
     "commits":  ("data/shards/commits-49k",   0.012, True),
 }
 
+# Provenance is NOT uniform and must not be recorded as if it were. Only the two
+# the-Stack-derived slices carry a per-file attribution manifest (the Stack v1 dedup
+# agreement's shipping requirement); the rest are whole HF datasets whose provenance is
+# the dataset id and its licence. An earlier version of this file fell back to the code
+# manifest for every slice, which claimed the-Stack attribution for FineWeb and arXiv —
+# a provenance record that is confidently wrong is worse than none.
+ATTRIBUTION = {
+    # slice -> per-file manifest. code-repo-32k was GATHERED from code-stack-30b and the
+    # packer did not copy the manifest forward, so it lives with the source corpus.
+    "code": "data/shards/code-stack-30b/attribution.jsonl",
+    "markdown": "data/shards/markdown-49k/attribution.jsonl",
+}
+DATASET_PROVENANCE = {
+    "web": "HuggingFaceFW/fineweb (retokenised to code-49k)",
+    "math": "open-web-math/open-web-math",
+    "arxiv": "common-pile/arxiv_papers",
+    "commits": "bigcode/commitpackft",
+}
+
 
 class SliceReader:
     """Sequential document reader over one slice's shards, with a resumable cursor."""
@@ -223,6 +242,25 @@ def main() -> int:
     flush("val", val_shard)
     shard_i = flush("train", shard_i)
     (out / "tokenizer.json").write_bytes(Path(a.tokenizer).read_bytes())
+
+    # ATTRIBUTION. The Stack v1 dedup agreement makes the per-file manifest a shipping
+    # requirement, and the repo packer did not carry it forward — code-repo-32k has no
+    # attribution.jsonl at all, only the file-level corpus it was gathered from. Link it
+    # to the mix so "what did this model train on" is answerable from the corpus alone.
+    provenance = {}
+    for name in names:
+        if name in ATTRIBUTION:
+            p = Path(ATTRIBUTION[name])
+            if not p.exists():
+                raise SystemExit(
+                    f"{name}: the-Stack-derived slice has no attribution manifest at {p}. "
+                    f"The Stack v1 dedup agreement makes the per-file manifest a shipping "
+                    f"requirement, so this corpus cannot ship without it.")
+            provenance[name] = {"kind": "per-file-manifest", "path": str(p),
+                                "bytes": p.stat().st_size}
+        else:
+            provenance[name] = {"kind": "dataset", "source": DATASET_PROVENANCE[name]}
+    (out / "provenance.json").write_text(json.dumps(provenance, indent=1))
     composition = {n: {"tokens": per_slice[n], "share": per_slice[n] / max(written, 1),
                        "target_share": SLICES[n][1]} for n in names}
     (out / "composition.json").write_text(json.dumps(
