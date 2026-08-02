@@ -26,10 +26,16 @@ sys.path.insert(0, "src")
 import torch
 
 from microlab.infer.reference.kv_cache import generate_cached
-from microlab.model.reference.variants import VariantConfig, VariantGPT
+from microlab.model.reference.checkpoint import variant_config_from_ckpt
+from microlab.model.reference.variants import VariantGPT
 from microlab.tokenizer.fast import FastTokenizer
 
-RUN = Path("runs/1b")
+# The run under test. Was hard-wired to runs/1b; `--run <dir>` points it at any pretrain
+# so the 1B capstone gets the same trajectory record the first 1B has.
+RUN = Path(next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--run=")),
+                "runs/1b"))
+if "--run" in sys.argv:
+    RUN = Path(sys.argv[sys.argv.index("--run") + 1])
 LOG = RUN / "probe_track.jsonl"
 MILESTONE = 2000
 QUAL_TOKENS = 30
@@ -44,6 +50,12 @@ QUAL_PROMPTS = [
     "2 + 3 = 5\n7 + 4 = 11\n8 + 6 =",                 # few-shot arithmetic
     "The chemical symbol for tungsten is",            # long-tail knowledge (W)
     "Tom opened his umbrella because it started to",  # causal commonsense
+    # Free-form CODE completions, to be READ rather than scored: whether the model emits
+    # plausible, indented, syntactically shaped code is visible long before any execution
+    # eval leaves zero.
+    "def binary_search(arr, target):\n",
+    "class LinkedList:\n    def __init__(self):\n",
+    "// Reverse a string in JavaScript\nfunction reverse(s) {\n",
 ]
 
 # (category, prompt, [acceptable answers]) — scored by greedy prefix-match, case-insensitive.
@@ -78,6 +90,28 @@ EVAL = [
     ("icl", "France: Paris\nJapan: Tokyo\nItaly: Rome\nSpain:", ["Madrid"]),
     ("icl", "one: two\ntwo: three\nthree: four\nfour:", ["five"]),
     ("icl", "walk: walked\njump: jumped\nplay: played\ncook:", ["cooked"]),
+    # CODE — added for the coder-1B, whose corpus is 66% code. The general categories
+    # above measure what the 15% web slice buys; without these the probe set would say
+    # nothing about the capability the model is actually for. Single unambiguous
+    # continuations only, so greedy prefix-match stays a fair scorer.
+    ("code", "import numpy as", ["np"]),
+    ("code", "import pandas as", ["pd"]),
+    ("code", "def add(a, b):\n    return", ["a + b", "a+b"]),
+    ("code", "def is_even(n):\n    return n % 2 ==", ["0"]),
+    ("code", "x = [1, 2, 3]\nprint(len(x))\n# output:", ["3"]),
+    ("code", "def greet(name):\n    print(f\"Hello, {", ["name"]),
+    ("code", "try:\n    risky()\nexcept Exception as", ["e", "err"]),
+    ("code", "for i in range(3):\n    print(i)\n# prints 0, 1,", ["2"]),
+    ("code", "s = 'hello'\nprint(s.upper())\n# output:", ["HELLO"]),
+    ("code", "# Return the larger of two numbers\ndef maximum(a, b):\n    if a > b:\n"
+             "        return a\n    return", ["b"]),
+    # MATH — the mix carries 10% open-web-math. Arithmetic above is 1-digit few-shot;
+    # these need actual computation rather than pattern completion.
+    ("math", "12 * 12 =", ["144"]),
+    ("math", "The square root of 64 is", ["8"]),
+    ("math", "2^10 =", ["1024"]),
+    ("math", "10% of 50 is", ["5"]),
+    ("math", "The derivative of x^2 with respect to x is", ["2x", "2 x"]),
 ]
 
 # Likelihood-based multiple choice (the standard base-model eval): score each choice by the
@@ -190,13 +224,12 @@ def step_of(p: Path) -> int:
 
 
 def load_ckpt(path: Path):
+    # Was a hand-written field list — the THIRD copy of that pattern in this repo and the
+    # most incomplete of the three: it omitted n_kv_head, rope_base, block_norm,
+    # hybrid_every and every frontier field, so it could rebuild only a plain dense model
+    # and would have failed outright on the 1B hybrid it is about to be pointed at.
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
-    cfg = ckpt["cfg"]
-    m = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp,
-    ))
+    m = VariantGPT(variant_config_from_ckpt(ckpt["cfg"]))
     m.load_state_dict(ckpt["model"])
     return m.eval(), ckpt["step"]
 
@@ -309,8 +342,8 @@ def main() -> None:
     if not on_disk:
         print("no checkpoints yet")
         return
-    if len(sys.argv) > 1:
-        want = {int(s) for s in sys.argv[1:]}
+    if any(s.isdigit() for s in sys.argv[1:]):
+        want = {int(s) for s in sys.argv[1:] if s.isdigit()}
         ckpts = [c for c in on_disk if step_of(c) in want]
     else:
         milestones = [c for c in on_disk if step_of(c) % MILESTONE == 0]
