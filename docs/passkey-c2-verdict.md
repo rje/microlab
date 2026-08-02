@@ -1,73 +1,77 @@
-# Phase C2 verdict: NoPE retrieval at 32k — DOES NOT PASS
+# Phase C2: RETRACTED — the test had no positive control
 
-Run: `runs/frontier-32k` (124M, ckpt_15000, 1.60x Chinchilla, block_size 32768,
-pos=nope, 3:1 KDA:MLA hybrid). Grid: `evals/passkey-frontier-32k-n64.json`, n=64 per cell.
+**Status: this measurement cannot support an architecture verdict. Do not cite the earlier
+version of this file, which read the result as evidence against NoPE.**
 
-## Result
+Run: `runs/frontier-32k` (124M, ckpt_15000, 1.60x Chinchilla, block_size 32768, pos=nope,
+3:1 KDA:MLA hybrid). Grid: `evals/passkey-frontier-32k-n64.json`, n=64.
 
-Accuracy, passkey depth across the window:
+## What was measured
 
 | length | 0.10 | 0.25 | 0.50 | 0.75 | 0.90 |
 |---|---|---|---|---|---|
 | 1,024 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
 | 4,096 | 1.00 | 1.00 | 1.00 | 0.61 | 1.00 |
 | 8,192 | 0.80 | 0.39 | 0.75 | 0.98 | 1.00 |
-| 16,384 | 0.00 | 0.00 | 0.30 | **0.98** | 0.27 |
-| 32,768 | 0.08 | 0.66 | 0.81 | **0.00** | 0.56 |
+| 16,384 | 0.00 | 0.00 | 0.30 | 0.98 | 0.27 |
+| 32,768 | 0.08 | 0.66 | 0.81 | 0.00 | 0.56 |
 
-**Reliable to 4k. Degrades from 8k. Beyond 16k it is unreliable and non-monotone.**
+The numbers are sound: n=64 (+/-0.12), and the outputs were inspected — successes emit the
+exact key, failures emit filler containing no number at all, so it is not a scoring
+artifact.
 
-At n=64 a cell's 95% interval is +/-0.12, so 0.00 vs 0.98 within one length is real, not
-sampling noise. The first grid was run at n=8 (+/-0.35) and could not have supported any
-verdict; it is kept only as the reason the n=64 run exists.
+## Why it cannot be read as an architecture verdict
 
-## It is not a scoring artifact
+**There is no positive control.** Every passkey result this lab has produced:
 
-This repo has had passkey scoring bugs before (`0e432eb`), so the outputs were inspected
-rather than trusted. The failure mode is unambiguous:
+| model | params | trained at | result |
+|---|---|---|---|
+| 1b-4k | 1B | 4,096 | 1.00 across the whole window |
+| 1b-4k-v2 | 1B | 4,096 | 0.87–1.00 across 4k |
+| 1b-base | 1B | 1,024 | 1.00 inside 1,024, 0.00 outside (the RoPE cliff) |
+| frontier-32k | 124M | 32,768 | 1.00 at 1k, degrades from 8k |
 
-- success: `" 17827. Remember it."` — the exact key, cleanly
-- failure: `" the key that you want to pass the key to the pass"` — **no number at all**
+Before this run, **no 124M model had ever been passkey-tested here — zero cells.** And no
+model at any scale in this lab has ever retrieved beyond 4k; the best long-context result
+we own is 1B at 4k.
 
-The model does not retrieve a WRONG key; it emits generic filler echoing the prompt's
-phrasing, near-identically across samples. The information is absent from the recurrent
-state, not corrupted in transit. The eval is measuring what it claims to measure.
+So the frontier run was asked for retrieval at **8x the context length of anything we have
+ever achieved, at 1/8 the parameters**, and its failure was scored against no baseline. The
+test cannot separate "NoPE does not carry position" from "a 124M model on 3.93B tokens
+cannot retrieve at 32k regardless of position encoding."
 
-## Why C3 passing did not predict this
+Two further reasons to doubt the position reading specifically:
 
-Length generalisation (`docs/`, `evals/length_gen/frontier-32k.json`) looked healthy:
--0.011 nats beyond the trained window at 1.5x, +0.120 at 2x. That is exactly the trap
-flagged when C3 was reported: **a model that ignores everything past position N still
-posts good loss, because local context carries almost all of the next-token prediction.**
-Loss is necessary and not remotely sufficient. C2 is the test with the teeth, which is why
-the plan called it "THE decisive test."
+- The failure is **non-monotone in distance** (0.00 at depth 0.25 and 0.98 at 0.75, same
+  length). Position-encoding failure degrades smoothly with distance; the 1b-base row above
+  is what that actually looks like — a clean cliff at the training window.
+- The 6 MLA layers are **full attention over the whole window**. The key is directly
+  attendable from the final position at any depth; the recurrence does not have to carry it.
 
-## What this does and does not license
+## What the run does establish
 
-**Does:** the NoPE bet is not validated. We cannot take a globally-NoPE 32k design to the
-1B on this evidence.
+- A 124M model **can** do passkey retrieval: 1.00 at every depth at length 1,024.
+- Retrieval degrades with length under this training budget. Cause unattributed.
+- Distractor density matters more than distance: with real code as filler instead of
+  `"The grass is green"`, accuracy collapses at **4k** (0.08–0.17) where English filler
+  scores 1.00. The English probe has no digits at all, so the key is the only number in the
+  context and is findable by content alone. The two fillers are different tasks.
 
-**Does not:** conclude NoPE is wrong at 1B. The mechanism carrying position is the KDA
-recurrent state, whose capacity scales with n_head x head_dim x head_dim. This run is 124M
-with head_dim 64; Kimi ships NoPE at 48B. A failure at 124M may be a state-capacity
-artifact that does not transfer — the mirror image of the resolution-bias error in
-`sota-1b-plan.md` (a null at 124M meaning our test lacks power, rather than the effect
-being absent).
+## Consequence for the plan
 
-Asserting either way from this run alone would repeat the mistake the plan exists to avoid.
+`sota-1b-plan.md` names C2 "THE decisive test." It is not decisive as specified, because it
+was never powered at the scale it runs at. Options, cheapest first:
 
-## Resolution
+1. **Gate at a length with a control.** We know 1k works at 124M. Establishing the
+   retrieval frontier as a function of length, with distractor density held fixed, is an
+   eval-only measurement on checkpoints we already have.
+2. **Buy the control.** A 124M RoPE-on-globals arm at 32k, same seed and data order. Its
+   value is *not* "which architecture wins" — it is "is 32k retrieval reachable at all at
+   this scale and budget." If RoPE also fails, the test is unpowered and no architecture
+   conclusion follows from either arm. ~35 h.
+3. **Question the vehicle.** If validating a 32k design needs a model that can retrieve at
+   32k, and nothing at 124M can, then 124M may be the wrong scale to validate this design
+   at — which is a plan-level finding, not an architecture one.
 
-A paired A/B at 124M, same seed and data order, 15,000 steps, one field different:
-
-- arm A: `pos="nope"` — already have it (`runs/frontier-32k`)
-- arm B: RoPE on the 6 global layers only, KDA layers unchanged
-
-Then the same n=64 passkey grid on both. This is a large-effect test — the class that has
-actually decided things in this lab (NoPE +2.887 nats at 4x length; Muon 1.3-1.45x) — not
-a marginal loss delta near the noise band. One run, ~35 h locally, and it resolves whether
-the 1B ships NoPE or partial-RoPE before any hosted compute is bought.
-
-If arm B also fails past 16k, position is not the binding constraint and the state capacity
-is; that would point at head_dim or the KDA:MLA ratio instead, and is worth knowing before
-the 1B either way.
+Whichever is chosen, the NoPE-vs-RoPE decision for the 1B is **unresolved**, and this file
+no longer supports either side.
