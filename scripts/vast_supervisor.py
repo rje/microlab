@@ -126,7 +126,15 @@ def main() -> int:
     ap.add_argument("--bucket-in", default="microlab-corpus")
     ap.add_argument("--bucket-out", default="microlab-checkpoints")
     ap.add_argument("--stall-minutes", type=int, default=90,
-                    help="no new checkpoint in this long -> replace the instance")
+                    help="no new checkpoint in this long AFTER the first one -> replace")
+    ap.add_argument("--setup-grace-minutes", type=int, default=120,
+                    help="grace before the FIRST checkpoint. Setup legitimately produces "
+                         "no checkpoints for a long time: a 39 GB corpus pull is ~10 min "
+                         "from US-West and ~53 min from Asia, plus deps and compile. "
+                         "Sharing one timer with the steady-state stall check made the "
+                         "watchdog fire mid-download, destroy the box, and re-provision "
+                         "onto an EMPTY disk that restarted the same download — an "
+                         "infinite loop that only the spend cap stopped.")
     ap.add_argument("--poll", type=int, default=120)
     ap.add_argument("--yes", action="store_true")
     a = ap.parse_args()
@@ -202,13 +210,17 @@ def main() -> int:
                 inst = None
                 continue
 
-            if (time.time() - last_progress) / 60 > a.stall_minutes:
+            # Two different clocks, because "no checkpoint yet" and "checkpoints stopped"
+            # are different failures with very different legitimate durations.
+            limit = a.stall_minutes if st["last_step"] > 0 else a.setup_grace_minutes
+            phase = "stall" if st["last_step"] > 0 else "setup"
+            if (time.time() - last_progress) / 60 > limit:
                 # A wedged box bills identically to a working one; the only defence is a
                 # clock on progress.
                 st["spent"] += bid * elapsed_h
                 save_state(st)
-                print(f"  NO PROGRESS for {a.stall_minutes} min — destroying {inst}",
-                      flush=True)
+                print(f"  NO PROGRESS for {limit} min ({phase} phase) — destroying "
+                      f"{inst}", flush=True)
                 try:
                     vast.destroy(inst, key)
                 except SystemExit as e:
