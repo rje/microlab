@@ -81,7 +81,7 @@ bash microlab/scripts/cloud_train.sh 2>&1 | tee /workspace/train.log
 
 def provision(a, key, creds) -> tuple[int, float]:
     offers = vast.search_offers(a.gpu, a.max_price, a.min_reliability, a.min_disk,
-                                a.gpus, key)
+                                a.gpus, key, by_bid=True)
     bids = []
     for o in offers:
         mb = o.get("min_bid")
