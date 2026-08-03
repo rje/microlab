@@ -60,23 +60,45 @@ interconnect-bound and Vast/RunPod cannot supply NVLink.
 
 ## 3. Storage — already costed, needs an account
 
-From `docs/hosted-training-plan.md` (measured, unchanged): **Cloudflare R2**, ~220 GB
-steady state, **$3.15/month, zero egress**. S3 would add ~$49 of egress over a ten-run
-project; R2 and B2 both zero it, and R2's egress is free with no cap to reason about, which
-also makes bucket/GPU co-location a non-issue.
+**Backblaze B2**, not Cloudflare R2. This reverses the choice in
+`docs/hosted-training-plan.md`, on two facts found after it was written:
 
-Account steps (one-time, ~15 min):
-1. Cloudflare account -> R2 -> enable (needs a card on file; free tier is 10 GB).
-2. Create bucket `microlab-corpus` and `microlab-ckpt`.
-3. R2 -> Manage API Tokens -> create an **Object Read & Write** token scoped to those two
-   buckets. Record `ACCOUNT_ID`, `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`.
-4. Endpoint is `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`; it is S3-compatible, so
-   `rclone`/`s5cmd`/`boto3` work unchanged.
-5. Upload once: **40 GB mix-v1** (`data/shards/mix-v1`, 105 shards + manifests +
-   tokenizer + composition/provenance). At 100 Mbit up this is ~1 hour; do it before
-   renting anything.
+1. [Vast's cloud sync](https://docs.vast.ai/instances/cloud-sync) supports **S3, Backblaze,
+   Google Drive and Dropbox — not R2.** R2 would still work via `rclone` (it is
+   S3-compatible and Vast cannot prevent it), but we would give up the native integration
+   for nothing.
+2. B2 is cheaper at our shape.
 
-Secrets go in `~/.config/microlab/r2.env`, never in the repo. The launch script reads them
+| | storage/mo | egress/mo | total/mo | Vast native sync |
+|---|---|---|---|---|
+| Cloudflare R2 | $3.15 | $0.00 | $3.15 | no |
+| **Backblaze B2** | **$1.53** | **$0.00** | **$1.53** | **yes** |
+| AWS S3 | $5.06 | $19.44 | $24.50 | yes |
+
+R2's one advantage was uncapped free egress against B2's cap of 3x stored data. At 220 GB
+stored that cap is 660 GB/month and our actual use is ~216 GB — **33% of it.** The
+constraint does not bind, so it does not justify the pricier, less-integrated option.
+
+Reliability, for the record, since it was asked: R2 offers eleven nines of durability and a
+**99.9% availability SLA**, and has had real outages — 2025-03-21 lost 100% of writes and
+~35% of reads globally for 1h07m. B2 is comparable. Either is fine here, because the corpus
+is on instance disk before training starts and checkpoint uploads retry; the mitigation
+that matters is keeping a LOCAL rolling checkpoint alongside the remote one, so an outage
+coinciding with a preemption does not cost work.
+
+Account steps (one-time, ~10 min):
+1. Backblaze account -> B2 Cloud Storage (card on file; 10 GB free).
+2. Create buckets `microlab-corpus` and `microlab-ckpt`, both **private**.
+3. App Keys -> **Add a New Application Key**, scoped to those buckets only, read+write.
+   Vast's own guidance is exactly this: a dedicated key, never a full-access one.
+4. Note the **S3 endpoint** from the bucket page, e.g.
+   `https://s3.us-west-004.backblazeb2.com`.
+5. `scripts/b2_sync.py up --local data/shards/mix-v1 --bucket microlab-corpus
+   --prefix mix-v1` — 40 GB, ~1 h at 100 Mbit up. Resumable: objects whose remote size
+   already matches are skipped.
+
+Secrets go in `~/.config/microlab/b2.env` (mode 600, enforced), never in the repo, and
+never on the command line — argv is world-readable via /proc. The launch script reads them
 from the environment.
 
 ## 4. What has to be built
@@ -89,8 +111,8 @@ Ordered by dependency. Items 1-3 are the blocking work; 4-6 are the money-savers
 | 2 | **Rank-sharded loader wiring** | `sequence_at`/`global_indices` exist and are tested at world sizes 1-16; the trainer does not call them yet | 0.5 d |
 | 3 | **Rank-0 checkpointing + logging** | 8 ranks writing 16.6 GB each would be a disaster | 0.25 d |
 | 4 | **Muon under DDP** | it orthogonalises per matrix via Newton-Schulz; gradients must be all-reduced BEFORE that step. Getting it backwards trains a different algorithm, invisibly | 0.5 d |
-| 5 | **`scripts/cloud_launch.sh`** | pull corpus from R2 -> start torchrun -> async rank-sharded checkpoint upload -> wall-clock watchdog | 0.5 d |
-| 6 | **`scripts/r2_sync.py`** | upload/download with resume, integrity check against the manifest | 0.25 d |
+| 5 | **`scripts/cloud_launch.sh`** | pull corpus from B2 -> start torchrun -> async rank-sharded checkpoint upload -> wall-clock watchdog | 0.5 d |
+| 6 | **`scripts/b2_sync.py`** | upload/download with resume, integrity check against the manifest | 0.25 d |
 
 ~2.5 days. Everything downstream of the data loader is already done and tested: the mix is
 built, FIM is in, the batch is world-size invariant, and the preflight gate covers duration,
@@ -140,12 +162,12 @@ The single most valuable check we own, and it exists because the loader was buil
 Rent the real target for **one hour** and check, in this order, stopping at the first failure:
 1. all 8 ranks init, NCCL all-reduce completes
 2. **measured all-reduce bandwidth** -> decides NVLink-vs-PCIe and therefore the provider
-3. corpus pull from R2 to local NVMe: wall-clock and MB/s (the one number in the storage
+3. corpus pull from B2 to local NVMe: wall-clock and MB/s (the one number in the storage
    plan we have never observed)
 4. **tokens/sec and MFU**, extrapolated to a total cost and compared against the 20 h
    prediction above. If MFU is 30% not 45%, the run costs 1.5x more and that is knowable
    here for $30 rather than after the fact
-5. checkpoint writes to R2 and a resume from it produces the same loss
+5. checkpoint writes to B2 and a resume from it produces the same loss
 6. deliberately `kill -9` one rank and confirm the job **dies** rather than hanging. A hung
    job burns money silently; a crashed one restarts.
 
@@ -154,7 +176,7 @@ Gate: proceed only if MFU >= 30% and resume is bit-consistent.
 ### L4 — the run
 - Hard wall-clock watchdog in the launch script that kills the job at 1.5x the predicted
   time. Non-negotiable: this is the difference between a $478 run and an open-ended bill.
-- Checkpoint every ~15-30 min of work to R2 (async, rank-sharded).
+- Checkpoint every ~15-30 min of work to B2 (async, rank-sharded).
 - A **written prediction of the expected loss curve at 2B/5B/10B/21B tokens** before
   launch, from the frontier-32k run and the original 1B, so "is this working" is falsifiable
   at hour 2 instead of hour 20.
@@ -164,7 +186,7 @@ Gate: proceed only if MFU >= 30% and resume is bit-consistent.
 
 | item | cost |
 |---|---|
-| R2 storage, one month | $3 |
+| B2 storage, one month | $2 |
 | L3 shakedown (1 h, 8xH100) | $24-32 |
 | Run at 20 h, RunPod Secure | $478 |
 | Contingency: one preemption + restart (~3 h) | $72 |
