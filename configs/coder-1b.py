@@ -79,13 +79,18 @@ config = RunConfig(
     # class of error as assuming it gives 2x. The compile cost (~15-35 min once) is
     # negligible against a multi-day run, and it is re-paid on every preemption, which is
     # an argument for the pre-built image rather than for disabling it.
-    # Compile ON. It briefly went off after a paid run died with
+    # COMPILE OFF on rented hardware, and the reason is narrower than I twice claimed.
+    # Liger's fused CE calls addmm with an out_dtype kwarg that dynamo cannot trace in some
+    # builds:
+    #   addmm(..., out_dtype=torch.float32, out=FakeTensor(...))
     #   TypeError: unsupported operand type(s) for *: 'torch.dtype' and 'FakeTensor'
-    # but that is a torch 2.11 bug, NOT an incompatibility between compile and Liger fused
-    # CE: frontier-32k ran 15,000 steps locally on 2.12.1 with both enabled. The instance
-    # had 2.11 only because the cu128 wheel index tops out there; cloud_train.sh now pins
-    # 2.12.1 from cu126 and asserts it before training.
-    compile=True,
+    # It is NOT a torch 2.11 bug (my second guess): it reproduces on 2.12.1+cu126, the same
+    # VERSION that runs frontier-32k fine locally on 2.12.1+cu130. The variable is the CUDA
+    # build, not the release. Dropping fused CE instead is not available — it is what makes
+    # 32k fit at all (27.70 -> 15.40 GB measured).
+    # Compile's benefit here is also UNMEASURED and plausibly small: it was worth ~0 on the
+    # RTX 6000 Ada at 32k. Treat it as a separate experiment rather than a blocker.
+    compile=False,
     compile_mode="max-autotune-no-cudagraphs",
     eval_interval=500,
     eval_iters=40,
