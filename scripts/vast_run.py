@@ -76,7 +76,8 @@ def call(method: str, path: str, body: dict | None = None,
 
 
 def search_offers(gpu: str, max_price: float, min_reliability: float, min_disk: int,
-                  num_gpus: int, key: str, by_bid: bool = False) -> list[dict]:
+                  num_gpus: int, key: str, by_bid: bool = False,
+                  verified: bool = True) -> list[dict]:
     """Offers matching the hardware filters, priced under `max_price` per GPU-hour.
 
     `by_bid` selects WHICH price the cap applies to. Interruptible bids run ~30% of
@@ -87,7 +88,10 @@ def search_offers(gpu: str, max_price: float, min_reliability: float, min_disk: 
     q = {"gpu_name": {"eq": gpu}, "rentable": {"eq": True},
          "num_gpus": {"eq": num_gpus}, "disk_space": {"gte": min_disk},
          "reliability2": {"gte": min_reliability},
-         "verified": {"eq": True},
+         # `verified` is Vast's datacenter designation. It reads back as None on every
+         # offer, so it is invisible in results, but the SERVER-SIDE filter is real and
+         # silently drops unverified hosts — including the cheapest 4x H100 on the market.
+         **({"verified": {"eq": True}} if verified else {}),
          "order": [["dph_total", "asc"]], "limit": 200}
     offers = call("GET", f"/bundles/?q={urllib.parse.quote(json.dumps(q))}",
                   key=key).get("offers", [])

@@ -81,7 +81,8 @@ bash microlab/scripts/cloud_train.sh 2>&1 | tee /workspace/train.log
 
 def provision(a, key, creds) -> tuple[int, float]:
     offers = vast.search_offers(a.gpu, a.max_price, a.min_reliability, a.min_disk,
-                                a.gpus, key, by_bid=True)
+                                a.gpus, key, by_bid=True,
+                                verified=not a.allow_unverified)
     if a.host_id:
         offers = [o for o in offers if o.get("host_id") == a.host_id]
     if a.geo:
@@ -132,6 +133,10 @@ def main() -> int:
                          "for a multi-day run, where a slow corpus pull amortises away, "
                          "but wrong for a short test where the pull dominates wall-clock "
                          "— and price does not encode distance to the bucket.")
+    ap.add_argument("--allow-unverified", action="store_true",
+                    help="include hosts Vast has not designated as datacenters. They are "
+                         "the cheap tier and often fine, but reliability varies more — "
+                         "pair with --min-reliability rather than trusting the label.")
     ap.add_argument("--geo", default=None,
                     help="substring the offer's geolocation must contain, e.g. 'US'")
     ap.add_argument("--bucket-in", default="microlab-corpus")
