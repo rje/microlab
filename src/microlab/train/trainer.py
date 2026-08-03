@@ -402,6 +402,12 @@ class Trainer:
         self.model.train()
         history: list[float] = []
         val_loss: float | None = None
+        # The first completed step is ALSO printed, whatever log_interval says. On rented
+        # hardware this line is the only external evidence that the box is training rather
+        # than wedged, and at log_interval=25 it would not arrive for ~13 minutes — longer
+        # than any sane watchdog timeout. A supervisor killed a healthy run over exactly
+        # that silence.
+        logged_any = False
         while self.step < cfg.max_steps:
             loss = self.train_step()
             history.append(loss)
@@ -413,13 +419,16 @@ class Trainer:
                     writer.add_scalar("val/perplexity", math.exp(val_loss), step)
                     if self.tokenizer is not None:
                         self._log_sample(writer, step)
-            if cfg.log_interval > 0 and step % cfg.log_interval == 0:
+            due = cfg.log_interval > 0 and step % cfg.log_interval == 0
+            if due or not logged_any:
+                logged_any = True
                 # Rank 0 only. All ranks printing made every line appear world_size times,
                 # which silently inflated a `grep -c "^step"` throughput measurement by 4x
                 # — it reported 253% scaling efficiency before the artifact was spotted.
                 if dist_util.is_main():
                     print(f"step {step}/{cfg.max_steps} loss {loss:.4f} "
                           f"lr {get_lr(step, cfg):.2e}")
+            if due:
                 if writer is not None:
                     now = time.perf_counter()
                     dt = now - last_log_time

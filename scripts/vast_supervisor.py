@@ -91,8 +91,47 @@ def training_crashed(s3, bucket: str, prefix: str, since: float | None = None) -
     return None
 
 
+def logged_step(s3, bucket: str, prefix: str, since: float | None = None) -> int:
+    """Highest step the shipped training log reports — the LIVENESS signal.
+
+    Distinct from `remote_step`, and the two are not interchangeable. Checkpoints are
+    durable but rare: at ckpt_interval=250 and ~30 s/step the first one is over two hours
+    out, so a watchdog clocked on checkpoints alone declares any healthy run dead long
+    before it can possibly show progress. That is not hypothetical — it destroyed a box
+    that was training at 100% GPU, and re-provisioned into the same doomed wait.
+
+    The log is shipped to B2 every 120 s, so this moves on the watchdog's timescale. It is
+    NOT durable and must never be used to decide where to resume from: a step reported
+    here has no checkpoint behind it.
+    """
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=f"{prefix}/logs/train.log")
+        # Same freshness gate as the crash detector: the log key is reused across
+        # episodes, and a previous episode's step count is not this box being alive.
+        if since is not None and obj["LastModified"].timestamp() < since:
+            return 0
+        tail = obj["Body"].read().decode("utf-8", "replace")[-40_000:]
+    except Exception:                               # noqa: BLE001
+        return 0                                    # no log yet is not progress
+    best = 0
+    for line in tail.splitlines():
+        if line.startswith("step "):
+            try:
+                best = max(best, int(line.split()[1].split("/")[0]))
+            except (IndexError, ValueError):
+                continue
+    return best
+
+
+def made_progress(prev: tuple[int, int], now: tuple[int, int]) -> bool:
+    """Either signal moving forward counts. Compared component-wise, not as a tuple:
+    tuple order would let a high checkpoint step mask a log that has stopped moving."""
+    return now[0] > prev[0] or now[1] > prev[1]
+
+
 def remote_step(s3, bucket: str, prefix: str) -> int:
-    """Highest checkpoint step in B2 — the only progress signal that outlives the box."""
+    """Highest checkpoint step in B2 — the DURABLE signal, and the only one that outlives
+    the box. Resume and target-reached decisions use this and nothing else."""
     best = 0
     for k in b2.remote_sizes(s3, bucket, f"{prefix}/ckpt_"):
         try:
@@ -219,6 +258,7 @@ def main() -> int:
 
     inst = bid = None
     t_ep = None
+    marker = (st["last_step"], 0)          # (durable checkpoint step, logged step)
     try:
         while st["last_step"] < a.target_step:
             if st["spent"] >= a.max_spend:
@@ -239,6 +279,10 @@ def main() -> int:
                 inst, bid = provision(a, key, creds)
                 t_ep = time.time()
                 last_progress = time.time()
+                # Reset the LIVENESS half only. The new box starts its log at step 0 even
+                # when resuming from a checkpoint, so carrying the old log high-water mark
+                # over would make every subsequent poll look like no progress.
+                marker = (st["last_step"], 0)
                 st["episodes"].append({"instance": inst, "bid": bid,
                                        "from_step": st["last_step"]})
                 save_state(st)
@@ -247,12 +291,15 @@ def main() -> int:
             elapsed_h = (time.time() - t_ep) / 3600
             alive = any(i.get("id") == inst for i in vast.live_instances(key))
             now = remote_step(s3, a.bucket_out, a.run_prefix)
+            live = logged_step(s3, a.bucket_out, a.run_prefix, since=t_ep)
             if now > st["last_step"]:
                 st["last_step"] = now
+            if made_progress(marker, (now, live)):
+                marker = (max(marker[0], now), max(marker[1], live))
                 last_progress = time.time()
 
-            print(f"  [{elapsed_h*60:>5.0f}m] step {st['last_step']:>7,}  "
-                  f"${st['spent'] + bid*elapsed_h:>7.2f}  "
+            print(f"  [{elapsed_h*60:>5.0f}m] ckpt {st['last_step']:>7,}  "
+                  f"log {live:>7,}  ${st['spent'] + bid*elapsed_h:>7.2f}  "
                   f"{'alive' if alive else 'GONE'}", flush=True)
 
             crash = training_crashed(s3, a.bucket_out, a.run_prefix, since=t_ep)
@@ -278,8 +325,12 @@ def main() -> int:
 
             # Two different clocks, because "no checkpoint yet" and "checkpoints stopped"
             # are different failures with very different legitimate durations.
-            limit = a.stall_minutes if st["last_step"] > 0 else a.setup_grace_minutes
-            phase = "stall" if st["last_step"] > 0 else "setup"
+            # "Training has started" is the boundary, and the LOG is what reports it —
+            # gating on the checkpoint step kept every run in "setup" for the two hours
+            # before the first checkpoint, applying the wrong (shorter) clock throughout.
+            started = marker[1] > 0 or st["last_step"] > 0
+            limit = a.stall_minutes if started else a.setup_grace_minutes
+            phase = "stall" if started else "setup"
             if (time.time() - last_progress) / 60 > limit:
                 # A wedged box bills identically to a working one; the only defence is a
                 # clock on progress.

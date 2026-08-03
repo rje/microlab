@@ -164,6 +164,67 @@ def _s3_with(text: str, when=None):
     return S3()
 
 
+def test_logged_step_reads_progress_from_the_shipped_log():
+    """The watchdog needs a signal that moves on ITS timescale.
+
+    This is the bug that burned real money: progress was measured only by checkpoints in
+    B2, but ckpt_interval=250 at ~30 s/step puts the first one over two hours out. The
+    30-minute setup grace therefore expired while the box was training at 100% GPU, and
+    the supervisor destroyed it — then re-provisioned into the identical doomed wait.
+    """
+    log = ("=== train ===\nstep 25/40000 loss 10.7391 lr 1.07e-05\n"
+           "step 50/40000 loss 9.9 lr 2e-05\n")
+    assert sup.logged_step(_s3_with(log), "b", "coder-1b") == 50
+
+
+def test_logged_step_is_zero_before_any_step_line():
+    """Corpus streaming is not progress; the setup clock must still apply."""
+    log = "=== train ===\n  [shard] train-00098.bin 400 MB in 27s\n"
+    assert sup.logged_step(_s3_with(log), "b", "coder-1b") == 0
+
+
+def test_logged_step_ignores_a_stale_episodes_log():
+    """A previous box's step count must not read as this box being alive — otherwise a
+    wedged instance inherits the dead one's progress and never trips the watchdog."""
+    import datetime as dt
+
+    old = dt.datetime(2020, 1, 1, tzinfo=dt.UTC)
+    episode_start = dt.datetime(2025, 1, 1, tzinfo=dt.UTC).timestamp()
+    log = "step 900/40000 loss 4.4 lr 1e-04\n"
+    assert sup.logged_step(_s3_with(log, old), "b", "p", since=episode_start) == 0
+    assert sup.logged_step(_s3_with(log), "b", "p", since=episode_start) == 900
+
+
+def test_logged_step_survives_a_missing_log():
+    class S3:
+        def get_object(self, Bucket, Key):
+            raise KeyError("NoSuchKey")
+
+    assert sup.logged_step(S3(), "b", "p") == 0
+
+
+def test_either_signal_moving_counts_as_progress():
+    assert sup.made_progress((0, 0), (0, 25)), "a log step alone must reset the clock"
+    assert sup.made_progress((0, 25), (250, 25)), "a checkpoint alone must reset it too"
+    assert not sup.made_progress((250, 300), (250, 300)), "no movement is not progress"
+
+
+def test_a_stalled_log_is_not_masked_by_a_high_checkpoint_step():
+    """Compared component-wise on purpose. As raw tuples, (250, 300) > (250, 0) would let
+    a run that has stopped logging keep resetting its own stall clock forever."""
+    assert not sup.made_progress((250, 300), (250, 200)), \
+        "a log that went BACKWARDS is not progress"
+
+
+def test_the_trainer_emits_its_first_step_regardless_of_log_interval():
+    """Both ends again: the supervisor cannot read a step line the trainer never prints.
+    At log_interval=25 the first line is ~13 minutes out, which is longer than the stall
+    timeout it is supposed to satisfy."""
+    src = (Path(__file__).resolve().parents[2] / "src" / "microlab" / "train"
+           / "trainer.py").read_text()
+    assert "if due or not logged_any:" in src, "first-step liveness print is missing"
+
+
 def test_benign_log_noise_is_not_a_crash():
     """The detector must not infer failure from prose.
 
