@@ -59,6 +59,29 @@ def save_state(s: dict) -> None:
     STATE.write_text(json.dumps(s, indent=1))
 
 
+def training_crashed(s3, bucket: str, prefix: str) -> str | None:
+    """Detect a DEAD TRAINER on a LIVE box, from the log shipped to B2.
+
+    The instance-liveness check cannot see this: a crashed trainer and a slow setup look
+    identical from outside, so the run sat idle for 50 minutes after crashing 2 minutes in,
+    and the setup-grace timer would eventually have re-provisioned into the same crash and
+    looped. Returns the offending line, or None.
+    """
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=f"{prefix}/logs/train.log")
+        tail = obj["Body"].read().decode("utf-8", "replace")[-40_000:]
+    except Exception:                               # noqa: BLE001
+        return None                                 # no log yet is not a crash
+    for marker in ("Traceback (most recent call last)", "torch.distributed.elastic",
+                   "FATAL:", "CUDA out of memory"):
+        if marker in tail:
+            for line in tail.splitlines():
+                if any(m in line for m in ("Error", "error:", "FATAL", "out of memory")):
+                    return line.strip()[:200]
+            return marker
+    return None
+
+
 def remote_step(s3, bucket: str, prefix: str) -> int:
     """Highest checkpoint step in B2 — the only progress signal that outlives the box."""
     best = 0
@@ -215,6 +238,17 @@ def main() -> int:
             print(f"  [{elapsed_h*60:>5.0f}m] step {st['last_step']:>7,}  "
                   f"${st['spent'] + bid*elapsed_h:>7.2f}  "
                   f"{'alive' if alive else 'GONE'}", flush=True)
+
+            crash = training_crashed(s3, a.bucket_out, a.run_prefix)
+            if crash and st["last_step"] == 0:
+                # A crash BEFORE any progress will repeat on a fresh box. Re-provisioning
+                # into the same failure is the loop the spend cap exists to stop, so stop
+                # here instead and surface the error.
+                st["spent"] += bid * elapsed_h
+                save_state(st)
+                print("\n  TRAINING CRASHED — not re-provisioning into the same failure:")
+                print(f"    {crash}")
+                break
 
             if not alive:
                 # Preemption (or host failure). Bank the spend and re-provision; the next
