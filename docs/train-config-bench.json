@@ -1,0 +1,95 @@
+{
+ "target_tokens": 21000000000.0,
+ "grad_accum": 2,
+ "steps_per_variant": 6,
+ "results": [
+  {
+   "block": 32768,
+   "batch_size": 1,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 5178.68798828125,
+   "peak_gb": 27.14531135559082,
+   "last_loss": 9.950992584228516,
+   "steps": 6,
+   "days_at_target": 46.93380951035497
+  },
+  {
+   "block": 32768,
+   "batch_size": 1,
+   "grad_checkpoint": false,
+   "compile": false,
+   "status": "OOM",
+   "error": "=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) "
+  },
+  {
+   "block": 32768,
+   "batch_size": 2,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 4785.68505859375,
+   "peak_gb": 40.1522331237793,
+   "last_loss": 9.135988235473633,
+   "steps": 6,
+   "days_at_target": 50.78803819718472
+  },
+  {
+   "block": 32768,
+   "batch_size": 2,
+   "grad_checkpoint": false,
+   "compile": false,
+   "status": "OOM",
+   "error": "=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) "
+  },
+  {
+   "block": 16384,
+   "batch_size": 2,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 5168.84521484375,
+   "peak_gb": 27.139362335205078,
+   "last_loss": 9.55441951751709,
+   "steps": 6,
+   "days_at_target": 47.023183216544226
+  },
+  {
+   "block": 16384,
+   "batch_size": 4,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 5064.29638671875,
+   "peak_gb": 40.150665283203125,
+   "last_loss": 9.974164962768555,
+   "steps": 6,
+   "days_at_target": 47.993943678528595
+  },
+  {
+   "block": 8192,
+   "batch_size": 4,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 5290.263671875,
+   "peak_gb": 27.14622688293457,
+   "last_loss": 9.985780715942383,
+   "steps": 6,
+   "days_at_target": 45.94393977898093
+  },
+  {
+   "block": 8192,
+   "batch_size": 8,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 5256.08154296875,
+   "peak_gb": 40.151065826416016,
+   "last_loss": 9.871277809143066,
+   "steps": 6,
+   "days_at_target": 46.24272922110574
+  }
+ ]
+}
