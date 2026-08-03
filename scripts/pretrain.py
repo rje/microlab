@@ -16,7 +16,9 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import math
+import os
 import shutil
+import time
 from pathlib import Path
 
 import torch
@@ -48,6 +50,37 @@ def warm_start(trainer: Trainer, init_ckpt: str) -> None:
     trainer.raw_model.load_state_dict(ckpt["model"])
     assert trainer.step == 0
     print(f"warm start: model weights <- {init_ckpt} (fresh optimizer, step 0)")
+
+
+def _remote_fetch(data_dir: str):
+    """Callback that pulls one shard from S3-compatible storage into `data_dir`.
+
+    Reads MICROLAB_SHARD_{BUCKET,PREFIX} and the B2_CORPUS_* credentials. One boto3 client
+    is built once and closed over, because a client per shard would re-do TLS and
+    credential resolution 105 times.
+    """
+    import boto3
+    from botocore.config import Config
+
+    bucket = os.environ["MICROLAB_SHARD_BUCKET"]
+    prefix = os.environ.get("MICROLAB_SHARD_PREFIX", "mix-v1")
+    s3 = boto3.client(
+        "s3", endpoint_url=os.environ["B2_CORPUS_ENDPOINT"],
+        aws_access_key_id=os.environ["B2_CORPUS_KEY_ID"],
+        aws_secret_access_key=os.environ["B2_CORPUS_APPLICATION_KEY"],
+        config=Config(retries={"max_attempts": 10, "mode": "adaptive"},
+                      max_pool_connections=32))
+    from boto3.s3.transfer import TransferConfig
+    tcfg = TransferConfig(multipart_threshold=200 * 1024**2,
+                          multipart_chunksize=200 * 1024**2, max_concurrency=16)
+
+    def fetch(name: str, dest) -> None:
+        t0 = time.time()
+        s3.download_file(bucket, f"{prefix}/{name}", str(dest), Config=tcfg)
+        mb = Path(dest).stat().st_size / 1e6
+        print(f"  [shard] {name} {mb:.0f} MB in {time.time()-t0:.0f}s", flush=True)
+
+    return fetch
 
 
 def load_config(path: str):
@@ -114,8 +147,14 @@ def main() -> None:
         shutil.copy(tok_path, out_dir / "tokenizer.json")
         print(f"co-located tokenizer -> {out_dir / 'tokenizer.json'}")
 
-    train_ds = ShardDataset(args.data_dir, split="train")
-    val_ds = ShardDataset(args.data_dir, split="val")
+    # Remote shards: fetch each one the first time training touches it, instead of
+    # downloading the whole 39 GB corpus before step 1. On preemptible hardware that pull
+    # is paid on EVERY re-provision — measured 9 min from US-West and 54 min from Asia —
+    # and it is the only reason host choice was ever constrained by geography. Enabled by
+    # setting MICROLAB_SHARD_BUCKET; absent, behaviour is unchanged.
+    fetch = _remote_fetch(args.data_dir) if os.environ.get("MICROLAB_SHARD_BUCKET") else None
+    train_ds = ShardDataset(args.data_dir, split="train", fetch=fetch)
+    val_ds = ShardDataset(args.data_dir, split="val", fetch=fetch)
     if dist_util.is_main():
         print(f"train tokens={train_ds.total_tokens:,} val tokens={val_ds.total_tokens:,} "
               f"| world_size={dist_util.world_size()}")

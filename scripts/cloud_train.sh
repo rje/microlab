@@ -56,37 +56,25 @@ echo "commit $(git rev-parse --short HEAD)"
 python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
   --prefix "$RUN_PREFIX" --once --keep-local 0 --log "$WORK/train.log" 2>/dev/null || true
 
-say "corpus"
+say "corpus: manifests only — shards stream on demand"
+# NOT a 39 GB pull. Training reads shards in random order and touches one per sequence, so
+# only the manifests and tokenizer are needed before step 1. Measured full-pull cost was
+# 9 min from US-West and 54 min from Asia, paid again on EVERY re-provision — and it was
+# the only reason host choice had to be constrained by distance to the bucket.
 python - <<PY
-import boto3, os, json, time
-from boto3.s3.transfer import TransferConfig
+import boto3, os
 from botocore.config import Config
 s3 = boto3.client('s3', endpoint_url=os.environ['B2_CORPUS_ENDPOINT'],
     aws_access_key_id=os.environ['B2_CORPUS_KEY_ID'],
     aws_secret_access_key=os.environ['B2_CORPUS_APPLICATION_KEY'],
-    config=Config(retries={'max_attempts':10,'mode':'adaptive'}, max_pool_connections=32))
+    config=Config(retries={'max_attempts':10,'mode':'adaptive'}))
 P='$CORPUS'; os.makedirs(P, exist_ok=True)
-cfg=TransferConfig(multipart_threshold=200*1024**2, multipart_chunksize=200*1024**2,
-                   max_concurrency=32)
-tok=0; t0=time.time()
-token=None; keys={}
-while True:
-    kw={'Bucket':'$BUCKET_IN','Prefix':'mix-v1'}
-    if token: kw['ContinuationToken']=token
-    r=s3.list_objects_v2(**kw)
-    for o in r.get('Contents',[]): keys[o['Key']]=o['Size']
-    if not r.get('IsTruncated'): break
-    token=r['NextContinuationToken']
-for k,size in sorted(keys.items()):
-    dest=os.path.join(P, k.split('/',1)[1])
-    if os.path.exists(dest) and os.path.getsize(dest)==size:
-        tok+=size; continue          # resumable: a re-provision re-uses what survived
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    s3.download_file('$BUCKET_IN', k, dest, Config=cfg)
-    tok+=size
-el=time.time()-t0
-print(f'corpus {tok/1e9:.1f} GB in {el:.0f}s = {tok/max(el,1)/1e6:.0f} MB/s')
+for f in ('train-manifest.json','val-manifest.json','tokenizer.json'):
+    s3.download_file('$BUCKET_IN', f'mix-v1/{f}', f'{P}/{f}')
+print('manifests + tokenizer ready; shards stream during training')
 PY
+export MICROLAB_SHARD_BUCKET="$BUCKET_IN"
+export MICROLAB_SHARD_PREFIX=mix-v1
 
 say "resume: newest checkpoint from B2, if any"
 mkdir -p "$RUNDIR"
