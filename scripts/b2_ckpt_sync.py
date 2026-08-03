@@ -44,6 +44,8 @@ def main() -> int:
     ap.add_argument("--keep-local", type=int, default=2,
                     help="local checkpoints to retain AFTER remote confirmation")
     ap.add_argument("--once", action="store_true", help="one pass, then exit")
+    ap.add_argument("--log", action="append", default=None,
+                    help="also ship this file to B2 each pass; repeatable")
     a = ap.parse_args()
 
     run = Path(a.run)
@@ -82,6 +84,24 @@ def main() -> int:
                     continue
                 p.unlink()
                 print(f"  pruned local {p.name} (confirmed in B2)", flush=True)
+            # LOGS. Without these the only thing visible from outside is "alive" and the
+            # B2 checkpoint step — which cannot distinguish "downloading the corpus" from
+            # "wedged", and cannot explain a failure after the box is destroyed. On a
+            # multi-day paid run that is the difference between diagnosing a problem and
+            # re-renting to reproduce it. Shipped every pass, overwriting, so the newest
+            # tail is always one `b2_sync ls` away.
+            for path in (a.log or []):
+                p = Path(path)
+                if not p.exists():
+                    continue
+                try:
+                    # Tail only: a training log grows without bound and the useful part is
+                    # always the end.
+                    data = p.read_bytes()[-256_000:]
+                    s3.put_object(Bucket=a.bucket, Key=f"{a.prefix}/logs/{p.name}",
+                                  Body=data)
+                except Exception as e:              # noqa: BLE001, PERF203
+                    print(f"  log ship failed for {p.name}: {e}", flush=True)
         except Exception as e:                      # noqa: BLE001
             # A transient B2 error must not kill the syncer — if it exits, checkpoints stop
             # reaching durable storage and the next preemption loses everything since the

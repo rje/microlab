@@ -51,6 +51,11 @@ cd microlab
 export PYTHONPATH=$WORK/microlab/src
 echo "commit $(git rev-parse --short HEAD)"
 
+# Ship the log once now: setup (deps, corpus pull) can take 20+ minutes, and without
+# this the run is a black box during exactly the window where things go wrong.
+python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
+  --prefix "$RUN_PREFIX" --once --keep-local 0 --log "$WORK/train.log" 2>/dev/null || true
+
 say "corpus"
 python - <<PY
 import boto3, os, json, time
@@ -110,7 +115,8 @@ cp "$CORPUS/tokenizer.json" "$RUNDIR/" 2>/dev/null || true
 
 say "checkpoint syncer (background)"
 python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
-  --prefix "$RUN_PREFIX" --interval 120 > "$WORK/ckptsync.log" 2>&1 &
+  --prefix "$RUN_PREFIX" --interval 120 \
+  --log "$WORK/train.log" --log "$WORK/ckptsync.log" > "$WORK/ckptsync.log" 2>&1 &
 SYNC_PID=$!
 echo "syncer pid $SYNC_PID"
 
@@ -123,6 +129,6 @@ say "final flush"
 # One synchronous pass so the last checkpoint reaches B2 before this box goes away.
 kill $SYNC_PID 2>/dev/null
 python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
-  --prefix "$RUN_PREFIX" --once --keep-local 0
+  --prefix "$RUN_PREFIX" --once --keep-local 0 --log "$WORK/train.log"
 echo "exit $RC"
 exit $RC
