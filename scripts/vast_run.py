@@ -38,6 +38,8 @@ import urllib.request
 from pathlib import Path
 
 API = "https://console.vast.ai/api/v0"
+# Instance management moved to v1; /api/v0/instances/ answers 410 deprecated.
+API_V1 = "https://console.vast.ai/api/v1"
 CRED = Path.home() / ".config" / "microlab" / "vast.env"
 
 
@@ -59,9 +61,10 @@ def api_key() -> str:
     return k
 
 
-def call(method: str, path: str, body: dict | None = None, key: str | None = None):
+def call(method: str, path: str, body: dict | None = None,
+         key: str | None = None, base: str = API):
     req = urllib.request.Request(
-        f"{API}{path}", method=method,
+        f"{base}{path}", method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
     try:
@@ -95,12 +98,23 @@ def fmt_offers(offers: list[dict], n: int = 10) -> None:
 
 
 def live_instances(key: str) -> list[dict]:
-    r = call("GET", "/instances", key=key)
-    return r.get("instances", r if isinstance(r, list) else [])
+    """Instances currently on the account. v1: /api/v0/instances/ returns 410 deprecated.
+
+    Never raises. This runs in the teardown path, where an exception would replace the
+    warning about a still-billing instance with a stack trace about the API — the opposite
+    of what the check exists for.
+    """
+    try:
+        r = call("GET", "/instances/", key=key, base=API_V1)
+    except SystemExit as e:
+        print(f"  (could not list instances: {e}) — check "
+              f"https://cloud.vast.ai/instances/ by hand")
+        return []
+    return r.get("instances", []) if isinstance(r, dict) else (r or [])
 
 
 def destroy(inst_id: int, key: str) -> None:
-    call("DELETE", f"/instances/{inst_id}/", key=key)
+    call("DELETE", f"/instances/{inst_id}/", key=key, base=API_V1)
 
 
 def onstart_script(repo: str, bucket_out: str, run_tag: str) -> str:
@@ -150,7 +164,20 @@ def cmd_shakedown(a, key):
     if not offers:
         raise SystemExit("no offers matched — relax --max-price or --min-reliability")
     fmt_offers(offers, 5)
-    pick = offers[0]
+    if a.offer_id:
+        matches = [o for o in offers if o["id"] == a.offer_id]
+        if not matches:
+            raise SystemExit(
+                f"offer {a.offer_id} is not in the current result set — it may have been "
+                f"rented, or it fails the price/reliability/disk filters. Re-run `search`.")
+        pick = matches[0]
+    else:
+        # Cheapest is NOT automatically best: the corpus lives in B2 us-west, so a host on
+        # another continent pays for it in transfer time both here and on the real run.
+        # Choose deliberately with --offer-id after reading the search output.
+        pick = offers[0]
+        print("\n(no --offer-id: taking the cheapest. Bandwidth and region are not "
+              "priced in — read the table above and pick explicitly if it matters.)")
     price = pick["dph_total"]
     cap = price * a.max_minutes / 60
     run_tag = f"{a.tag}"
@@ -264,6 +291,7 @@ def main() -> int:
                     help="outputs; the bucket carrying the lifecycle rule")
     ap.add_argument("--tag", default="shakedown-1")
     ap.add_argument("--id", type=int, help="instance id, for destroy")
+    ap.add_argument("--offer-id", type=int, help="rent THIS offer, not the cheapest")
     ap.add_argument("--yes", action="store_true", help="actually rent (default: dry run)")
     a = ap.parse_args()
     key = api_key()
