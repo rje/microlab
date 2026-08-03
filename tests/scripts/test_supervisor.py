@@ -104,3 +104,48 @@ def test_checkpoint_syncer_never_prunes_the_newest():
     src = (SCRIPTS / "b2_ckpt_sync.py").read_text()
     assert "if p == local[-1]:" in src, "newest-checkpoint guard is missing"
     assert "confirmed" in src, "pruning must be gated on remote confirmation"
+
+
+def test_crash_detection_ignores_a_stale_log(monkeypatch):
+    """A previous episode's traceback must not condemn a healthy new instance.
+
+    The log key is reused across episodes and a fresh box takes minutes to ship its first
+    log. Reading it unguarded destroyed a healthy instance on the previous run's evidence —
+    a false positive that costs more than the gap it closes.
+    """
+    import datetime as dt
+
+    class S3:
+        def __init__(self, when):
+            self.when = when
+
+        def get_object(self, Bucket, Key):
+            class B:
+                @staticmethod
+                def read():
+                    return b"Traceback (most recent call last):\nRuntimeError: boom"
+            return {"Body": B(), "LastModified": self.when}
+
+    old = dt.datetime(2020, 1, 1, tzinfo=dt.UTC)
+    new = dt.datetime(2030, 1, 1, tzinfo=dt.UTC)
+    episode_start = dt.datetime(2025, 1, 1, tzinfo=dt.UTC).timestamp()
+
+    assert sup.training_crashed(S3(old), "b", "p", since=episode_start) is None, \
+        "a log older than the episode must be ignored"
+    assert sup.training_crashed(S3(new), "b", "p", since=episode_start) is not None, \
+        "a log written during this episode must still be read"
+
+
+def test_crash_detection_without_a_since_still_reads():
+    """Backwards compatible: no episode start means no freshness filter."""
+    import datetime as dt
+
+    class S3:
+        def get_object(self, Bucket, Key):
+            class B:
+                @staticmethod
+                def read():
+                    return b"Traceback (most recent call last):\nValueError: x"
+            return {"Body": B(), "LastModified": dt.datetime.now(dt.UTC)}
+
+    assert sup.training_crashed(S3(), "b", "p") is not None

@@ -59,7 +59,7 @@ def save_state(s: dict) -> None:
     STATE.write_text(json.dumps(s, indent=1))
 
 
-def training_crashed(s3, bucket: str, prefix: str) -> str | None:
+def training_crashed(s3, bucket: str, prefix: str, since: float | None = None) -> str | None:
     """Detect a DEAD TRAINER on a LIVE box, from the log shipped to B2.
 
     The instance-liveness check cannot see this: a crashed trainer and a slow setup look
@@ -69,6 +69,14 @@ def training_crashed(s3, bucket: str, prefix: str) -> str | None:
     """
     try:
         obj = s3.get_object(Bucket=bucket, Key=f"{prefix}/logs/train.log")
+        # The log key is REUSED across episodes, so a previous instance's traceback sits
+        # there until the new one ships its first log — several minutes into setup. Reading
+        # it unguarded made the detector destroy a HEALTHY box on its own stale evidence.
+        # Only a log written after this episode began describes this episode.
+        if since is not None:
+            mtime = obj["LastModified"].timestamp()
+            if mtime < since:
+                return None
         tail = obj["Body"].read().decode("utf-8", "replace")[-40_000:]
     except Exception:                               # noqa: BLE001
         return None                                 # no log yet is not a crash
@@ -220,6 +228,13 @@ def main() -> int:
             if inst is None:
                 print(f"\nprovisioning (spent ${st['spent']:.2f}, "
                       f"step {st['last_step']:,}/{a.target_step:,})", flush=True)
+                # Belt and braces with the freshness gate: remove the previous episode's
+                # log so there is nothing stale to misread even if clocks disagree.
+                for k in list(b2.remote_sizes(s3, a.bucket_out, f"{a.run_prefix}/logs")):
+                    try:
+                        s3.delete_object(Bucket=a.bucket_out, Key=k)
+                    except Exception:               # noqa: BLE001
+                        pass
                 inst, bid = provision(a, key, creds)
                 t_ep = time.time()
                 last_progress = time.time()
@@ -239,7 +254,7 @@ def main() -> int:
                   f"${st['spent'] + bid*elapsed_h:>7.2f}  "
                   f"{'alive' if alive else 'GONE'}", flush=True)
 
-            crash = training_crashed(s3, a.bucket_out, a.run_prefix)
+            crash = training_crashed(s3, a.bucket_out, a.run_prefix, since=t_ep)
             if crash and st["last_step"] == 0:
                 # A crash BEFORE any progress will repeat on a fresh box. Re-provisioning
                 # into the same failure is the loop the spend cap exists to stop, so stop
