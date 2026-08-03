@@ -11,15 +11,76 @@ import torch
 
 
 class ShardDataset:
-    def __init__(self, data_dir: str, split: str = "train") -> None:
+    """Token shards as one logical stream.
+
+    Shards may be fetched LAZILY from object storage (`fetch=`). Training reads shards in
+    random order and touches one per sequence, so nothing requires all of them present to
+    start: on a rented box that takes time-to-first-step from ~9 minutes (US) or ~54
+    minutes (Asia) down to the time for a single 400 MB shard. On preemptible hardware that
+    restart cost is paid on EVERY re-provision, and it is what otherwise forces the run
+    onto expensive US-adjacent hosts.
+
+    `lengths` comes from the MANIFEST, not from the files, so the dataset knows its own
+    size — and every sequence index maps to the same shard — before anything is downloaded.
+    That is what keeps `sequence_at` a pure function of (seed, index) whether shards are
+    local or remote.
+    """
+
+    def __init__(self, data_dir: str, split: str = "train", fetch=None) -> None:
         d = Path(data_dir)
+        self.dir = d
+        self.split = split
+        self.fetch = fetch
         manifest = json.loads((d / f"{split}-manifest.json").read_text())
-        self.arrays = [np.memmap(d / s["file"], dtype=np.uint16, mode="r")
-                       for s in manifest["shards"]]
-        self.lengths = [len(a) for a in self.arrays]
-        self.total_tokens = sum(self.lengths)
-        if not self.arrays:
+        shards = manifest["shards"]
+        if not shards:
             raise ValueError(f"no shards for split {split!r} in {data_dir}")
+        self.files = [d / s["file"] for s in shards]
+        # uint16: bytes = 2 * tokens. Taking lengths from the manifest rather than from
+        # len(memmap) is what allows a shard to be absent at construction time.
+        self.lengths = [int(s["tokens"]) for s in shards]
+        self.total_tokens = sum(self.lengths)
+        self._cache: dict[int, np.memmap] = {}
+        if fetch is None:
+            # Eager: open everything now, and cross-check the manifest against reality.
+            # A manifest that disagrees with the files on disk would silently shift every
+            # sequence index.
+            for i, (p, n) in enumerate(zip(self.files, self.lengths, strict=True)):
+                a = np.memmap(p, dtype=np.uint16, mode="r")
+                if len(a) != n:
+                    raise ValueError(
+                        f"{p.name}: manifest says {n:,} tokens, file holds {len(a):,}")
+                self._cache[i] = a
+
+    @property
+    def arrays(self):
+        """Back-compat view. Materialises every shard, so it is only for eager use."""
+        return [self._array(i) for i in range(len(self.files))]
+
+    def _array(self, i: int) -> np.memmap:
+        a = self._cache.get(i)
+        if a is not None:
+            return a
+        p = self.files[i]
+        want = self.lengths[i] * 2
+        if self.fetch is not None and (not p.exists() or p.stat().st_size != want):
+            # Fetch to a temp name and rename, so a shard interrupted mid-download is never
+            # visible as a complete one — a truncated shard reads as valid uint16 and would
+            # train on short data without complaining.
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(p.suffix + ".part")
+            self.fetch(p.name, tmp)
+            if tmp.stat().st_size != want:
+                raise ValueError(
+                    f"{p.name}: fetched {tmp.stat().st_size:,} bytes, manifest implies "
+                    f"{want:,}")
+            tmp.replace(p)
+        a = np.memmap(p, dtype=np.uint16, mode="r")
+        if len(a) != self.lengths[i]:
+            raise ValueError(
+                f"{p.name}: manifest says {self.lengths[i]:,} tokens, file holds {len(a):,}")
+        self._cache[i] = a
+        return a
 
     def sequence_at(self, index: int, block_size: int, seed: int) -> tuple:
         """The (x, y) pair for GLOBAL SEQUENCE `index`, as a pure function of
@@ -52,7 +113,7 @@ class ShardDataset:
         cum = np.cumsum(self.lengths)
         pick = h % int(cum[-1])
         si = int(np.searchsorted(cum, pick, side="right"))
-        arr = self.arrays[si]
+        arr = self._array(si)
         hi = len(arr) - block_size - 1
         if hi <= 0:
             raise ValueError(
@@ -99,7 +160,7 @@ class ShardDataset:
         # pick a random shard (weighted by length), then random offsets within it
         weights = torch.tensor(self.lengths, dtype=torch.float)
         si = int(torch.multinomial(weights, 1, generator=generator).item())
-        arr = self.arrays[si]
+        arr = self._array(si)
         hi = len(arr) - block_size - 1
         assert hi > 0, "shard shorter than block_size+1"
         ix = torch.randint(hi, (batch_size,), generator=generator)
