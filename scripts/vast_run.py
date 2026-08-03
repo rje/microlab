@@ -114,7 +114,20 @@ def live_instances(key: str) -> list[dict]:
 
 
 def destroy(inst_id: int, key: str) -> None:
-    call("DELETE", f"/instances/{inst_id}/", key=key, base=API_V1)
+    """Destroy, then VERIFY it is gone.
+
+    LIST is v1 but DESTROY is still v0 — a v1 DELETE answers 404 while the instance keeps
+    running and keeps billing. Trusting the response code let a real instance survive its
+    own teardown, so this confirms against the instance list instead of believing the API.
+    """
+    call("DELETE", f"/instances/{inst_id}/", key=key, base=API)
+    for _ in range(6):
+        time.sleep(5)
+        if not any(i.get("id") == inst_id for i in live_instances(key)):
+            return
+    raise SystemExit(
+        f"instance {inst_id} STILL LISTED after destroy — it is billing. "
+        f"Kill it at https://cloud.vast.ai/instances/ NOW")
 
 
 def onstart_script(repo: str, bucket_out: str, run_tag: str) -> str:

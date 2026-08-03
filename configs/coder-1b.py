@@ -70,7 +70,10 @@ config = RunConfig(
     grad_checkpoint=True,
     fused_ce=True,
     batch_size=1,
-    grad_accum=16,        # DERIVED: 524288 / (world_size=1 * 1 * 32768). See header.
+    # tokens_per_step is AUTHORITATIVE; grad_accum is DERIVED per world size
+    # (16 at ws=1, 4 at ws=4, 2 at ws=8) so the optimizer sees the same batch either way.
+    tokens_per_step=524288,
+    grad_accum=16,        # fallback only, when tokens_per_step is 0
     compile=True,
     compile_mode="max-autotune-no-cudagraphs",
     eval_interval=500,

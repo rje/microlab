@@ -23,6 +23,7 @@ import torch
 
 from microlab.data.shard_dataset import ShardDataset
 from microlab.tokenizer.fast import FastTokenizer
+from microlab.train import distributed as dist_util
 from microlab.train.trainer import Trainer
 
 
@@ -69,6 +70,9 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config(args.config)
+    # Under torchrun this joins the process group and binds this rank to its GPU; a plain
+    # `python scripts/pretrain.py` is unaffected and stays single-process.
+    cfg.device = dist_util.setup(cfg.device)
     # Resolve the data dir from config and CLI. A contradiction is an ERROR: silently
     # letting the CLI win would mean a config could claim one corpus while the run used
     # another, which is exactly how the repetition lane's intervention became invisible.
@@ -112,7 +116,9 @@ def main() -> None:
 
     train_ds = ShardDataset(args.data_dir, split="train")
     val_ds = ShardDataset(args.data_dir, split="val")
-    print(f"train tokens={train_ds.total_tokens:,} val tokens={val_ds.total_tokens:,}")
+    if dist_util.is_main():
+        print(f"train tokens={train_ds.total_tokens:,} val tokens={val_ds.total_tokens:,} "
+              f"| world_size={dist_util.world_size()}")
 
     trainer = Trainer(cfg, train_ds, val_ds, tokenizer=tok)
     if args.init_ckpt is not None:
@@ -125,9 +131,14 @@ def main() -> None:
             print(f"resuming from {ckpts[-1]} (latest of {len(ckpts)} checkpoints)")
             trainer.load_checkpoint(str(ckpts[-1]))
 
-    stats = trainer.train()
-    ppl = math.exp(stats["val_loss"]) if stats.get("val_loss") is not None else float("nan")
-    print(f"done: step={stats['step']} val_loss={stats['val_loss']:.3f} perplexity={ppl:.2f}")
+    try:
+        stats = trainer.train()
+    finally:
+        dist_util.teardown()
+    if dist_util.is_main():
+        ppl = math.exp(stats["val_loss"]) if stats.get("val_loss") is not None else float("nan")
+        print(f"done: step={stats['step']} val_loss={stats['val_loss']:.3f} "
+              f"perplexity={ppl:.2f}")
 
 
 if __name__ == "__main__":

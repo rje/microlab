@@ -5,6 +5,7 @@ optimizer, step counter, and BOTH the global torch RNG and the data-sampling gen
 
 from __future__ import annotations
 
+import contextlib
 import math
 import os
 import time
@@ -17,6 +18,7 @@ from microlab.data.reference.dataset import get_batch
 from microlab.model.reference.sample import generate
 from microlab.model.reference.train import _resolve_device
 from microlab.model.reference.variants import VariantConfig, VariantGPT
+from microlab.train import distributed as dist_util
 from microlab.train.config import RunConfig
 from microlab.train.muon import build_muon_optimizer
 
@@ -146,6 +148,15 @@ class Trainer:
             torch.set_float32_matmul_precision("high")
         if cfg.compile:
             self.model = torch.compile(self.model, mode=cfg.compile_mode)
+        # DDP wraps AFTER compile, and `raw_model` stays the UNWRAPPED module — it is the
+        # state_dict source of truth, so a checkpoint written at one world size loads at
+        # any other. That property is what makes a run migratable mid-flight.
+        self.ddp = None
+        if dist_util.is_distributed():
+            from torch.nn.parallel import DistributedDataParallel
+            dev_ids = [dist_util.local_rank()] if self.device.startswith("cuda") else None
+            self.ddp = DistributedDataParallel(self.model, device_ids=dev_ids)
+            self.model = self.ddp
         if cfg.optimizer == "adamw":
             self.optimizer = torch.optim.AdamW(
                 self.model.parameters(),
@@ -171,6 +182,17 @@ class Trainer:
         # Separate CPU generator drives batch sampling, so data order is reproducible and
         # independent of any global-RNG consumption during forward/backward (e.g. dropout).
         self.data_gen = torch.Generator().manual_seed(cfg.seed)
+        # Batch geometry. When tokens_per_step is set it is AUTHORITATIVE and grad_accum is
+        # derived from the world size, so the global batch does not move when the GPU count
+        # does. Without it we fall back to the configured grad_accum (single-process runs
+        # and the in-memory test datasets).
+        tps = getattr(cfg, "tokens_per_step", 0)
+        if tps:
+            self.seqs_per_step, self.grad_accum = dist_util.batch_geometry(
+                tps, cfg.block_size, cfg.batch_size)
+        else:
+            self.seqs_per_step = cfg.grad_accum * cfg.batch_size * dist_util.world_size()
+            self.grad_accum = cfg.grad_accum
         self.use_amp = self.device.startswith("cuda") and cfg.dtype == "bfloat16"
         self.step = 0
         # Last-step telemetry captured by train_step for side-effect-only TB logging.
@@ -192,6 +214,26 @@ class Trainer:
             return torch.autocast(device_type="cuda", dtype=torch.bfloat16)
         return nullcontext()
 
+    def _next_batch(self, micro: int):
+        """This rank's micro-batch for (step, micro).
+
+        Uses the INDEXED sampler when the dataset offers one. That path is a pure function
+        of (seed, global sequence index), so the set of sequences consumed at a given step
+        is identical at every world size — proven at 1/2/4/8/16 in
+        tests/test_migration_safe_loader.py. The legacy `get_batch` draws from a serialised
+        torch.Generator whose state depends on how many processes have drawn from it, which
+        cannot survive a change of world size.
+        """
+        cfg = self.cfg
+        if hasattr(self.train_data, "get_batch_indexed"):
+            idx = self.train_data.global_indices(
+                self.step, micro, dist_util.rank(), dist_util.world_size(),
+                cfg.batch_size, self.seqs_per_step)
+            return self.train_data.get_batch_indexed(
+                cfg.block_size, idx, cfg.seed, self.device)
+        return self.train_data.get_batch(
+            cfg.block_size, cfg.batch_size, self.device, self.data_gen)
+
     def train_step(self) -> float:
         cfg = self.cfg
         lr = get_lr(self.step, cfg)
@@ -203,14 +245,21 @@ class Trainer:
         self.model.train()
         self.optimizer.zero_grad(set_to_none=True)
         total_loss = 0.0
-        for _ in range(cfg.grad_accum):
-            x, y = self.train_data.get_batch(
-                cfg.block_size, cfg.batch_size, self.device, self.data_gen
-            )
-            with self._autocast():
-                _, loss = self.model(x, y)
-                loss = loss / cfg.grad_accum
-            loss.backward()
+        accum = self.grad_accum
+        for micro in range(accum):
+            x, y = self._next_batch(micro)
+            # DDP all-reduces during backward. Doing that on every micro-step would move
+            # `accum` times more gradient than necessary; no_sync() defers it to the last
+            # one, where the accumulated gradient is complete. The result is identical, the
+            # traffic is 1/accum of it.
+            last = micro == accum - 1
+            ctx = self.ddp.no_sync() if (self.ddp is not None and not last) \
+                else contextlib.nullcontext()
+            with ctx:
+                with self._autocast():
+                    _, loss = self.model(x, y)
+                    loss = loss / accum
+                loss.backward()
             total_loss += loss.item()
         if cfg.grad_clip > 0:
             # clip_grad_norm_ returns the total grad L2 norm computed before clipping;
@@ -222,7 +271,11 @@ class Trainer:
         self.last_grad_norm = float(grad_norm)
         self.optimizer.step()
         self.step += 1
-        return total_loss
+        # The accumulated scalar is this RANK's mean, over its share of the step's
+        # sequences — at world_size 2 that is half of them. The gradient is already global
+        # (DDP averages it in backward); only the reported number is local, and leaving it
+        # local makes two world sizes look like different runs when they are identical.
+        return dist_util.all_reduce_mean(total_loss, self.device)
 
     @torch.no_grad()
     def estimate_val(self) -> float | None:
@@ -245,6 +298,13 @@ class Trainer:
         return total / cfg.eval_iters
 
     def save_checkpoint(self, path: str) -> None:
+        # Rank 0 only. Eight ranks each writing a 16.6 GB checkpoint to the same path is a
+        # corrupt file at best; the parameters are identical across ranks after DDP, so
+        # rank 0's copy IS the checkpoint. The barrier keeps other ranks from racing ahead
+        # into a step whose checkpoint is still being written.
+        if not dist_util.is_main():
+            dist_util.barrier()
+            return
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
@@ -260,6 +320,7 @@ class Trainer:
             "cfg": self.cfg,
         }
         torch.save(ckpt, path)
+        dist_util.barrier()
 
     def _prune_checkpoints(self) -> None:
         keep = self.cfg.ckpt_keep

@@ -61,6 +61,10 @@ class RunConfig:
     # data / io
     batch_size: int = 16
     grad_accum: int = 1
+    # AUTHORITATIVE global batch, in tokens, when non-zero. grad_accum is then DERIVED per
+    # world size (see microlab.train.distributed.batch_geometry) so the optimizer sees the
+    # same batch on 1 GPU and on 8. Leave 0 to use grad_accum literally.
+    tokens_per_step: int = 0
     eval_interval: int = 250
     eval_iters: int = 50
     ckpt_interval: int = 500

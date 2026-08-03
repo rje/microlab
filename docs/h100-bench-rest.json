@@ -1,0 +1,51 @@
+{
+ "target_tokens": 21000000000.0,
+ "grad_accum": 2,
+ "steps_per_variant": 8,
+ "results": [
+  {
+   "block": 32768,
+   "batch_size": 4,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 17287.984375,
+   "peak_gb": 66.21826934814453,
+   "last_loss": 6.103494644165039,
+   "steps": 8,
+   "days_at_target": 14.059218835657674
+  },
+  {
+   "block": 32768,
+   "batch_size": 8,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "OOM",
+   "error": "=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf) "
+  },
+  {
+   "block": 16384,
+   "batch_size": 4,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 17856.96875,
+   "peak_gb": 40.202938079833984,
+   "last_loss": 5.092458724975586,
+   "steps": 8,
+   "days_at_target": 13.611243820738363
+  },
+  {
+   "block": 8192,
+   "batch_size": 8,
+   "grad_checkpoint": true,
+   "compile": false,
+   "status": "ok",
+   "tok_s": 18299.81640625,
+   "peak_gb": 40.203067779541016,
+   "last_loss": 5.549936294555664,
+   "steps": 8,
+   "days_at_target": 13.281857596808674
+  }
+ ]
+}
