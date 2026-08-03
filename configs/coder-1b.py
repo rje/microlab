@@ -97,7 +97,14 @@ config = RunConfig(
     # Checkpoints sized for a run that may migrate: rolling recovery plus a permanent
     # trajectory. The milestones are what the emergence sweep reads — measuring WHEN
     # retrieval appears is only possible if the trajectory is kept.
-    ckpt_interval=250,
+    #
+    # 250 was wrong for INTERRUPTIBLE hardware, and was set from habit rather than
+    # measurement. At the observed 25-39 s/step it put the first checkpoint over 100
+    # minutes out, so a preemption could discard an entire paid hour and a half — exactly
+    # the loss the supervisor exists to prevent — and a capped run could exhaust its
+    # budget without ever writing durable progress. 50 caps that exposure at ~30 min
+    # against a ~3 min upload for a 12 GB checkpoint at measured B2 rates.
+    ckpt_interval=50,
     ckpt_keep=3,
     ckpt_milestone_interval=2000,
     log_interval=10,
