@@ -74,7 +74,20 @@ def main() -> int:
     ap.add_argument("--target-tokens", type=float, default=21e9,
                     help="budget used to project days-to-finish")
     ap.add_argument("--out", default="docs/train-config-bench.json")
+    ap.add_argument("--variants", default=None,
+                    help="semicolon-separated block,batch,ckpt,compile — e.g. "
+                         "'32768,1,1,0;32768,1,0,0'. Defaults to the local 48 GB sweep; "
+                         "an 80 GB card wants the no-checkpointing rows that OOM here.")
     a = ap.parse_args()
+
+    global VARIANTS
+    if a.variants:
+        VARIANTS = []
+        for spec in a.variants.split(";"):
+            if not spec.strip():
+                continue
+            b, bs, ck, cp = (int(x) for x in spec.split(","))
+            VARIANTS.append((b, bs, bool(ck), bool(cp)))
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
     base = Path(a.config).read_text()
