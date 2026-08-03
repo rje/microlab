@@ -79,14 +79,13 @@ config = RunConfig(
     # class of error as assuming it gives 2x. The compile cost (~15-35 min once) is
     # negligible against a multi-day run, and it is re-paid on every preemption, which is
     # an argument for the pre-built image rather than for disabling it.
-    # COMPILE IS OFF, and this is a measured incompatibility rather than a preference.
-    # torch.compile + Liger's fused_linear_cross_entropy breaks under dynamo on torch 2.11:
+    # Compile ON. It briefly went off after a paid run died with
     #   TypeError: unsupported operand type(s) for *: 'torch.dtype' and 'FakeTensor'
-    #   torch/_decomp/decompositions.py addmm: return out + beta * self
-    # We cannot simply drop fused CE instead: it is what makes 32k fit at all (measured
-    # 27.70 -> 15.40 GB at 1B). The real fix is to exclude the loss head from compilation
-    # so the transformer blocks still get compiled; until then, off.
-    compile=False,
+    # but that is a torch 2.11 bug, NOT an incompatibility between compile and Liger fused
+    # CE: frontier-32k ran 15,000 steps locally on 2.12.1 with both enabled. The instance
+    # had 2.11 only because the cu128 wheel index tops out there; cloud_train.sh now pins
+    # 2.12.1 from cu126 and asserts it before training.
+    compile=True,
     compile_mode="max-autotune-no-cudagraphs",
     eval_interval=500,
     eval_iters=40,

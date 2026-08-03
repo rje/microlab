@@ -29,17 +29,31 @@ say "dependencies"
 # torchvision/torchaudio pin an older torch and break the fla import chain with
 # "operator torchvision::nms does not exist". They are unused here.
 pip uninstall -y -q torchvision torchaudio 2>/dev/null
-# fla 0.5.2 needs Triton >= 3.6; the stock PyTorch 2.5 images ship 3.1.0 and fail with
-# "Autotuner.__init__() got an unexpected keyword argument 'do_bench'". Measured on a real
-# instance, not assumed.
+# Pin the EXACT torch validated locally: 2.12.1. Two independent reasons, both measured:
+#   * fla 0.5.2 needs Triton >= 3.6; stock PyTorch 2.5 images ship 3.1.0 and die with
+#     "Autotuner.__init__() got an unexpected keyword argument 'do_bench'".
+#   * torch 2.11 breaks torch.compile + Liger fused cross-entropy —
+#       TypeError: unsupported operand type(s) for *: 'torch.dtype' and 'FakeTensor'
+#     which killed a paid run. 2.12.1 does not: configs/frontier-32k.py ran 15,000 steps
+#     locally with compile AND fused CE both on.
+# Index choice matters and is why we hit the bug: cu128 TOPS OUT at 2.11.0, so
+# "--upgrade torch --index-url .../cu128" silently pinned the broken version. cu126 carries
+# 2.12.1, and CUDA 12.x minor-version compatibility runs it on driver 550+; cu130 would
+# need 580+, which rented boxes do not reliably have.
 python - <<'PY'
 import subprocess, sys
-import triton
-if tuple(int(x) for x in triton.__version__.split(".")[:2]) < (3, 6):
-    print(f"triton {triton.__version__} too old for fla; upgrading torch")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "torch",
-                    "--index-url", "https://download.pytorch.org/whl/cu128"], check=False)
+import torch
+if not torch.__version__.startswith("2.12"):
+    print(f"torch {torch.__version__} -> installing 2.12.1+cu126 (the validated version)")
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "torch==2.12.1",
+                    "--index-url", "https://download.pytorch.org/whl/cu126"], check=False)
 PY
+python -c "
+import torch, triton
+assert torch.__version__.startswith('2.12'), f'need torch 2.12, got {torch.__version__}'
+assert tuple(int(x) for x in triton.__version__.split('.')[:2]) >= (3, 6), triton.__version__
+print('torch', torch.__version__, 'triton', triton.__version__)" \
+  || { echo 'FATAL: wrong torch/triton — compile+fused-CE would break'; exit 1; }
 pip install -q flash-linear-attention==0.5.2 liger-kernel boto3 tokenizers tensorboard 2>&1 | tail -1
 python -c "from fla.ops.kda import chunk_kda; import liger_kernel; print('kernels OK')" \
   || { echo "FATAL: fused kernels unavailable — refusing to train on the float64 oracle path"; exit 1; }
