@@ -26,6 +26,52 @@ class ShardDataset:
     local or remote.
     """
 
+    def prefetch(self, indices, block_size: int, seed: int) -> None:
+        self._seed = seed
+        """Warm the shards `indices` will touch, on background threads.
+
+        Without this, lazy fetch does not save time — it just moves the download inside
+        training. A step consumes `tokens_per_step / block_size` sequences (16 for the 1B),
+        and random selection means each lands in a different shard, so a blocking fetch
+        stalls the step ~16 times. Measured on a rented 4x box: no step completed for 15
+        minutes while 47 shards came down serially.
+
+        Because `sequence_at` is a pure function of (seed, index), the shards a FUTURE step
+        needs are computable now — that is what makes prefetching exact rather than
+        speculative.
+        """
+        if self.fetch is None:
+            return
+        want = {self._shard_of(i) for i in indices}
+        todo = [i for i in want if i not in self._cache and i not in self._inflight]
+        if not todo:
+            return
+        import threading
+        for i in todo:
+            self._inflight.add(i)
+            threading.Thread(target=self._warm, args=(i,), daemon=True).start()
+
+    def _warm(self, i: int) -> None:
+        try:
+            self._array(i)
+        except Exception as e:                      # noqa: BLE001
+            # A prefetch failure must not kill training; the blocking path will retry and
+            # raise there, where the error is attributable to a specific sequence.
+            print(f"  [prefetch] shard {i} failed: {type(e).__name__}: {e}", flush=True)
+        finally:
+            self._inflight.discard(i)
+
+    def _shard_of(self, index: int, seed: int = 0) -> int:
+        """Which shard sequence `index` lands in — the same arithmetic as sequence_at."""
+        h = (self._seed * 0x9E3779B97F4A7C15 + index * 0xBF58476D1CE4E5B9) & ((1 << 64) - 1)
+        h ^= h >> 30
+        h = (h * 0xBF58476D1CE4E5B9) & ((1 << 64) - 1)
+        h ^= h >> 27
+        h = (h * 0x94D049BB133111EB) & ((1 << 64) - 1)
+        h ^= h >> 31
+        cum = np.cumsum(self.lengths)
+        return int(np.searchsorted(cum, h % int(cum[-1]), side="right"))
+
     def __init__(self, data_dir: str, split: str = "train", fetch=None) -> None:
         d = Path(data_dir)
         self.dir = d
@@ -41,6 +87,8 @@ class ShardDataset:
         self.lengths = [int(s["tokens"]) for s in shards]
         self.total_tokens = sum(self.lengths)
         self._cache: dict[int, np.memmap] = {}
+        self._inflight: set[int] = set()
+        self._seed = 0
         if fetch is None:
             # Eager: open everything now, and cross-check the manifest against reality.
             # A manifest that disagrees with the files on disk would silently shift every

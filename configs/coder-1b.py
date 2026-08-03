@@ -74,6 +74,11 @@ config = RunConfig(
     # (16 at ws=1, 4 at ws=4, 2 at ws=8) so the optimizer sees the same batch either way.
     tokens_per_step=524288,
     grad_accum=16,        # fallback only, when tokens_per_step is 0
+    # Compile ON with autotuning. It measured ~nothing on the RTX 6000 Ada at 32k, but
+    # that is a different card and the figure was never re-checked on an H100 — the same
+    # class of error as assuming it gives 2x. The compile cost (~15-35 min once) is
+    # negligible against a multi-day run, and it is re-paid on every preemption, which is
+    # an argument for the pre-built image rather than for disabling it.
     compile=True,
     compile_mode="max-autotune-no-cudagraphs",
     eval_interval=500,

@@ -214,6 +214,19 @@ class Trainer:
             return torch.autocast(device_type="cuda", dtype=torch.bfloat16)
         return nullcontext()
 
+    def _prefetch_next_step(self) -> None:
+        """Warm the shards the NEXT step needs, while this one computes."""
+        d = self.train_data
+        if not hasattr(d, "prefetch"):
+            return
+        cfg = self.cfg
+        nxt = []
+        for micro in range(self.grad_accum):
+            nxt += d.global_indices(self.step + 1, micro, dist_util.rank(),
+                                    dist_util.world_size(), cfg.batch_size,
+                                    self.seqs_per_step)
+        d.prefetch(nxt, cfg.block_size, cfg.seed)
+
     def _next_batch(self, micro: int):
         """This rank's micro-batch for (step, micro).
 
@@ -246,6 +259,7 @@ class Trainer:
         self.optimizer.zero_grad(set_to_none=True)
         total_loss = 0.0
         accum = self.grad_accum
+        self._prefetch_next_step()
         for micro in range(accum):
             x, y = self._next_batch(micro)
             # DDP all-reduces during backward. Doing that on every micro-step would move
@@ -400,7 +414,12 @@ class Trainer:
                     if self.tokenizer is not None:
                         self._log_sample(writer, step)
             if cfg.log_interval > 0 and step % cfg.log_interval == 0:
-                print(f"step {step}/{cfg.max_steps} loss {loss:.4f} lr {get_lr(step, cfg):.2e}")
+                # Rank 0 only. All ranks printing made every line appear world_size times,
+                # which silently inflated a `grep -c "^step"` throughput measurement by 4x
+                # — it reported 253% scaling efficiency before the artifact was spotted.
+                if dist_util.is_main():
+                    print(f"step {step}/{cfg.max_steps} loss {loss:.4f} "
+                          f"lr {get_lr(step, cfg):.2e}")
                 if writer is not None:
                     now = time.perf_counter()
                     dt = now - last_log_time

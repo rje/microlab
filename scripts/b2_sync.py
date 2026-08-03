@@ -59,9 +59,27 @@ def credential_path(bucket: str, explicit: str | None) -> Path:
     return CRED_DIR / f"b2_{suffix}.env"
 
 
-def load_credentials(path: Path) -> dict:
-    """Read B2 creds from `path`, falling back to the process environment."""
+def load_credentials(path: Path, env_prefix: str | None = None) -> dict:
+    """Read B2 creds from `path`, falling back to the process environment.
+
+    `env_prefix` names a PREFIXED set of environment variables — B2_CKPT_KEY_ID and
+    friends — which is how a rented instance receives them: there is no env FILE on that
+    box, only variables, and they must be prefixed because the run holds two separately
+    scoped keys (corpus read, checkpoints write).
+
+    This is the bug that cost a real run. The checkpoint syncer looked only for an env
+    file and then for UNPREFIXED variables, found neither, and failed on every pass — so
+    two 9.2 GB checkpoints sat on disk that dies with the instance, the supervisor's only
+    progress signal never arrived, and it destroyed a run that had actually finished.
+    """
     creds: dict[str, str] = {}
+    if env_prefix:
+        got = {k: os.environ.get(f"{env_prefix}_{k}", "")
+               for k in ("KEY_ID", "APPLICATION_KEY", "ENDPOINT")}
+        if all(got.values()):
+            return {"B2_KEY_ID": got["KEY_ID"],
+                    "B2_APP_KEY": got["APPLICATION_KEY"],
+                    "B2_ENDPOINT": got["ENDPOINT"]}
     if path.exists():
         mode = path.stat().st_mode & 0o777
         if mode & 0o077:
@@ -241,11 +259,16 @@ def main() -> int:
     ap.add_argument("--creds", default=None,
                     help="env file with this bucket's key; defaults to "
                          "~/.config/microlab/b2_<bucket suffix>.env")
+    ap.add_argument("--env-prefix", default=None,
+                    help="read credentials from <PREFIX>_KEY_ID/_APPLICATION_KEY/_ENDPOINT "
+                         "instead of a file. Rented instances have no env file — only "
+                         "prefixed variables, because the run carries two scoped keys.")
     a = ap.parse_args()
 
     cred_path = credential_path(a.bucket, a.creds)
-    print(f"bucket {a.bucket}  creds {cred_path}")
-    s3 = client(load_credentials(cred_path))
+    src = f"env {a.env_prefix}_*" if a.env_prefix else str(cred_path)
+    print(f"bucket {a.bucket}  creds {src}")
+    s3 = client(load_credentials(cred_path, a.env_prefix))
     if a.action == "ls":
         have = remote_sizes(s3, a.bucket, a.prefix)
         for k, v in sorted(have.items()):

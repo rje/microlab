@@ -44,12 +44,15 @@ def main() -> int:
     ap.add_argument("--keep-local", type=int, default=2,
                     help="local checkpoints to retain AFTER remote confirmation")
     ap.add_argument("--once", action="store_true", help="one pass, then exit")
+    ap.add_argument("--env-prefix", default=None,
+                    help="credentials from <PREFIX>_KEY_ID/_APPLICATION_KEY/_ENDPOINT")
     ap.add_argument("--log", action="append", default=None,
                     help="also ship this file to B2 each pass; repeatable")
     a = ap.parse_args()
 
     run = Path(a.run)
-    s3 = b2.client(b2.load_credentials(b2.credential_path(a.bucket, None)))
+    s3 = b2.client(b2.load_credentials(b2.credential_path(a.bucket, None),
+                                   a.env_prefix))
     print(f"watching {run} -> s3://{a.bucket}/{a.prefix} every {a.interval}s", flush=True)
 
     while True:
