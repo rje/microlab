@@ -82,6 +82,10 @@ bash microlab/scripts/cloud_train.sh 2>&1 | tee /workspace/train.log
 def provision(a, key, creds) -> tuple[int, float]:
     offers = vast.search_offers(a.gpu, a.max_price, a.min_reliability, a.min_disk,
                                 a.gpus, key, by_bid=True)
+    if a.host_id:
+        offers = [o for o in offers if o.get("host_id") == a.host_id]
+    if a.geo:
+        offers = [o for o in offers if a.geo.lower() in str(o.get("geolocation", "")).lower()]
     bids = []
     for o in offers:
         mb = o.get("min_bid")
@@ -123,6 +127,13 @@ def main() -> int:
     ap.add_argument("--image", default="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel")
     ap.add_argument("--min-reliability", type=float, default=0.97)
     ap.add_argument("--min-disk", type=int, default=120)
+    ap.add_argument("--host-id", type=int, default=None,
+                    help="restrict to this Vast host. Cheapest-first selection is right "
+                         "for a multi-day run, where a slow corpus pull amortises away, "
+                         "but wrong for a short test where the pull dominates wall-clock "
+                         "— and price does not encode distance to the bucket.")
+    ap.add_argument("--geo", default=None,
+                    help="substring the offer's geolocation must contain, e.g. 'US'")
     ap.add_argument("--bucket-in", default="microlab-corpus")
     ap.add_argument("--bucket-out", default="microlab-checkpoints")
     ap.add_argument("--stall-minutes", type=int, default=90,
