@@ -89,6 +89,14 @@ class ShardDataset:
         self._cache: dict[int, np.memmap] = {}
         self._inflight: set[int] = set()
         self._seed = 0
+        # ONE lock per shard. Without it the main thread and a prefetch thread could fetch
+        # the SAME shard concurrently, both writing the same `.part` file: boto3 writes
+        # multipart chunks at offsets, so two writers corrupt it, and whichever renames
+        # first leaves the other stat-ing a path that no longer exists. Serialising per
+        # shard means the second caller waits and then finds it cached.
+        import threading
+        self._locks: dict[int, threading.Lock] = {}
+        self._locks_guard = threading.Lock()
         if fetch is None:
             # Eager: open everything now, and cross-check the manifest against reality.
             # A manifest that disagrees with the files on disk would silently shift every
@@ -105,10 +113,25 @@ class ShardDataset:
         """Back-compat view. Materialises every shard, so it is only for eager use."""
         return [self._array(i) for i in range(len(self.files))]
 
+    def _lock_for(self, i: int):
+        with self._locks_guard:
+            import threading
+            if i not in self._locks:
+                self._locks[i] = threading.Lock()
+            return self._locks[i]
+
     def _array(self, i: int) -> np.memmap:
         a = self._cache.get(i)
         if a is not None:
             return a
+        with self._lock_for(i):
+            # Re-check: another thread may have completed this shard while we waited.
+            a = self._cache.get(i)
+            if a is not None:
+                return a
+            return self._fetch_and_open(i)
+
+    def _fetch_and_open(self, i: int) -> np.memmap:
         p = self.files[i]
         want = self.lengths[i] * 2
         if self.fetch is not None and (not p.exists() or p.stat().st_size != want):
@@ -116,7 +139,9 @@ class ShardDataset:
             # visible as a complete one — a truncated shard reads as valid uint16 and would
             # train on short data without complaining.
             p.parent.mkdir(parents=True, exist_ok=True)
-            tmp = p.with_suffix(p.suffix + ".part")
+            # Per-shard temp name: two DIFFERENT shards may download concurrently, and a
+            # shared temp path would have them overwrite each other.
+            tmp = p.with_suffix(p.suffix + f".part{i}")
             self.fetch(p.name, tmp)
             if tmp.stat().st_size != want:
                 raise ValueError(

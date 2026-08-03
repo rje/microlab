@@ -131,9 +131,9 @@ def test_partial_download_is_never_visible_as_complete(tmp_path):
 
     ds = ShardDataset(str(tmp_path), "train", fetch=fetch)
     ds.sequence_at(0, BLOCK, SEED)
-    assert seen["dest"].name.endswith(".part"), "download must land on a temp name"
+    assert ".part" in seen["dest"].name, "download must land on a temp name"
     assert (tmp_path / "train-00000.bin").exists()
-    assert not list(tmp_path.glob("*.part")), "temp file should be renamed away"
+    assert not list(tmp_path.glob("*.part*")), "temp file should be renamed away"
 
 
 def test_eager_mode_still_validates_the_manifest(tmp_path):
@@ -151,3 +151,60 @@ def test_arrays_property_still_works_for_eager_callers(tmp_path):
     ds = ShardDataset(str(tmp_path), "train")
     assert len(ds.arrays) == 2
     assert all(len(a) == 5000 for a in ds.arrays)
+
+
+def test_concurrent_fetch_of_one_shard_downloads_it_once(tmp_path):
+    """Main thread and prefetch threads must not race on the same shard.
+
+    Both wrote the same `.part` file: boto3 writes multipart chunks at offsets, so two
+    writers corrupt it, and whichever renames first leaves the other stat-ing a path that
+    no longer exists. A wedged run on rented hardware — GPU at 0% with every shard already
+    cached — is what sent me looking for this.
+    """
+    import threading
+    import time as _t
+
+    _manifest(tmp_path, n_shards=1)
+    src = tmp_path / "remote"
+    src.mkdir()
+    _write(src, "train-00000.bin", 5000)
+    calls = []
+
+    def slow_fetch(name, dest):
+        calls.append(name)
+        _t.sleep(0.15)                      # widen the race window
+        dest.write_bytes((src / name).read_bytes())
+
+    ds = ShardDataset(str(tmp_path), "train", fetch=slow_fetch)
+    errors = []
+
+    def worker():
+        try:
+            ds.sequence_at(0, BLOCK, SEED)
+        except Exception as e:              # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=20)
+
+    assert not errors, f"concurrent access raised: {errors}"
+    assert len(calls) == 1, f"shard fetched {len(calls)} times, expected exactly 1"
+    assert not any(t.is_alive() for t in threads), "a thread hung"
+
+
+def test_distinct_shards_use_distinct_temp_files(tmp_path):
+    """A shared temp name would have concurrent downloads overwrite each other."""
+    _manifest(tmp_path, n_shards=3)
+    seen = []
+
+    def fetch(name, dest):
+        seen.append(Path(dest).name)
+        _write(Path(dest).parent, Path(dest).name, 5000)
+
+    ds = ShardDataset(str(tmp_path), "train", fetch=fetch)
+    for i in range(3):
+        ds._array(i)
+    assert len(set(seen)) == 3, f"temp names collided: {seen}"
