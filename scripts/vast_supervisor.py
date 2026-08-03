@@ -80,13 +80,14 @@ def training_crashed(s3, bucket: str, prefix: str, since: float | None = None) -
         tail = obj["Body"].read().decode("utf-8", "replace")[-40_000:]
     except Exception:                               # noqa: BLE001
         return None                                 # no log yet is not a crash
-    for marker in ("Traceback (most recent call last)", "torch.distributed.elastic",
-                   "FATAL:", "CUDA out of memory"):
-        if marker in tail:
-            for line in tail.splitlines():
-                if any(m in line for m in ("Error", "error:", "FATAL", "out of memory")):
-                    return line.strip()[:200]
-            return marker
+    # ONE unambiguous sentinel, written by cloud_train.sh on a non-zero torchrun exit.
+    # Deliberately not a heuristic: scanning for "Traceback" or "Error" matched a benign
+    # "ModuleNotFoundError: nvidia-ml-py" telemetry notice and destroyed a healthy
+    # instance. Inferring failure from prose is how a watchdog becomes the outage.
+    if "MICROLAB_TRAIN_FAILED" in tail:
+        for line in tail.splitlines():
+            if "MICROLAB_TRAIN_FAILED" in line:
+                return line.strip()[:200]
     return None
 
 

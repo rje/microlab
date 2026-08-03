@@ -123,7 +123,7 @@ def test_crash_detection_ignores_a_stale_log(monkeypatch):
             class B:
                 @staticmethod
                 def read():
-                    return b"Traceback (most recent call last):\nRuntimeError: boom"
+                    return b"MICROLAB_TRAIN_FAILED rc=1"
             return {"Body": B(), "LastModified": self.when}
 
     old = dt.datetime(2020, 1, 1, tzinfo=dt.UTC)
@@ -145,7 +145,46 @@ def test_crash_detection_without_a_since_still_reads():
             class B:
                 @staticmethod
                 def read():
-                    return b"Traceback (most recent call last):\nValueError: x"
+                    return b"MICROLAB_TRAIN_FAILED rc=2"
             return {"Body": B(), "LastModified": dt.datetime.now(dt.UTC)}
 
     assert sup.training_crashed(S3(), "b", "p") is not None
+
+
+def _s3_with(text: str, when=None):
+    import datetime as dt
+
+    class S3:
+        def get_object(self, Bucket, Key):
+            class B:
+                @staticmethod
+                def read():
+                    return text.encode()
+            return {"Body": B(), "LastModified": when or dt.datetime.now(dt.UTC)}
+    return S3()
+
+
+def test_benign_log_noise_is_not_a_crash():
+    """The detector must not infer failure from prose.
+
+    A heuristic scan for "Error" matched this exact line — optional NVML telemetry being
+    absent, which the trainer handles and reports — and destroyed a healthy instance.
+    """
+    noise = ("GPU NVML telemetry unavailable (memory-only): ModuleNotFoundError: "
+             "nvidia-ml-py does not seem to be installed or it can't be imported.\n"
+             "Traceback (most recent call last):\n  handled during import probe\n"
+             "step 5/40000 loss 8.1")
+    assert sup.training_crashed(_s3_with(noise), "b", "p") is None
+
+
+def test_explicit_sentinel_is_a_crash():
+    log = "step 3/40000 loss 9.9\nMICROLAB_TRAIN_FAILED rc=1\n"
+    got = sup.training_crashed(_s3_with(log), "b", "p")
+    assert got and "MICROLAB_TRAIN_FAILED" in got and "rc=1" in got
+
+
+def test_the_sentinel_is_actually_emitted_by_the_instance_script():
+    """Both ends of the channel must agree, or the detector never fires at all."""
+    src = (SCRIPTS / "cloud_train.sh").read_text()
+    assert "MICROLAB_TRAIN_FAILED rc=$RC" in src
+    assert 'if [ "$RC" -ne 0 ]' in src

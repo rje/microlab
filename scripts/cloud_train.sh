@@ -127,6 +127,13 @@ say "train: $NGPU GPU(s)"
 sed -i "s#data_dir=\"data/shards/mix-v1\"#data_dir=\"$CORPUS\"#; s#out_dir=\"runs/coder-1b\"#out_dir=\"$RUNDIR\"#" "$CONFIG"
 torchrun --nproc_per_node="$NGPU" scripts/pretrain.py "$CONFIG"
 RC=$?
+# EXPLICIT failure sentinel. The supervisor must not have to infer a crash from log text:
+# a heuristic scan for "Error" matched the benign "ModuleNotFoundError: nvidia-ml-py"
+# telemetry notice and destroyed a healthy box. We control both ends of this channel, so
+# the signal is a literal string that appears only on a non-zero exit.
+if [ "$RC" -ne 0 ]; then
+  echo "MICROLAB_TRAIN_FAILED rc=$RC"
+fi
 
 say "final flush"
 # One synchronous pass so the last checkpoint reaches B2 before this box goes away.
