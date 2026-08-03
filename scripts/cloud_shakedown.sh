@@ -8,9 +8,15 @@
 #   3. B2 -> instance download rate. The one storage number never observed; it sets how
 #      much GPU time every job start burns.
 #
-# Usage on the instance (paste this whole file, or fetch it from the corpus bucket):
-#   export B2_KEY_ID=... B2_APPLICATION_KEY=... B2_ENDPOINT=https://s3.us-west-001...
+# Usage on the instance:
+#   export REPO=https://github.com/rje/microlab.git
+#   export B2_CORPUS_KEY_ID=... B2_CORPUS_APPLICATION_KEY=... B2_CORPUS_ENDPOINT=...
 #   bash cloud_shakedown.sh
+#
+# TWO key pairs, because the buckets are separate on purpose: this script only READS the
+# corpus, so it only ever holds the corpus key. Uploading results is a separate step that
+# uses B2_CKPT_* and writes to the checkpoints bucket — the one carrying the
+# noncurrent-version lifecycle rule that keeps superseded checkpoints from billing forever.
 #
 # Deliberately NOT `set -e`: a failing rung should report and let the later rungs run, so
 # one hour of rented time yields as many answers as possible rather than stopping at the
@@ -18,7 +24,7 @@
 
 set -uo pipefail
 WORK=${WORK:-/workspace}
-BUCKET=${BUCKET:-microlab-corpus}
+BUCKET=${BUCKET_IN:-microlab-corpus}
 PREFIX=${PREFIX:-mix-v1}
 SHARDS=${SHARDS:-3}          # enough to train a few steps; the full 39 GB is not needed
 # Corpus lives OUTSIDE the clone, so re-cloning does not re-download 40 GB.
@@ -56,10 +62,9 @@ python - <<PY
 import boto3, os, json, time
 from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
-s3 = boto3.client("s3", endpoint_url=os.environ["B2_ENDPOINT"],
-                  aws_access_key_id=os.environ["B2_KEY_ID"],
-                  aws_secret_access_key=os.environ.get("B2_APPLICATION_KEY")
-                                        or os.environ["B2_APP_KEY"],
+s3 = boto3.client("s3", endpoint_url=os.environ["B2_CORPUS_ENDPOINT"],
+                  aws_access_key_id=os.environ["B2_CORPUS_KEY_ID"],
+                  aws_secret_access_key=os.environ["B2_CORPUS_APPLICATION_KEY"],
                   config=Config(retries={"max_attempts":10,"mode":"adaptive"},
                                 max_pool_connections=32))
 B, P, N = "$BUCKET", "$CORPUS", $SHARDS

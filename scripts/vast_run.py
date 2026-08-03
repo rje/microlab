@@ -113,11 +113,13 @@ echo "=== microlab shakedown {run_tag} ==="
 git clone --depth 1 {repo} microlab 2>&1 | tail -2
 bash microlab/scripts/cloud_shakedown.sh 2>&1 | tee /tmp/shakedown.log
 python - <<'PYEOF'
-import boto3, os, json, io
+import boto3, os, json
 from botocore.config import Config
-s3 = boto3.client("s3", endpoint_url=os.environ["B2_ENDPOINT"],
-    aws_access_key_id=os.environ["B2_KEY_ID"],
-    aws_secret_access_key=os.environ["B2_APPLICATION_KEY"],
+# CHECKPOINTS key, not the corpus key: outputs belong in the bucket that carries the
+# noncurrent-version lifecycle rule.
+s3 = boto3.client("s3", endpoint_url=os.environ["B2_CKPT_ENDPOINT"],
+    aws_access_key_id=os.environ["B2_CKPT_KEY_ID"],
+    aws_secret_access_key=os.environ["B2_CKPT_APPLICATION_KEY"],
     config=Config(retries={{"max_attempts":10,"mode":"adaptive"}}))
 log = open("/tmp/shakedown.log", "rb").read()
 s3.put_object(Bucket="{bucket_out}", Key="shakedown/{run_tag}.log", Body=log)
@@ -162,24 +164,35 @@ def cmd_shakedown(a, key):
     if price > a.max_price * a.num_gpus:
         raise SystemExit(f"price ${price} exceeds cap — refusing")
 
-    # ONE key goes to the rented box, and it is the CORPUS key. The instance must read the
-    # corpus and write its result; the B2 keys are scoped per bucket, so a single pair
-    # cannot span both. Results therefore land in the corpus bucket (where that key already
-    # has write access) rather than shipping a second credential to a machine we do not own.
-    b2 = {}
-    p = Path.home() / ".config" / "microlab" / "b2_corpus.env"
-    if not p.exists():
-        raise SystemExit(f"{p} not found — the instance needs the corpus key")
-    for line in p.read_text().splitlines():
-        if "=" in line and line.strip().startswith("B2_"):
-            k, v = line.split("=", 1)
-            b2[k.strip()] = v.strip()
-    if b2.get("B2_APPLICATION_KEY") is None:
-        b2["B2_APPLICATION_KEY"] = b2.get("B2_APP_KEY", "")
-    env = {"B2_KEY_ID": b2.get("B2_KEY_ID", ""),
-           "B2_APPLICATION_KEY": b2.get("B2_APPLICATION_KEY", ""),
-           "B2_ENDPOINT": b2.get("B2_ENDPOINT", ""),
-           "REPO": a.repo, "BUCKET": a.bucket_in}
+    # BOTH keys go to the box, under distinct names. The buckets are separate on purpose:
+    # the corpus is read, the checkpoints bucket is written, and only the checkpoints
+    # bucket carries the noncurrent-version lifecycle rule that stops superseded 16.6 GB
+    # checkpoints billing forever. Collapsing outputs into the corpus bucket to avoid
+    # shipping a second credential would defeat that separation AND put outputs where the
+    # lifecycle rule does not apply — a real cost regression dressed up as a security win.
+    # The instance already holds one B2 credential; the second adds no meaningful exposure.
+    def read_env(name: str) -> dict:
+        p = Path.home() / ".config" / "microlab" / f"{name}.env"
+        if not p.exists():
+            raise SystemExit(f"{p} not found")
+        out = {}
+        for line in p.read_text().splitlines():
+            if "=" in line and line.strip().startswith("B2_"):
+                k, v = line.split("=", 1)
+                out[k.strip()] = v.strip()
+        out.setdefault("B2_APPLICATION_KEY", out.get("B2_APP_KEY", ""))
+        return out
+
+    corpus, ckpt = read_env("b2_corpus"), read_env("b2_checkpoints")
+    env = {
+        "B2_CORPUS_KEY_ID": corpus["B2_KEY_ID"],
+        "B2_CORPUS_APPLICATION_KEY": corpus["B2_APPLICATION_KEY"],
+        "B2_CORPUS_ENDPOINT": corpus["B2_ENDPOINT"],
+        "B2_CKPT_KEY_ID": ckpt["B2_KEY_ID"],
+        "B2_CKPT_APPLICATION_KEY": ckpt["B2_APPLICATION_KEY"],
+        "B2_CKPT_ENDPOINT": ckpt["B2_ENDPOINT"],
+        "REPO": a.repo, "BUCKET_IN": a.bucket_in, "BUCKET_OUT": a.bucket_out,
+    }
 
     inst = None
     t0 = time.time()
@@ -247,8 +260,8 @@ def main() -> int:
     ap.add_argument("--image", default="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel")
     ap.add_argument("--repo", default="https://github.com/rje/microlab.git")
     ap.add_argument("--bucket-in", default="microlab-corpus")
-    ap.add_argument("--bucket-out", default="microlab-corpus",
-                    help="results land here; must match the key shipped to the instance")
+    ap.add_argument("--bucket-out", default="microlab-checkpoints",
+                    help="outputs; the bucket carrying the lifecycle rule")
     ap.add_argument("--tag", default="shakedown-1")
     ap.add_argument("--id", type=int, help="instance id, for destroy")
     ap.add_argument("--yes", action="store_true", help="actually rent (default: dry run)")
