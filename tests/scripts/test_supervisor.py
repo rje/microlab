@@ -318,3 +318,30 @@ def test_the_sentinel_is_actually_emitted_by_the_instance_script():
     src = (SCRIPTS / "cloud_train.sh").read_text()
     assert "MICROLAB_TRAIN_FAILED rc=$RC" in src
     assert 'if [ "$RC" -ne 0 ]' in src
+
+
+def test_help_actually_renders():
+    """argparse %-expands help strings, so a bare '%' in prose raises at --help time.
+
+    An unescaped "0.7% to remove preemption" made --help crash with
+    "unsupported format character 't'" — invisible to every run, because no run calls
+    --help, and therefore exactly the kind of breakage that surfaces when someone is
+    trying to find a flag under time pressure.
+    """
+    import subprocess
+    import sys
+    r = subprocess.run([sys.executable, str(SCRIPTS / "vast_supervisor.py"), "--help"],
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr[-800:]
+    assert "--skip-corpus-check" in r.stdout
+
+
+def test_renting_is_gated_on_the_corpus_assertions():
+    """Deselected from the commit guardrail, mandatory before spending money."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert "skip_corpus_check" in src
+    i = src.index("skip_corpus_check")
+    assert "test_mix_artifact.py" in src[i:i + 900], \
+        "the gate must actually run the corpus assertions"
+    assert src.index("skip_corpus_check") < src.index("inst = bid = None"), \
+        "the gate must run BEFORE the provisioning loop"

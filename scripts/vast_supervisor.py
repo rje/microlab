@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -242,10 +243,14 @@ def main() -> int:
     ap.add_argument("--on-demand", action="store_true",
                     help="rent NON-interruptible: --max-price then caps dph_total instead "
                          "of min_bid. Measured on the host used here, on-demand is $1.49 "
-                         "against a $1.48 floor — 0.7% to remove preemption, after two "
+                         "against a $1.48 floor — 0.7%% to remove preemption, after two "
                          "runs were preempted before their first checkpoint and lost 30+ "
                          "steps each. Prefer it for short runs that must finish in one "
                          "window; bid for long runs that resume cheaply.")
+    ap.add_argument("--skip-corpus-check", action="store_true",
+                    help="rent even if tests/data/test_mix_artifact.py fails. Only "
+                         "with a stated reason: those assertions exist because a val "
+                         "set that was 100%% one repository passed every other check.")
     ap.add_argument("--geo", default=None,
                     help="substring the offer's geolocation must contain, e.g. 'US'")
     ap.add_argument("--bucket-in", default="microlab-corpus")
@@ -293,6 +298,22 @@ def main() -> int:
               f"replacing on preemption or a {a.stall_minutes}-minute stall, "
               f"until step {a.target_step:,} or ${a.max_spend:.2f}.\nRe-run with --yes.")
         return 0
+
+    # SPEND GATE. The corpus assertions are deselected from the commit guardrail because a
+    # known-stale corpus must not block unrelated commits — but they absolutely must block
+    # RENTING. A val set that was one geological-mesh repository survived every count-based
+    # check and would have invalidated a $500 run whose only live metric reads from it.
+    if not a.skip_corpus_check:
+        import subprocess
+        r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-m", "corpus",
+                            "tests/data/test_mix_artifact.py"],
+                           capture_output=True, text=True, cwd=Path(__file__).parent.parent)
+        if r.returncode != 0:
+            raise SystemExit(
+                "corpus assertions FAILED — refusing to rent hardware to train on it:\n"
+                f"{r.stdout[-2000:]}\n"
+                "Rebuild the mix, or pass --skip-corpus-check if you know why this is fine.")
+        print("corpus assertions pass", flush=True)
 
     inst = bid = None
     t_ep = None

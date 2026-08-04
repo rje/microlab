@@ -24,7 +24,7 @@ run() {
 }
 
 run "ruff (lint)"      $CONDA run -n microlab ruff check .
-run "pytest (python)"  $CONDA run -n microlab pytest -q -m "not exercise"
+run "pytest (python)"  $CONDA run -n microlab pytest -q -m "not exercise and not corpus"
 run "vitest (spa)"     bash -c 'cd site && npx vitest run'
 run "vite build (spa)" bash -c 'cd site && npm run build'
 

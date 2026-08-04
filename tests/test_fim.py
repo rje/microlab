@@ -6,6 +6,8 @@ would be pretraining on documents whose content we cannot account for.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 from tokenizers import Tokenizer
@@ -90,3 +92,71 @@ def test_fim_ids_are_outside_the_base_vocab(cfg):
 
 def test_sentinel_names_are_the_cohort_standard():
     assert FIM_TOKENS == ("<|fim_prefix|>", "<|fim_suffix|>", "<|fim_middle|>")
+
+
+# --- chunk-level FIM -------------------------------------------------------------------
+# Applying FIM to whole repo-packed documents made 73.8% of all FIM tokens unlearnable:
+# the median FIM document was 19,497 tokens, 32.3% exceeded the 32,768 training window,
+# and no window can contain a triple whose parts are further apart than the window itself.
+
+def _cfg():
+    class T:
+        def token_to_id(self, t):
+            return {"<|fim_prefix|>": 90001, "<|fim_suffix|>": 90002,
+                    "<|fim_middle|>": 90003}[t]
+    return FIMConfig(T())
+
+
+def test_every_fim_example_fits_inside_one_training_window():
+    """THE property the old code violated. Each transformed unit must be short enough
+    that a block_size window can hold the prefix, the suffix and the middle together."""
+    from microlab.data.fim import fim_document
+    cfg, rng = _cfg(), np.random.default_rng(0)
+    doc = list(range(1, 60_000))                      # a repo-packed document
+    span, block = 4096, 32768
+    out, n = fim_document(doc, cfg, rng, rate=1.0, span=span)
+    assert n == math.ceil(len(doc) / span)
+    starts = [i for i, t in enumerate(out) if t == cfg.prefix]
+    ends = [i for i, t in enumerate(out) if t == cfg.middle]
+    assert len(starts) == len(ends) == n
+    for s, _m in zip(starts, ends, strict=True):
+        # the middle span runs to the next prefix sentinel (or the end)
+        nxt = next((x for x in starts if x > s), len(out))
+        assert nxt - s <= block, f"FIM example spans {nxt - s} tokens, exceeds {block}"
+
+
+def test_chunk_fim_round_trips_to_the_original_document():
+    from microlab.data.fim import fim_document
+    cfg, rng = _cfg(), np.random.default_rng(7)
+    doc = list(range(1, 5000))
+    out, n = fim_document(doc, cfg, rng, rate=1.0, span=512)
+    rebuilt = []
+    starts = [i for i, t in enumerate(out) if t == cfg.prefix] + [len(out)]
+    for s, e in zip(starts[:-1], starts[1:], strict=True):
+        rebuilt.extend(defim(out[s:e], cfg))
+    assert rebuilt == doc, "chunked FIM must not lose or reorder tokens"
+    assert n == math.ceil(len(doc) / 512)
+
+
+def test_rate_zero_leaves_the_document_untouched():
+    from microlab.data.fim import fim_document
+    cfg, rng = _cfg(), np.random.default_rng(1)
+    doc = list(range(1, 900))
+    out, n = fim_document(doc, cfg, rng, rate=0.0, span=128)
+    assert out == doc and n == 0
+
+
+def test_tiny_trailing_chunk_is_not_counted_as_transformed():
+    """A 2-token tail cannot be split three ways; counting it would overstate the rate."""
+    from microlab.data.fim import fim_document
+    cfg, rng = _cfg(), np.random.default_rng(3)
+    out, n = fim_document(list(range(1, 11)), cfg, rng, rate=1.0, span=4)
+    assert n == 2, f"expected 2 splittable chunks of 4, got {n}"
+    assert len([t for t in out if t == cfg.prefix]) == 2
+
+
+def test_a_span_that_cannot_be_split_is_an_error_not_a_silent_passthrough():
+    from microlab.data.fim import fim_document
+    cfg, rng = _cfg(), np.random.default_rng(0)
+    with pytest.raises(ValueError, match="three ways"):
+        fim_document([1, 2, 3, 4], cfg, rng, rate=1.0, span=2)

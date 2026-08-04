@@ -38,7 +38,7 @@ from tokenizers import Tokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from microlab.data.fim import FIMConfig, fim_transform, split_documents  # noqa: E402
+from microlab.data.fim import FIMConfig, fim_document, split_documents  # noqa: E402
 
 # name -> (directory, share of the mix, is_code)
 # Shares reflect the plan's 65.5/15/10/5/2.5/2 with one measured correction: CommitPackFT
@@ -138,8 +138,20 @@ def main() -> int:
     ap.add_argument("--val-tokens", type=int, default=50_000_000)
     ap.add_argument("--shard-tokens", type=int, default=200_000_000)
     ap.add_argument("--fim-rate", type=float, default=0.5)
+    ap.add_argument("--fim-span", type=int, default=4096,
+                    help="FIM is applied to chunks of at most this many tokens. Must stay "
+                         "well under the training block_size or the prefix/suffix/middle "
+                         "triple cannot land inside one window: at document level, 73.8%% "
+                         "of FIM tokens were in documents longer than the 32,768 window "
+                         "and taught nothing.")
     ap.add_argument("--seed", type=int, default=1337)
-    ap.add_argument("--split", default="train")
+    ap.add_argument("--split", default="train",
+                    help="source split the TRAIN half is drawn from")
+    ap.add_argument("--val-split", default="val",
+                    help="source split the VAL half is drawn from. Must differ from "
+                         "--split: drawing both halves from the source TRAIN pool is "
+                         "what put 1,423 files of one repository into val and the other "
+                         "3,646 files of the SAME repository into train.")
     a = ap.parse_args()
 
     out = Path(a.out)
@@ -169,6 +181,33 @@ def main() -> int:
                 f"{name}: needs {need:,} tokens for a {share:.1%} share of "
                 f"{a.target_tokens:,}, has {r.total:,} "
                 f"({r.total / need:.2f}x). Lower --target-tokens, or rebuild the slice.")
+    # The VAL half gets the SAME treatment, from a DIFFERENT source split. Both were
+    # previously drawn from the train pool and val was never gated at all, which is how it
+    # ended up as 100% code — one geological-mesh repository whose other half was in train
+    # — while every count and manifest still checked out.
+    if a.val_split == a.split:
+        problems.append(
+            f"--val-split ({a.val_split!r}) must differ from --split ({a.split!r}); "
+            f"drawing both halves from one pool puts sibling files of the same document "
+            f"on both sides of the split")
+    print(f"\n{'slice':>10} {'share':>7} {'val needed':>12} {'val avail':>14}")
+    val_readers = {}
+    for name, (d, share, _is_code) in SLICES.items():
+        p = Path(d)
+        need = int(a.val_tokens * share)
+        if not (p / f"{a.val_split}-manifest.json").exists():
+            problems.append(f"{name}: no {a.val_split}-manifest.json in {d}")
+            print(f"{name:>10} {share:>6.1%} {need:>12,} {'MISSING':>14}")
+            continue
+        r = SliceReader(name, p, a.val_split, eot)
+        val_readers[name] = r
+        flag = "" if r.total >= need else "  <-- SHORT"
+        print(f"{name:>10} {share:>6.1%} {need:>12,} {r.total:>14,}{flag}")
+        if r.total < need:
+            problems.append(
+                f"{name}: val needs {need:,} tokens for a {share:.1%} share of "
+                f"--val-tokens {a.val_tokens:,}, has {r.total:,}. Lower --val-tokens to "
+                f"at most {int(r.total / share):,}.")
     if problems:
         raise SystemExit("\nrefusing to build a mis-proportioned corpus:\n  " +
                          "\n  ".join(problems))
@@ -183,6 +222,11 @@ def main() -> int:
     if done:
         for n, st in done["readers"].items():
             readers[n].restore(st)
+        # Without this a resumed build rewinds the val readers to the top and re-emits
+        # documents already written into val-*.bin.
+        for n, st in done.get("val_readers", {}).items():
+            if n in val_readers:
+                val_readers[n].restore(st)
         print(f"\nresuming at {done['written']:,} tokens, shard {done['shard']}")
     rng = np.random.default_rng(a.seed if not done else done["rng_seed"])
     written = done["written"] if done else 0
@@ -214,29 +258,42 @@ def main() -> int:
         buf[sp] = []
         return idx + 1
 
-    exhausted: set[str] = set()
+    # Keyed by (split, slice): the two halves read DIFFERENT source splits, so a slice
+    # running dry in val says nothing about the train pool and must not disable it there.
+    exhausted: set[tuple[str, str]] = set()
     while written < a.target_tokens:
-        live = [i for i, n in enumerate(names) if n not in exhausted]
-        if not live:
-            raise SystemExit(f"every slice exhausted at {written:,}/{a.target_tokens:,}")
         # Pick by TOKEN DEFICIT, not by a weighted document draw. Document sizes differ by
         # more than an order of magnitude across slices — repo-packed code averages ~38k
         # tokens per document, web ~1k — so drawing documents in proportion to the target
         # share puts code at ~100% of the corpus instead of 66%. Measured, not theorised:
         # the first build of this script did exactly that. Choosing whichever slice is
         # furthest below its target share converges regardless of document size.
-        total = max(written, 1)
-        pick = names[max(live, key=lambda i: weights[i] * total - per_slice[names[i]])]
-        doc = readers[pick].next_doc()
+        # WHICH SPLIT FIRST, then the deficit for THAT split. The deficit used to be
+        # computed from the train counters while the val half was being filled: `written`
+        # is 0 throughout that phase, so `total` was 1 and every slice's deficit collapsed
+        # to its raw weight — code, permanently the largest, won every single draw. The
+        # result was a val set that was 100% code and passed every count-based check.
+        sp = "val" if val_written < a.val_tokens else "train"
+        src = val_readers if sp == "val" else readers
+        acc = per_slice_val if sp == "val" else per_slice
+        total = max(val_written if sp == "val" else written, 1)
+        live = [i for i, n in enumerate(names) if n in src and (sp, n) not in exhausted]
+        if not live:
+            raise SystemExit(
+                f"every slice exhausted while filling {sp} at {written:,} train / "
+                f"{val_written:,} val tokens")
+        pick = names[max(live, key=lambda i: weights[i] * total - acc[names[i]])]
+        doc = src[pick].next_doc()
         if doc is None:
-            exhausted.add(pick)
-            print(f"  slice {pick!r} exhausted at {written:,} tokens", flush=True)
+            exhausted.add((sp, pick))
+            print(f"  slice {pick!r} exhausted in {sp} at {written:,} tokens", flush=True)
             continue
         ids = doc.tolist()
-        if is_code[pick] and rng.random() < a.fim_rate:
-            ids = fim_transform(ids, fim, rng)
-            fim_applied += 1
-        sp = "val" if val_written < a.val_tokens else "train"
+        if is_code[pick]:
+            # Chunked, NOT whole-document. A repo-packed document is far longer than the
+            # training window, so a document-level triple can never be seen whole.
+            ids, nf = fim_document(ids, fim, rng, a.fim_rate, a.fim_span)
+            fim_applied += nf
         buf[sp].extend(ids)
         buf[sp].append(eot)
         n = len(ids) + 1
@@ -255,7 +312,8 @@ def main() -> int:
                     "written": written, "val_written": val_written, "shard": shard_i,
                     "per_slice": per_slice, "per_slice_val": per_slice_val,
                     "fim_applied": fim_applied, "rng_seed": a.seed,
-                    "readers": {n: r.state() for n, r in readers.items()}}))
+                    "readers": {n: r.state() for n, r in readers.items()},
+                    "val_readers": {n: r.state() for n, r in val_readers.items()}}))
                 pct = written / a.target_tokens * 100
                 comp = "  ".join(f"{n}:{per_slice[n]/max(written,1):.1%}" for n in names)
                 print(f"  {written:,}/{a.target_tokens:,} ({pct:.1f}%) | {comp}", flush=True)
@@ -292,7 +350,8 @@ def main() -> int:
         "written": written, "val_written": val_written, "shard": shard_i,
         "per_slice": per_slice, "per_slice_val": per_slice_val,
         "fim_applied": fim_applied, "rng_seed": a.seed,
-        "readers": {n: r.state() for n, r in readers.items()}}))
+        "readers": {n: r.state() for n, r in readers.items()},
+        "val_readers": {n: r.state() for n, r in val_readers.items()}}))
     print(f"\ndone: {written:,} train + {val_written:,} val tokens -> {out}")
     for n in names:
         print(f"  {n:>10} {per_slice[n]:>14,}  {per_slice[n]/written:6.2%} "

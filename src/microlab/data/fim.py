@@ -60,6 +60,42 @@ def fim_transform(doc: list[int] | np.ndarray, cfg: FIMConfig,
     return ([cfg.prefix] + prefix + [cfg.suffix] + suffix + [cfg.middle] + middle)
 
 
+def fim_document(doc: list[int] | np.ndarray, cfg: FIMConfig, rng: np.random.Generator,
+                 rate: float, span: int) -> tuple[list[int], int]:
+    """Apply FIM to CHUNKS of a document rather than to the document as a whole.
+
+    Returns (tokens, number of chunks transformed).
+
+    Training draws a random `block_size` window from inside a shard, so a FIM example is
+    learnable only if the whole triple — <pre> prefix <suf> suffix <mid> middle — lands
+    inside ONE window. This corpus is repo-packed: the median FIM document was 19,497
+    tokens and 32.3% of them exceeded the 32,768 window, which put **73.8% of all FIM
+    tokens** in documents no window could ever contain whole. For roughly a quarter of the
+    corpus the model saw orphaned fragments: a prefix sentinel that never resolves, or a
+    middle span with nothing to condition on.
+
+    DeepSeek-Coder's 0.5 PSM rate is a FILE-level number; applying it to a concatenation
+    of files is a different experiment. Keep `span` well under block_size so a window holds
+    several complete examples wherever it starts.
+    """
+    d = list(doc)
+    if span < 4:
+        raise ValueError(f"fim span {span} cannot be split three ways")
+    out: list[int] = []
+    n = 0
+    for i in range(0, len(d), span):
+        chunk = d[i:i + span]
+        # Chunks shorter than 4 tokens have no meaningful three-way split; fim_transform
+        # would return them unchanged, so counting them as transformed would overstate the
+        # FIM rate in the composition record.
+        if len(chunk) >= 4 and rng.random() < rate:
+            out.extend(fim_transform(chunk, cfg, rng))
+            n += 1
+        else:
+            out.extend(chunk)
+    return out, n
+
+
 def defim(doc: list[int], cfg: FIMConfig) -> list[int]:
     """Recover the original token order from a PSM document. Round-trip oracle."""
     if not doc or doc[0] != cfg.prefix:
