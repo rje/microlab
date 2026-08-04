@@ -206,7 +206,13 @@ def provision(a, key, creds) -> tuple[int, float]:
     if not a.on_demand:
         # Sending a price is what makes the contract INTERRUPTIBLE. Omitting it rents
         # on-demand, which is the whole mechanism behind --on-demand.
-        body["price"] = round(bid * 1.02, 4)   # a hair above the floor, under the cap
+        #
+        # Bid floor+25%, capped at --max-price — NOT floor+2%. A hair-above-floor bid is
+        # trivially sniped: five preemptions across two hosts in one day, several during
+        # SETUP, each burning $0.40-0.75 of dead setup and a market slot. Paying up to
+        # 25% over floor while running is cheaper than repeatedly paying full price for
+        # boxes that die before their first step. Never exceeds the user-approved cap.
+        body["price"] = round(min(bid * 1.25, a.max_price * a.gpus), 4)
     r = vast.call("PUT", f"/asks/{pick['id']}/", body, key=key)
     inst = r.get("new_contract")
     if not inst:

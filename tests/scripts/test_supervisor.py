@@ -222,7 +222,7 @@ def test_on_demand_omits_the_price_field():
     src = (SCRIPTS / "vast_supervisor.py").read_text()
     assert 'if not a.on_demand:' in src
     i = src.index("if not a.on_demand:")
-    assert 'body["price"]' in src[i:i + 400], "price must be set only in the bid branch"
+    assert 'body["price"]' in src[i:i + 1100], "price must be set only in the bid branch"
     assert '"price": round(' not in src, "price must not be unconditional in the body"
 
 
@@ -409,3 +409,11 @@ def test_a_resumed_episode_still_gets_its_setup_grace():
     i = src.index("inst, bid = provision(a, key, creds)")
     assert "ep_start_step = st[\"last_step\"]" in src[i:i + 1600], \
         "each provision must record where its episode began"
+
+
+def test_bids_are_sticky_but_never_exceed_the_cap():
+    """floor+2% was sniped five times in a day, several mid-setup — dead spend each time.
+    The bid is now floor+25%, and the cap still binds it absolutely."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert "min(bid * 1.25, a.max_price * a.gpus)" in src
+    assert "round(bid * 1.02, 4)" not in src, "the snipeable bid must be gone"
