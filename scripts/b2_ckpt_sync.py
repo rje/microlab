@@ -93,7 +93,11 @@ def main() -> int:
             # multi-day paid run that is the difference between diagnosing a problem and
             # re-renting to reproduce it. Shipped every pass, overwriting, so the newest
             # tail is always one `b2_sync ls` away.
-            for path in (a.log or []):
+            # TensorBoard event files ride along with the logs. Val loss is written ONLY
+            # to TB during training, so before this, every eval milestone died with the
+            # box on preemption — the run's only quality signal was unrecoverable.
+            events = sorted(run.glob("events.out.tfevents.*"))
+            for path in [*(a.log or []), *map(str, events)]:
                 p = Path(path)
                 if not p.exists():
                     continue

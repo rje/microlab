@@ -483,6 +483,12 @@ class Trainer:
             step = self.step  # already incremented by train_step
             if cfg.eval_interval > 0 and step % cfg.eval_interval == 0:
                 val_loss = self.estimate_val()
+                if val_loss is not None and dist_util.is_main():
+                    # In the SHIPPED log on purpose: this is the run's only quality
+                    # signal, and TB alone kept it on the box — invisible from outside
+                    # and lost on preemption.
+                    print(f"val step {step} loss {val_loss:.4f} "
+                          f"ppl {math.exp(val_loss):.2f}", flush=True)
                 if writer is not None and val_loss is not None:
                     writer.add_scalar("val/loss", val_loss, step)
                     writer.add_scalar("val/perplexity", math.exp(val_loss), step)
