@@ -131,10 +131,16 @@ class MuonAdamW:
     it is re-stamped after load_state_dict — the current config wins over the checkpoint.
     """
 
-    def __init__(self, muon: Muon, adamw: torch.optim.AdamW, muon_lr_scale: float):
+    def __init__(self, muon: Muon, adamw: torch.optim.AdamW, muon_lr_scale: float,
+                 adamw_flat: list[nn.Parameter] | None = None):
         self.muon = muon
         self.adamw = adamw
         self.muon_lr_scale = muon_lr_scale
+        # The AdamW params in build_muon_param_groups' ORIGINAL flat order — the order a
+        # pre-split (single-group) checkpoint indexed its optimizer state by. Kept so such
+        # a checkpoint can be migrated into the current group structure by parameter
+        # identity instead of being rejected.
+        self._adamw_flat = list(adamw_flat) if adamw_flat is not None else None
         self._stamp_lr_scales()
 
     def _stamp_lr_scales(self) -> None:
@@ -165,8 +171,49 @@ class MuonAdamW:
                 f"{sorted(state_dict)} — was this run trained with a different optimizer?"
             )
         self.muon.load_state_dict(state_dict["muon"])
-        self.adamw.load_state_dict(state_dict["adamw"])
+        self.adamw.load_state_dict(self._migrate_adamw(state_dict["adamw"]))
         self._stamp_lr_scales()
+
+    def _migrate_adamw(self, sd: dict) -> dict:
+        """Regroup a pre-split AdamW state dict to the current group structure.
+
+        The decay-routing fix split AdamW's single param group into decay/no-decay, which
+        made every checkpoint saved before it unloadable: torch's load_state_dict requires
+        matching group counts, so a healthy 9.2 GB ckpt_50 raised "different number of
+        parameter groups", got misclassified as CORRUPT by the resume fallback, and a paid
+        4x shakedown died without training a step. The parameters themselves are
+        unchanged — only their grouping moved — so the state can be re-indexed by
+        parameter identity: a single-group checkpoint lists params in exactly the flat
+        order build_muon_param_groups produced, which is `self._adamw_flat`.
+
+        Only the 1 -> N migration is supported; anything else is a genuinely different
+        optimizer and must fail loudly rather than be guessed at.
+        """
+        cur = self.adamw.param_groups
+        if len(sd.get("param_groups", [])) == len(cur):
+            return sd
+        if len(sd["param_groups"]) != 1 or self._adamw_flat is None:
+            raise ValueError(
+                f"cannot migrate an AdamW state dict with {len(sd['param_groups'])} "
+                f"param groups into {len(cur)} — unknown provenance")
+        old_group = sd["param_groups"][0]
+        flat_index = {id(p): old_group["params"][i]
+                      for i, p in enumerate(self._adamw_flat)}
+        new_groups, new_state, next_key = [], {}, 0
+        for g in cur:
+            keys = []
+            for p in g["params"]:
+                old_key = flat_index[id(p)]
+                if old_key in sd["state"]:
+                    new_state[next_key] = sd["state"][old_key]
+                keys.append(next_key)
+                next_key += 1
+            # Hyperparameters follow the CURRENT group (weight_decay differs per group
+            # now — that is the whole point); step counts and moments live in `state`.
+            ng = {k: v for k, v in g.items() if k != "params"}
+            ng["params"] = keys
+            new_groups.append(ng)
+        return {"state": new_state, "param_groups": new_groups}
 
 
 def build_muon_optimizer(model: nn.Module, *, lr: float, muon_lr: float,
@@ -190,4 +237,4 @@ def build_muon_optimizer(model: nn.Module, *, lr: float, muon_lr: float,
     groups = [{"params": ps, "weight_decay": wd}
               for ps, wd in ((decay, weight_decay), (no_decay, 0.0)) if ps]
     adamw = torch.optim.AdamW(groups, lr=lr, betas=betas, fused=fused)
-    return MuonAdamW(muon, adamw, muon_lr_scale=muon_lr / lr)
+    return MuonAdamW(muon, adamw, muon_lr_scale=muon_lr / lr, adamw_flat=adamw_params)

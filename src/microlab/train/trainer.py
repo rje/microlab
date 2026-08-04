@@ -60,6 +60,12 @@ def get_lr(step: int, cfg: RunConfig) -> float:
     return cfg.min_lr + coeff * (cfg.lr - cfg.min_lr)
 
 
+class CorruptCheckpoint(RuntimeError):
+    """The checkpoint FILE is unreadable (truncated / bad bytes). Distinct from a state
+    dict that reads fine but does not fit the current model or optimizer — that is
+    version skew, and the resume fallback must not set those files aside as corrupt."""
+
+
 class TensorData:
     """Self-contained data adapter wrapping a 1-D LongTensor. Exposes the same
     `get_batch` contract as the real ShardDataset so tests need no data files."""
@@ -395,7 +401,16 @@ class Trainer:
                 stale.unlink(missing_ok=True)
 
     def load_checkpoint(self, path: str) -> None:
-        ckpt = torch.load(path, map_location=self.device, weights_only=False)
+        # Two DIFFERENT failures, and conflating them destroyed a paid run: a file that
+        # cannot DESERIALIZE is corrupt (truncated upload — skip it, try an older one),
+        # but a file that deserializes and then does not FIT the model/optimizer is
+        # version skew between checkpoint and code. The resume fallback renamed a healthy
+        # 9.2 GB checkpoint to .corrupt over an optimizer-group-count change and left the
+        # box with nothing to resume from.
+        try:
+            ckpt = torch.load(path, map_location=self.device, weights_only=False)
+        except Exception as e:
+            raise CorruptCheckpoint(f"{path}: {type(e).__name__}: {e}") from e
         self.raw_model.load_state_dict(ckpt["model"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
         # lr_scale is config-derived, not learned state. MuonAdamW re-stamps its groups in

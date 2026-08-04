@@ -26,7 +26,7 @@ import torch
 from microlab.data.shard_dataset import ShardDataset
 from microlab.tokenizer.fast import FastTokenizer
 from microlab.train import distributed as dist_util
-from microlab.train.trainer import Trainer
+from microlab.train.trainer import CorruptCheckpoint, Trainer
 
 
 def warm_start(trainer: Trainer, init_ckpt: str) -> None:
@@ -176,14 +176,20 @@ def main() -> None:
         for c in reversed(ckpts):
             try:
                 trainer.load_checkpoint(str(c))
-            except Exception as e:  # noqa: BLE001 — any unloadable checkpoint, same policy
+            # ONLY unreadable files are skipped. A checkpoint that deserializes but does
+            # not fit the model/optimizer is version skew between checkpoint and code,
+            # and must surface as the error it is: this fallback once renamed a healthy
+            # 9.2 GB checkpoint to .corrupt over an optimizer group-count change, then
+            # reported "every local checkpoint failed" on a box that had nothing wrong
+            # with its data. Skew errors propagate and fail the run with the real cause.
+            except CorruptCheckpoint as e:
                 # Rank 0 renames; the other ranks hit the same failure and just move on.
                 # Every rank racing the same rename would crash the losers on
                 # FileNotFoundError — the prune-unlink bug all over again.
                 if dist_util.is_main():
                     bad = c.with_suffix(".pt.corrupt")
                     c.rename(bad)
-                    print(f"CORRUPT checkpoint {c.name}: {type(e).__name__}: {e} — "
+                    print(f"CORRUPT checkpoint {c.name}: {e} — "
                           f"renamed to {bad.name}, trying the previous one", flush=True)
                 continue
             print(f"resuming from {c} (latest loadable of {len(ckpts)} checkpoints)")

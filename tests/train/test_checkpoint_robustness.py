@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import torch
 
 from microlab.train.config import RunConfig
@@ -112,3 +113,89 @@ def test_prune_is_rank_zero_only():
     assert "is_main" in body, "_prune_checkpoints must return early on non-main ranks"
     assert "missing_ok=True" in src, \
         "unlink must tolerate a file the B2 syncer already pruned"
+
+
+def test_a_pre_split_optimizer_checkpoint_still_loads():
+    """THE shakedown crash. The decay-routing fix split AdamW into decay/no-decay
+    groups, which made every checkpoint saved before it raise "different number of
+    parameter groups" — and the resume fallback then set a healthy 9.2 GB checkpoint
+    aside as corrupt. Old checkpoints must migrate by parameter identity."""
+    from microlab.train.muon import Muon, MuonAdamW, build_muon_param_groups
+
+    _t = torch
+
+    class M(_t.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.transformer = _t.nn.ModuleDict(dict(
+                wte=_t.nn.Embedding(64, 16),
+                h=_t.nn.ModuleList([_t.nn.ModuleDict(dict(
+                    w=_t.nn.Linear(16, 16, bias=False))) for _ in range(2)]),
+                ln=_t.nn.LayerNorm(16)))
+            self.lm_head = _t.nn.Linear(16, 64, bias=False)
+            self.lm_head.weight = self.transformer.wte.weight
+
+    def old_style(model):
+        mu, ad = build_muon_param_groups(model)
+        return MuonAdamW(Muon(mu, lr=0.02),
+                         _t.optim.AdamW(ad, lr=3e-4, weight_decay=0.1),
+                         muon_lr_scale=0.02 / 3e-4, adamw_flat=ad), ad
+
+    def new_style(model):
+        from microlab.train.muon import build_muon_optimizer
+        return build_muon_optimizer(model, lr=3e-4, muon_lr=0.02, betas=(0.9, 0.95),
+                                    weight_decay=0.1, fused=False)
+
+    m = M()
+    old_opt, flat = old_style(m)
+    # take real steps so there is real state (exp_avg / step counters) to migrate
+    for _ in range(3):
+        loss = m.lm_head(m.transformer.ln(m.transformer.wte(
+            _t.randint(0, 64, (4,))))).sum()
+        old_opt.zero_grad()
+        loss.backward()
+        old_opt.step()
+    sd = old_opt.state_dict()
+    assert len(sd["adamw"]["param_groups"]) == 1, "precondition: pre-split shape"
+
+    new_opt = new_style(m)
+    new_opt.load_state_dict(sd)                      # <- raised before the migration
+    # state followed the PARAMETERS, not the group indices
+    norm_gain = m.transformer.ln.weight
+    # per-param check: exp_avg shape matches its parameter everywhere
+    for g in new_opt.adamw.param_groups:
+        for p in g["params"]:
+            st = new_opt.adamw.state.get(p)
+            assert st, f"state lost for param of shape {tuple(p.shape)}"
+            assert st["exp_avg"].shape == p.shape
+    # and decay routing reflects the NEW groups, not the old single group
+    for g in new_opt.adamw.param_groups:
+        if any(p is norm_gain for p in g["params"]):
+            assert g["weight_decay"] == 0.0
+
+
+def test_version_skew_is_not_classified_as_corruption(tmp_path):
+    """A checkpoint that DESERIALIZES but does not fit the current optimizer must raise
+    the real error, not be renamed .corrupt: the file is fine, the code changed."""
+    from microlab.train.trainer import CorruptCheckpoint
+    t = Trainer(_cfg(tmp_path), _data())
+    p = tmp_path / "run" / "ckpt_1.pt"
+    t.save_checkpoint(str(p))
+    ck = torch.load(p, weights_only=False)
+    ck["optimizer"]["param_groups"] = []             # structurally wrong, bytes fine
+    torch.save(ck, p)
+    fresh = Trainer(_cfg(tmp_path), _data())
+    with pytest.raises(Exception) as ei:
+        fresh.load_checkpoint(str(p))
+    assert not isinstance(ei.value, CorruptCheckpoint), \
+        "a fitting error must not carry the corrupt-file classification"
+
+
+def test_unreadable_bytes_are_classified_as_corruption(tmp_path):
+    from microlab.train.trainer import CorruptCheckpoint
+    t = Trainer(_cfg(tmp_path), _data())
+    p = tmp_path / "run" / "ckpt_1.pt"
+    t.save_checkpoint(str(p))
+    p.write_bytes(p.read_bytes()[:4000])             # truncate: undeserializable
+    with pytest.raises(CorruptCheckpoint):
+        Trainer(_cfg(tmp_path), _data()).load_checkpoint(str(p))
