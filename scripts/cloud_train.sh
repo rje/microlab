@@ -12,7 +12,8 @@
 
 set -uo pipefail
 WORK=${WORK:-/workspace}
-CORPUS=${CORPUS:-$WORK/mix-v1}
+SHARD_PREFIX=${SHARD_PREFIX:-mix-v1}
+CORPUS=${CORPUS:-$WORK/$SHARD_PREFIX}
 RUNDIR=${RUNDIR:-$WORK/run}
 NGPU=${NGPU:-1}
 CONFIG=${CONFIG:-configs/coder-1b.py}
@@ -85,11 +86,11 @@ s3 = boto3.client('s3', endpoint_url=os.environ['B2_CORPUS_ENDPOINT'],
     config=Config(retries={'max_attempts':10,'mode':'adaptive'}))
 P='$CORPUS'; os.makedirs(P, exist_ok=True)
 for f in ('train-manifest.json','val-manifest.json','tokenizer.json'):
-    s3.download_file('$BUCKET_IN', f'mix-v1/{f}', f'{P}/{f}')
+    s3.download_file('$BUCKET_IN', f'$SHARD_PREFIX/{f}', f'{P}/{f}')
 print('manifests + tokenizer ready; shards stream during training')
 PY
 export MICROLAB_SHARD_BUCKET="$BUCKET_IN"
-export MICROLAB_SHARD_PREFIX=mix-v1
+export MICROLAB_SHARD_PREFIX="$SHARD_PREFIX"
 
 say "resume: newest checkpoint from B2, if any"
 mkdir -p "$RUNDIR"
@@ -124,7 +125,27 @@ SYNC_PID=$!
 echo "syncer pid $SYNC_PID"
 
 say "train: $NGPU GPU(s)"
-sed -i "s#data_dir=\"data/shards/mix-v1\"#data_dir=\"$CORPUS\"#; s#out_dir=\"runs/coder-1b\"#out_dir=\"$RUNDIR\"#" "$CONFIG"
+# Rewrite by PATTERN, then PROVE the rewrite took. sed exits 0 on a no-match, and an
+# unmatched literal here once meant the trainer wrote to a path the checkpoint syncer was
+# not watching — a full rental of nothing durable, invisible to the watchdog because the
+# log keeps shipping. The assert imports the config the same way the trainer does.
+sed -i "s#data_dir=\"data/shards/[^\"]*\"#data_dir=\"$CORPUS\"#; s#out_dir=\"runs/[^\"]*\"#out_dir=\"$RUNDIR\"#" "$CONFIG"
+python - <<PYCHK
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location("run_config", "$CONFIG")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+problems = []
+if os.path.abspath(m.config.data_dir) != os.path.abspath("$CORPUS"):
+    problems.append(f"data_dir={m.config.data_dir!r} != $CORPUS")
+if os.path.abspath(m.config.out_dir) != os.path.abspath("$RUNDIR"):
+    problems.append(f"out_dir={m.config.out_dir!r} != $RUNDIR")
+if problems:
+    print("FATAL: config rewrite did not take:", "; ".join(problems))
+    print("MICROLAB_TRAIN_FAILED rc=97")
+    sys.exit(97)
+print("config paths verified:", m.config.data_dir, m.config.out_dir)
+PYCHK
+[ $? -eq 0 ] || exit 97
 torchrun --nproc_per_node="$NGPU" scripts/pretrain.py "$CONFIG"
 RC=$?
 # EXPLICIT failure sentinel. The supervisor must not have to infer a crash from log text:

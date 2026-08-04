@@ -199,7 +199,8 @@ def provision(a, key, creds) -> tuple[int, float]:
     bid, pick = bids[0]
     env = dict(creds)
     env.update(REPO=a.repo, NGPU=str(a.gpus), CONFIG=a.config,
-               RUN_PREFIX=a.run_prefix, BUCKET_IN=a.bucket_in, BUCKET_OUT=a.bucket_out)
+               RUN_PREFIX=a.run_prefix, BUCKET_IN=a.bucket_in, BUCKET_OUT=a.bucket_out,
+               SHARD_PREFIX=a.shard_prefix)
     body = {"client_id": "me", "image": a.image, "disk": a.min_disk,
             "onstart": onstart(a), "env": env, "runtype": "ssh"}
     if not a.on_demand:
@@ -254,6 +255,11 @@ def main() -> int:
     ap.add_argument("--geo", default=None,
                     help="substring the offer's geolocation must contain, e.g. 'US'")
     ap.add_argument("--bucket-in", default="microlab-corpus")
+    ap.add_argument("--shard-prefix", default="mix-v1",
+                    help="corpus prefix inside --bucket-in. The instance streams "
+                         "shards from here AND the config data_dir is rewritten to "
+                         "its local mirror, so one flag moves the whole run to a "
+                         "new corpus build.")
     ap.add_argument("--bucket-out", default="microlab-checkpoints")
     ap.add_argument("--stall-minutes", type=int, default=90,
                     help="no new checkpoint in this long AFTER the first one -> replace")

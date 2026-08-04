@@ -91,13 +91,27 @@ def fim_score(model, tokens: np.ndarray, cfg: FIMConfig, eot: int, block: int,
     Compared against the same documents' loss when read left-to-right, so the number says
     whether the FIM format was learned rather than merely how hard the code is.
     """
-    docs = [d for d in split_documents(tokens, eot)
-            if len(d) > 32 and d[0] == cfg.prefix][:n_docs]
-    if not docs:
-        return {"n": 0, "note": "no FIM documents in this val split"}
+    # FIM is applied per CHUNK, so examples are EMBEDDED in documents rather than being
+    # documents (the old `d[0] == cfg.prefix` filter would find zero examples on a
+    # chunk-FIM corpus and report nothing). An example runs from a prefix sentinel to the
+    # next prefix sentinel or end-of-document; by construction (fim_document, span 4096)
+    # it fits the eval block comfortably.
+    examples: list[list[int]] = []
+    for d in split_documents(tokens, eot):
+        ids = d.tolist()
+        starts = [i for i, t in enumerate(ids) if t == cfg.prefix]
+        for s, e in zip(starts, [*starts[1:], len(ids)], strict=False):
+            if e - s > 32:
+                examples.append(ids[s:e])
+            if len(examples) >= n_docs:
+                break
+        if len(examples) >= n_docs:
+            break
+    if not examples:
+        return {"n": 0, "note": "no FIM examples in this val split"}
     mid_tot, mid_n = 0.0, 0
-    for d in docs:
-        ids = d.tolist()[:block]
+    for ids in examples:
+        ids = ids[:block]
         try:
             m = ids.index(cfg.middle)
         except ValueError:
@@ -111,9 +125,13 @@ def fim_score(model, tokens: np.ndarray, cfg: FIMConfig, eot: int, block: int,
             logits[0].float(), y[0], reduction="none")
         mid_tot += float(lp[m:].mean())     # positions after <|fim_middle|>
         mid_n += 1
+    # None, not 0.0, when nothing was scorable: 0.0 is a PERFECT score, and this metric
+    # once printed it while structurally blind (6 of 64 documents scorable at the default
+    # block; an unluckier sample gives zero). A missing measurement must read as missing,
+    # and n is in the dict so the reader can judge how thin the evidence is.
     return {"n": mid_n,
-            "middle_loss": mid_tot / max(mid_n, 1),
-            "middle_ppl": math.exp(mid_tot / max(mid_n, 1)) if mid_n else None}
+            "middle_loss": mid_tot / mid_n if mid_n else None,
+            "middle_ppl": math.exp(mid_tot / mid_n) if mid_n else None}
 
 
 PY_STUBS = [

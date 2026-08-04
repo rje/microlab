@@ -345,3 +345,29 @@ def test_renting_is_gated_on_the_corpus_assertions():
         "the gate must actually run the corpus assertions"
     assert src.index("skip_corpus_check") < src.index("inst = bid = None"), \
         "the gate must run BEFORE the provisioning loop"
+
+
+def test_the_shard_prefix_reaches_the_instance():
+    """One flag must move the whole run to a new corpus build. mix-v1 was hardcoded in
+    three places in cloud_train.sh; a run pointed at mix-v2 would have silently streamed
+    the OLD corpus while the config claimed the new one."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert "SHARD_PREFIX=a.shard_prefix" in src
+    sh = (SCRIPTS / "cloud_train.sh").read_text()
+    assert "SHARD_PREFIX=${SHARD_PREFIX:-mix-v1}" in sh
+    assert "mix-v1/{f}" not in sh, "manifest fetch must use $SHARD_PREFIX, not a literal"
+    assert 'export MICROLAB_SHARD_PREFIX="$SHARD_PREFIX"' in sh
+
+
+def test_the_config_rewrite_is_verified_not_assumed():
+    """sed exits 0 on a no-match. An unmatched literal meant the trainer wrote to a path
+    the syncer was not watching — a full rental producing nothing durable, invisible to
+    the watchdog because the log keeps shipping. The rewrite must be proven by importing
+    the config exactly as the trainer will."""
+    sh = (SCRIPTS / "cloud_train.sh").read_text()
+    assert "config rewrite did not take" in sh
+    assert "MICROLAB_TRAIN_FAILED rc=97" in sh, \
+        "a failed rewrite must emit the sentinel so the supervisor stops the run"
+    i = sh.index("config rewrite did not take")
+    assert "importlib.util" in sh[i - 1200:i], \
+        "verification must import the config, not grep it"
