@@ -173,9 +173,21 @@ def build_muon_optimizer(model: nn.Module, *, lr: float, muon_lr: float,
                          betas: tuple[float, float], weight_decay: float,
                          fused: bool) -> MuonAdamW:
     """The hybrid optimizer for a VariantGPT run: Muon on the transformer-block matrices
-    at muon_lr, AdamW on the rest at lr (the repo's usual AdamW settings)."""
+    at muon_lr, AdamW on the rest at lr (the repo's usual AdamW settings).
+
+    Decay routing was silently wrong for a config generation and found only by review:
+    Muon was constructed WITHOUT weight_decay, so ~92% of parameters ran at the class
+    default 0.01 while the config declared 0.1 — and Moonlight's headline Muon-at-scale
+    result is precisely that Muon needs real decoupled decay to hold the AdamW trajectory
+    over long horizons. Meanwhile AdamW applied the full 0.1 to its whole group, which is
+    mostly 1-D tensors: every RMSNorm gain decayed toward zero with nothing pushing back,
+    against universal practice (nanoGPT, Llama, OLMo all exempt 1-D params).
+    """
     muon_params, adamw_params = build_muon_param_groups(model)
-    muon = Muon(muon_params, lr=muon_lr)
-    adamw = torch.optim.AdamW(adamw_params, lr=lr, betas=betas,
-                              weight_decay=weight_decay, fused=fused)
+    muon = Muon(muon_params, lr=muon_lr, weight_decay=weight_decay)
+    decay = [p for p in adamw_params if p.dim() >= 2]      # embeddings / untied head
+    no_decay = [p for p in adamw_params if p.dim() < 2]    # norm gains, biases
+    groups = [{"params": ps, "weight_decay": wd}
+              for ps, wd in ((decay, weight_decay), (no_decay, 0.0)) if ps]
+    adamw = torch.optim.AdamW(groups, lr=lr, betas=betas, fused=fused)
     return MuonAdamW(muon, adamw, muon_lr_scale=muon_lr / lr)

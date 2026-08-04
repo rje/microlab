@@ -166,9 +166,33 @@ def main() -> None:
         ckpts = sorted(
             Path(cfg.out_dir).glob("ckpt_*.pt"), key=lambda p: int(p.stem.split("_")[1])
         )
-        if ckpts:
-            print(f"resuming from {ckpts[-1]} (latest of {len(ckpts)} checkpoints)")
-            trainer.load_checkpoint(str(ckpts[-1]))
+        # Walk DOWN on load failure instead of crashing on the newest. A truncated upload
+        # can arrive as the highest-step checkpoint (the resume download only checks size
+        # against the remote object, which IS the truncated size). Refusing to fall back
+        # turns one bad file into a deterministic loop: re-provision, re-download the same
+        # bytes, die again — at full GPU price per cycle. The bad file is renamed rather
+        # than deleted so it stays diagnosable without ever being retried.
+        loaded = None
+        for c in reversed(ckpts):
+            try:
+                trainer.load_checkpoint(str(c))
+            except Exception as e:  # noqa: BLE001 — any unloadable checkpoint, same policy
+                # Rank 0 renames; the other ranks hit the same failure and just move on.
+                # Every rank racing the same rename would crash the losers on
+                # FileNotFoundError — the prune-unlink bug all over again.
+                if dist_util.is_main():
+                    bad = c.with_suffix(".pt.corrupt")
+                    c.rename(bad)
+                    print(f"CORRUPT checkpoint {c.name}: {type(e).__name__}: {e} — "
+                          f"renamed to {bad.name}, trying the previous one", flush=True)
+                continue
+            print(f"resuming from {c} (latest loadable of {len(ckpts)} checkpoints)")
+            loaded = c
+            break
+        if ckpts and loaded is None:
+            raise SystemExit(
+                "every local checkpoint failed to load — refusing to silently restart "
+                "from step 0; delete the .corrupt files to do that explicitly")
 
     try:
         stats = trainer.train()

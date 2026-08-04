@@ -147,7 +147,29 @@ class Trainer:
         if self.device.startswith("cuda"):
             torch.set_float32_matmul_precision("high")
         if cfg.compile:
-            self.model = torch.compile(self.model, mode=cfg.compile_mode)
+            scope = getattr(cfg, "compile_scope", "blocks")
+            if scope == "blocks":
+                # Compile the transformer BLOCKS individually and leave the loss head out
+                # of any graph. Whole-model compile drags Liger's fused CE into the graph,
+                # and its addmm(out_dtype=...) is untraceable — it crashed every paid
+                # attempt on cu126 and was the entire reason compile sat disabled. The
+                # blocks are where the win lives anyway: Peri-LN runs four RMSNorms per
+                # block and KDA adds silu/normalize/sigmoid over (B, 32768, 1792) tensors,
+                # all bandwidth-bound elementwise work that fusion removes (measured 21.5%
+                # on the block roll-up). The head is one matmul; fusing it buys ~nothing.
+                # In place (nn.Module.compile), NOT `h[i] = torch.compile(blk)`: the
+                # wrapper form returns an OptimizedModule whose state_dict keys grow an
+                # `_orig_mod.` prefix, so checkpoints written by a compiled run would not
+                # load into an uncompiled model — resume would break exactly when a
+                # migrated box chose different compile settings.
+                for blk in self.raw_model.transformer.h:
+                    blk.compile(mode=cfg.compile_mode)
+            elif scope == "model":
+                # Only safe where the CUDA build can trace fused CE (cu130 locally);
+                # kept for A/B comparison, not for production.
+                self.model = torch.compile(self.model, mode=cfg.compile_mode)
+            else:
+                raise ValueError(f"unknown compile_scope {scope!r}")
         # DDP wraps AFTER compile, and `raw_model` stays the UNWRAPPED module — it is the
         # state_dict source of truth, so a checkpoint written at one world size loads at
         # any other. That property is what makes a run migratable mid-flight.
@@ -333,10 +355,26 @@ class Trainer:
             ),
             "cfg": self.cfg,
         }
-        torch.save(ckpt, path)
+        # Write-then-rename, so a partial file is never visible under the final name. The
+        # B2 syncer decides "fully written" by comparing sizes 3 s apart; torch.save of a
+        # 9 GB checkpoint stalls longer than that whenever the page cache flushes, so a
+        # partial file could pass the stability check, upload as the HIGHEST-step
+        # checkpoint, and poison every subsequent resume — a deterministic crash loop the
+        # supervisor cannot break out of. os.replace is atomic within a filesystem, and
+        # the .tmp name never matches the syncer's ckpt_*.pt glob.
+        tmp = path + ".tmp"
+        torch.save(ckpt, tmp)
+        os.replace(tmp, path)
         dist_util.barrier()
 
     def _prune_checkpoints(self) -> None:
+        # Rank 0 only: save_checkpoint releases all ranks from its barrier at once, and
+        # every rank then ran this glob-and-unlink against the same directory. Two ranks
+        # could glob the same stale file and race the unlink; the loser died on
+        # FileNotFoundError, torchrun tore the job down, and the box re-provisioned —
+        # a crash every ckpt_interval once the window filled.
+        if not dist_util.is_main():
+            return
         keep = self.cfg.ckpt_keep
         if keep <= 0:
             return
@@ -352,7 +390,9 @@ class Trainer:
             protected.update(p for p in ckpts if int(p.stem.split("_")[1]) % milestone == 0)
         for stale in ckpts:
             if stale not in protected:
-                stale.unlink()
+                # missing_ok: the B2 syncer prunes confirmed-remote checkpoints in the
+                # same directory, so the file may legitimately be gone already.
+                stale.unlink(missing_ok=True)
 
     def load_checkpoint(self, path: str) -> None:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)

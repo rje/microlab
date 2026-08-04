@@ -144,3 +144,50 @@ def test_muon_lr_scale_applied_to_matrix_group_only(tmp_path):
     from microlab.train.trainer import get_lr
     sched = get_lr(0, tr.cfg)
     assert lrs == sorted({sched, sched * 20.0})
+
+
+# --- decay routing ---------------------------------------------------------------------
+# Found by review: Muon was constructed without weight_decay (~92% of params silently at
+# the class default 0.01 against a declared 0.1), while AdamW applied the full 0.1 to
+# every RMSNorm gain — 1-D params that nanoGPT/Llama/OLMo all exempt.
+
+def _routed(model, wd=0.1):
+    from microlab.train.muon import build_muon_optimizer
+    return build_muon_optimizer(model, lr=3e-4, muon_lr=0.02, betas=(0.9, 0.95),
+                                weight_decay=wd, fused=False)
+
+
+def test_muon_receives_the_configs_weight_decay():
+    """The config said 0.1; Muon ran at its class default 0.01 because the kwarg was
+    never passed. 92% of parameters at 10x less decay than documented."""
+    m = _small_model()
+    opt = _routed(m, wd=0.1)
+    for g in opt.muon.param_groups:
+        assert g["weight_decay"] == 0.1
+
+
+def test_norm_gains_are_not_decayed():
+    m = _small_model()
+    opt = _routed(m, wd=0.1)
+    for g in opt.adamw.param_groups:
+        for p in g["params"]:
+            if p.dim() < 2:
+                assert g["weight_decay"] == 0.0, \
+                    "1-D params (norm gains, biases) must not be decayed"
+
+
+def test_embeddings_are_still_decayed():
+    m = _small_model()
+    opt = _routed(m, wd=0.1)
+    decayed_2d = [p for g in opt.adamw.param_groups if g["weight_decay"] > 0
+                  for p in g["params"]]
+    assert any(p.dim() == 2 for p in decayed_2d), \
+        "the embedding table should remain in a decayed group"
+
+
+def test_every_parameter_is_routed_exactly_once():
+    m = _small_model()
+    opt = _routed(m)
+    seen = [id(p) for g in opt.param_groups for p in g["params"]]
+    assert len(seen) == len(set(seen)), "a parameter appears in two groups"
+    assert set(seen) == {id(p) for p in m.parameters() if p.requires_grad}

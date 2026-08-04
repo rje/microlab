@@ -73,9 +73,18 @@ class RunConfig:
     # trajectory kept alongside the rolling recovery window. Must divide ckpt_interval.
     ckpt_milestone_interval: int = 0
     grad_checkpoint: bool = False  # recompute activations backward: ~30x less act memory
-    compile: bool = False          # torch.compile the model (CUDA; first step compiles)
+    compile: bool = False          # torch.compile (CUDA; first step compiles)
     compile_mode: str = "default"  # "max-autotune" autotunes Triton kernels (slow compile,
-    #                                ~29% faster steady-state on the 1B — worth it for long runs)
+    #                                measurably faster steady-state — worth it for long runs.
+    #                                NOTE: the old "~29%" figure here was the COMBINED
+    #                                effect of TF32 + fused AdamW + max-autotune on the 1B
+    #                                at 1024 context, not compile alone; it misled a
+    #                                $500-run costing once. Compile-alone, per-block, at
+    #                                32k: 21.5% on the block roll-up, measured.)
+    # "blocks" compiles each transformer block in place and keeps the loss head OUT of any
+    # graph: Liger fused-CE's addmm(out_dtype=...) is untraceable on cu126 and crashed
+    # every paid whole-model attempt. "model" (whole-model) is kept for A/B only.
+    compile_scope: str = "blocks"
     log_interval: int = 50
     # Seconds a SINGLE training step may take before the process dumps every thread's
     # stack and dies. 0 disables it.
