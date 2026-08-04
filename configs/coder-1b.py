@@ -79,18 +79,20 @@ config = RunConfig(
     # class of error as assuming it gives 2x. The compile cost (~15-35 min once) is
     # negligible against a multi-day run, and it is re-paid on every preemption, which is
     # an argument for the pre-built image rather than for disabling it.
-    # COMPILE OFF on rented hardware, and the reason is narrower than I twice claimed.
-    # Liger's fused CE calls addmm with an out_dtype kwarg that dynamo cannot trace in some
-    # builds:
-    #   addmm(..., out_dtype=torch.float32, out=FakeTensor(...))
-    #   TypeError: unsupported operand type(s) for *: 'torch.dtype' and 'FakeTensor'
-    # It is NOT a torch 2.11 bug (my second guess): it reproduces on 2.12.1+cu126, the same
-    # VERSION that runs frontier-32k fine locally on 2.12.1+cu130. The variable is the CUDA
-    # build, not the release. Dropping fused CE instead is not available — it is what makes
-    # 32k fit at all (27.70 -> 15.40 GB measured).
-    # Compile's benefit here is also UNMEASURED and plausibly small: it was worth ~0 on the
-    # RTX 6000 Ada at 32k. Treat it as a separate experiment rather than a blocker.
-    compile=False,
+    # COMPILE ON, PER-BLOCK. The saga, because this flag has now been wrong in both
+    # directions:
+    #   * whole-model compile crashes on cu126 — Liger fused-CE's addmm(out_dtype=...) is
+    #     untraceable there (fine on cu130). Fused CE cannot be dropped; it is what makes
+    #     32k fit at all (27.70 -> 15.40 GB measured). That killed two paid attempts.
+    #   * "worth ~0 at 32k" (this file, previously) described WHOLE-MODEL compile and was
+    #     wrong for per-block; "~29%" (config.py, previously) was TF32+fused-AdamW+
+    #     max-autotune combined on the prose 1B at 1024 ctx, not compile alone.
+    # compile_scope="blocks" (the trainer default) compiles each transformer block in
+    # place and keeps the loss head out of every graph, so the cu126 op never gets traced.
+    # MEASURED end-to-end on this exact config (RTX 6000 Ada, 32k, grad-ckpt on):
+    # 4,821 -> 7,032 tok/s = 1.46x, identical loss trajectory to 3 decimals, state_dict
+    # keys unchanged. H100 number TBD on the next paid validation run.
+    compile=True,
     compile_mode="max-autotune-no-cudagraphs",
     eval_interval=500,
     eval_iters=40,

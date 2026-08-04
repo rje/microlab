@@ -50,23 +50,13 @@ config = RunConfig(
     # (16 at ws=1, 4 at ws=4, 2 at ws=8) so the optimizer sees the same batch either way.
     tokens_per_step=524288,
     grad_accum=16,        # fallback only, when tokens_per_step is 0
-    # Compile ON with autotuning. It measured ~nothing on the RTX 6000 Ada at 32k, but
-    # that is a different card and the figure was never re-checked on an H100 — the same
-    # class of error as assuming it gives 2x. The compile cost (~15-35 min once) is
-    # negligible against a multi-day run, and it is re-paid on every preemption, which is
-    # an argument for the pre-built image rather than for disabling it.
-    # COMPILE OFF on rented hardware, and the reason is narrower than I twice claimed.
-    # Liger's fused CE calls addmm with an out_dtype kwarg that dynamo cannot trace in some
-    # builds:
-    #   addmm(..., out_dtype=torch.float32, out=FakeTensor(...))
-    #   TypeError: unsupported operand type(s) for *: 'torch.dtype' and 'FakeTensor'
-    # It is NOT a torch 2.11 bug (my second guess): it reproduces on 2.12.1+cu126, the same
-    # VERSION that runs frontier-32k fine locally on 2.12.1+cu130. The variable is the CUDA
-    # build, not the release. Dropping fused CE instead is not available — it is what makes
-    # 32k fit at all (27.70 -> 15.40 GB measured).
-    # Compile's benefit here is also UNMEASURED and plausibly small: it was worth ~0 on the
-    # RTX 6000 Ada at 32k. Treat it as a separate experiment rather than a blocker.
-    compile=False,
+    # COMPILE ON, PER-BLOCK (compile_scope="blocks", the trainer default): each block is
+    # compiled in place and the loss head stays out of every graph, so Liger fused-CE's
+    # cu126-untraceable addmm never reaches dynamo — the crash that killed two paid
+    # whole-model attempts. Measured end-to-end on the production config (RTX 6000 Ada,
+    # 32k, grad-ckpt on): 4,821 -> 7,032 tok/s = 1.46x, identical loss to 3 decimals.
+    # THIS validation run doubles as the H100 measurement of the same A/B.
+    compile=True,
     compile_mode="max-autotune-no-cudagraphs",
     eval_interval=500,
     eval_iters=40,
