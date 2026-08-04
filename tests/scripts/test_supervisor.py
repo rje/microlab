@@ -164,6 +164,46 @@ def _s3_with(text: str, when=None):
     return S3()
 
 
+def test_the_cap_counts_the_episode_that_is_running_right_now():
+    """The cap was checked against BANKED spend, which only moves when an episode ends.
+
+    A healthy run therefore compared a number that never changed. With --on-demand there
+    is exactly one episode, so a 13-day, $500+ run could not trip a $250 cap at any point
+    before finishing on its own. The projected figure was already printed on every poll;
+    only the comparison used the stale one.
+    """
+    import time as _t
+    st = {"spent": 100.0}
+    one_hour_ago = _t.time() - 3600
+    assert sup.spent_now(st, 2.0, one_hour_ago, 123) == pytest.approx(102.0, abs=0.05)
+
+
+def test_spend_is_just_the_banked_total_when_nothing_is_rented():
+    import time as _t
+    st = {"spent": 100.0}
+    assert sup.spent_now(st, None, None, None) == 100.0
+    assert sup.spent_now(st, 2.0, _t.time(), None) == 100.0, "no instance, no accrual"
+    assert sup.spent_now(st, 2.0, None, 123) == 100.0, "no episode start, no accrual"
+
+
+def test_a_preempted_instance_is_destroyed_not_abandoned():
+    """"Not running" is not "gone". The contract still bills for allocated disk, and Vast
+    RESUMES an interruptible instance once the price falls back under the standing bid —
+    the zombie then writes checkpoints and logs to the same prefix as the live box."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    i = src.index("vanished — preempted")
+    assert "vast.destroy(inst, key)" in src[i:i + 900], \
+        "the preemption path must destroy the instance before re-provisioning"
+
+
+def test_the_crash_path_does_not_bank_the_same_episode_twice():
+    """It banked, then broke with t_ep still set, so the finally banked it again."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    i = src.index("TRAINING CRASHED")
+    window = src[max(0, i - 500):i]
+    assert "t_ep = None" in window, "crash path must clear t_ep so the finally cannot re-bank"
+
+
 def test_an_exited_container_is_not_alive():
     """Presence in the instance list is not liveness.
 

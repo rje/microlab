@@ -128,6 +128,20 @@ def logged_step(s3, bucket: str, prefix: str, since: float | None = None) -> int
     return best
 
 
+def spent_now(st: dict, bid: float | None, t_ep: float | None, inst: int | None) -> float:
+    """Banked spend PLUS what the running episode has cost so far.
+
+    The cap used to be checked against banked spend alone, which is only incremented when
+    an episode ENDS. A healthy run therefore tested a number that never moved: with
+    --on-demand there is exactly one episode, so a 13-day, $500+ run could not trip a $250
+    cap at any point. The projected figure was already being printed on every poll — only
+    the comparison used the stale one.
+    """
+    if inst is None or t_ep is None or bid is None:
+        return st["spent"]
+    return st["spent"] + bid * (time.time() - t_ep) / 3600
+
+
 def made_progress(prev: tuple[int, int], now: tuple[int, int]) -> bool:
     """Either signal moving forward counts. Compared component-wise, not as a tuple:
     tuple order would let a high checkpoint step mask a log that has stopped moving."""
@@ -285,10 +299,10 @@ def main() -> int:
     marker = (st["last_step"], 0)          # (durable checkpoint step, logged step)
     try:
         while st["last_step"] < a.target_step:
-            if st["spent"] >= a.max_spend:
-                print(f"\nHARD CAP: ${st['spent']:.2f} >= ${a.max_spend:.2f}. Stopping at "
-                      f"step {st['last_step']:,}. Re-run with a higher --max-spend to "
-                      f"continue from this checkpoint.")
+            if spent_now(st, bid, t_ep, inst) >= a.max_spend:
+                print(f"\nHARD CAP: ${spent_now(st, bid, t_ep, inst):.2f} >= "
+                      f"${a.max_spend:.2f}. Stopping at step {st['last_step']:,}. Re-run "
+                      f"with a higher --max-spend to continue from this checkpoint.")
                 break
             if inst is None:
                 print(f"\nprovisioning (spent ${st['spent']:.2f}, "
@@ -328,8 +342,23 @@ def main() -> int:
                 last_progress = time.time()
 
             print(f"  [{elapsed_h*60:>5.0f}m] ckpt {st['last_step']:>7,}  "
-                  f"log {live:>7,}  ${st['spent'] + bid*elapsed_h:>7.2f}  "
+                  f"log {live:>7,}  ${spent_now(st, bid, t_ep, inst):>7.2f}  "
                   f"{'alive' if alive else 'GONE'}", flush=True)
+
+            # Re-check the cap HERE, against the running episode. The check at the top of
+            # the loop only sees banked spend, so on a single long episode — exactly what
+            # --on-demand produces — it would not fire until the run ended on its own.
+            if spent_now(st, bid, t_ep, inst) >= a.max_spend:
+                st["spent"] = spent_now(st, bid, t_ep, inst)
+                save_state(st)
+                print(f"\nHARD CAP mid-episode: ${st['spent']:.2f} >= ${a.max_spend:.2f} "
+                      f"— destroying {inst}", flush=True)
+                try:
+                    vast.destroy(inst, key)
+                except SystemExit as e:
+                    print(f"  {e}")
+                inst = t_ep = None
+                break
 
             crash = training_crashed(s3, a.bucket_out, a.run_prefix, since=t_ep)
             if crash and st["last_step"] == 0:
@@ -338,6 +367,10 @@ def main() -> int:
                 # here instead and surface the error.
                 st["spent"] += bid * elapsed_h
                 save_state(st)
+                # Clear t_ep, NOT inst: the finally still has to destroy the box, but it
+                # must not bank this episode a second time. (The stall and preempt paths
+                # clear inst as well, so only this one double-counted.)
+                t_ep = None
                 print("\n  TRAINING CRASHED — not re-provisioning into the same failure:")
                 print(f"    {crash}")
                 break
@@ -349,7 +382,17 @@ def main() -> int:
                 save_state(st)
                 print(f"  instance {inst} vanished — preempted. Re-provisioning.",
                       flush=True)
-                inst = None
+                # DESTROY it. "Not running" is not "gone": the contract still exists and
+                # still bills for its allocated disk, and Vast RESUMES an interruptible
+                # instance by itself once the market price falls back under the standing
+                # bid. A resumed zombie re-runs onstart and writes checkpoints and logs to
+                # the SAME prefix as the live box — two trajectories interleaved under one
+                # name, with remote_step taking the max across both.
+                try:
+                    vast.destroy(inst, key)
+                except SystemExit as e:
+                    print(f"  {e}")
+                inst = t_ep = None
                 continue
 
             # Two different clocks, because "no checkpoint yet" and "checkpoints stopped"
@@ -388,7 +431,11 @@ def main() -> int:
                 print(f"DESTROY FAILED: {e}\n  -> kill it NOW: "
                       f"https://cloud.vast.ai/instances/")
         save_state(st)
-        left = vast.live_instances(key)
+        # Only STILL-RUNNING instances are a problem to shout about. Counting "exited"
+        # ones here would cry wolf on every clean preemption and train the reader to
+        # ignore the one message that means money is leaking.
+        left = [i for i in vast.live_instances(key)
+                if i.get("actual_status") in RUNNING_STATES]
         print(f"total spend ~${st['spent']:.2f}; step {st['last_step']:,}")
         if left:
             print(f"WARNING: {len(left)} instance(s) STILL RUNNING: "
