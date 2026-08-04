@@ -77,6 +77,19 @@ class RunConfig:
     compile_mode: str = "default"  # "max-autotune" autotunes Triton kernels (slow compile,
     #                                ~29% faster steady-state on the 1B — worth it for long runs)
     log_interval: int = 50
+    # Seconds a SINGLE training step may take before the process dumps every thread's
+    # stack and dies. 0 disables it.
+    #
+    # A rented H100 froze at step 10 with 103 of 105 shards fetched, no error, and the
+    # provider still reporting 100% GPU utilisation. It billed until a human noticed, and
+    # left nothing to diagnose from — the run had to be reproduced to be understood, and
+    # it did not reproduce locally. A hang that reports its own stack costs one dump; a
+    # hang that stays silent costs the box, and then the next box.
+    #
+    # Deliberately fatal rather than a warning: the supervisor's resume path already
+    # recovers from a dead trainer, so failing loudly re-provisions from the last
+    # checkpoint, while hanging quietly bills at full rate forever.
+    step_timeout_s: float = 0.0
     # Which shard dir this run trains on. None -> take it from --data-dir (the historical
     # behaviour). SET IT for any ablation whose intervention IS the data: the code
     # repetition lane's two arms were byte-identical configs distinguished only by a

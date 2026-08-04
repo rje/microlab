@@ -408,8 +408,22 @@ class Trainer:
         # than any sane watchdog timeout. A supervisor killed a healthy run over exactly
         # that silence.
         logged_any = False
+        # Armed around the STEP only — eval and a multi-GB checkpoint write are legitimately
+        # slow and would trip a step-sized timeout. Re-armed each iteration so the clock
+        # measures one step, not the run.
+        stall_s = getattr(cfg, "step_timeout_s", 0.0) or 0.0
+        if stall_s > 0:
+            import faulthandler
+            faulthandler.enable()
         while self.step < cfg.max_steps:
+            if stall_s > 0:
+                # dump_traceback_later reports EVERY thread, which is the point: the hang
+                # this exists for was in a background shard-prefetch thread, invisible to a
+                # main-thread-only traceback.
+                faulthandler.dump_traceback_later(stall_s, exit=True)
             loss = self.train_step()
+            if stall_s > 0:
+                faulthandler.cancel_dump_traceback_later()
             history.append(loss)
             step = self.step  # already incremented by train_step
             if cfg.eval_interval > 0 and step % cfg.eval_interval == 0:

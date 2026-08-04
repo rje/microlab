@@ -108,6 +108,11 @@ config = RunConfig(
     ckpt_keep=3,
     ckpt_milestone_interval=2000,
     log_interval=10,
+    # 15 min against a 25-39 s steady-state step. The bound is set by the SLOWEST
+    # legitimate step, not the typical one: early on, a step can need up to 16 uncached
+    # shards, and at the measured ~28 s each that is ~7.5 min of honest work. 900 s clears
+    # that with margin while catching a wedge in minutes instead of never.
+    step_timeout_s=900,
     data_dir="data/shards/mix-v1",   # NOT BUILT YET — blocking, see the plan
     out_dir="runs/coder-1b",
     device="cuda",
