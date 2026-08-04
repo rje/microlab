@@ -115,7 +115,7 @@ config = RunConfig(
     # shards, and at the measured ~28 s each that is ~7.5 min of honest work. 900 s clears
     # that with margin while catching a wedge in minutes instead of never.
     step_timeout_s=900,
-    data_dir="data/shards/mix-v1",   # NOT BUILT YET — blocking, see the plan
+    data_dir="data/shards/mix-v2",   # v2: mixed val from held-out splits, chunk-level FIM
     out_dir="runs/coder-1b",
     device="cuda",
     dtype="bfloat16",
