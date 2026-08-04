@@ -393,3 +393,19 @@ def test_remote_prune_is_wired_into_the_instance_with_matching_milestones():
     assert "--milestone-interval 2000" in sh
     cfg = (SCRIPTS.parent / "configs" / "coder-1b.py").read_text()
     assert "ckpt_milestone_interval=2000" in cfg
+
+
+def test_a_resumed_episode_still_gets_its_setup_grace():
+    """`started` judged by st["last_step"] > 0 denies every RESUMED episode its setup
+    grace — last_step is always positive on a resume — so the 25-min stall clock killed a
+    healthy box 25 minutes into a 35-minute Thailand setup, mid checkpoint-download. The
+    boundary must be per-episode: this box's log, or the durable step ADVANCING past
+    where the episode began."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert 'st["last_step"] > ep_start_step' in src, \
+        "setup/stall boundary must compare against the episode's starting step"
+    assert 'started = marker[1] > 0 or st["last_step"] > 0\n' not in src, \
+        "the global-progress test is the bug, not the fix"
+    i = src.index("inst, bid = provision(a, key, creds)")
+    assert "ep_start_step = st[\"last_step\"]" in src[i:i + 1600], \
+        "each provision must record where its episode began"

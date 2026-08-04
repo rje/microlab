@@ -324,6 +324,7 @@ def main() -> int:
     inst = bid = None
     t_ep = None
     marker = (st["last_step"], 0)          # (durable checkpoint step, logged step)
+    ep_start_step = st["last_step"]
     try:
         while st["last_step"] < a.target_step:
             if spent_now(st, bid, t_ep, inst) >= a.max_spend:
@@ -348,6 +349,13 @@ def main() -> int:
                 # when resuming from a checkpoint, so carrying the old log high-water mark
                 # over would make every subsequent poll look like no progress.
                 marker = (st["last_step"], 0)
+                # Where THIS episode began. The setup-vs-stall decision must compare
+                # against this, not against zero: judging "training has started" by
+                # st["last_step"] > 0 meant every RESUMED episode skipped its setup grace
+                # entirely — last_step is always positive on a resume — and the stall
+                # clock killed a healthy Thailand box 25 minutes into a setup that its
+                # slow B2 pipe made 35 minutes long.
+                ep_start_step = st["last_step"]
                 st["episodes"].append({"instance": inst, "bid": bid,
                                        "from_step": st["last_step"]})
                 save_state(st)
@@ -424,10 +432,14 @@ def main() -> int:
 
             # Two different clocks, because "no checkpoint yet" and "checkpoints stopped"
             # are different failures with very different legitimate durations.
-            # "Training has started" is the boundary, and the LOG is what reports it —
-            # gating on the checkpoint step kept every run in "setup" for the two hours
-            # before the first checkpoint, applying the wrong (shorter) clock throughout.
-            started = marker[1] > 0 or st["last_step"] > 0
+            # "THIS EPISODE'S training has started" is the boundary, and it must be
+            # per-episode: this box's log showing a step, or the durable checkpoint step
+            # advancing past where the episode began. Two prior versions were each wrong
+            # in one direction — gating on the checkpoint step alone kept fresh runs in
+            # "setup" for the two hours before their first checkpoint, and gating on
+            # st["last_step"] > 0 denied every RESUMED episode its setup grace, killing a
+            # healthy box mid-download 25 minutes into a 35-minute setup.
+            started = marker[1] > 0 or st["last_step"] > ep_start_step
             limit = a.stall_minutes if started else a.setup_grace_minutes
             phase = "stall" if started else "setup"
             if (time.time() - last_progress) / 60 > limit:
