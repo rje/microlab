@@ -91,6 +91,11 @@ def training_crashed(s3, bucket: str, prefix: str, since: float | None = None) -
     return None
 
 
+# Statuses that mean the container can still be making progress. Anything else — most
+# importantly "exited", which is what preemption leaves behind — is a dead box.
+RUNNING_STATES = frozenset({"running", "loading", "created", "starting"})
+
+
 def logged_step(s3, bucket: str, prefix: str, since: float | None = None) -> int:
     """Highest step the shipped training log reports — the LIVENESS signal.
 
@@ -158,30 +163,42 @@ def provision(a, key, creds) -> tuple[int, float]:
         offers = [o for o in offers if o.get("host_id") == a.host_id]
     if a.geo:
         offers = [o for o in offers if a.geo.lower() in str(o.get("geolocation", "")).lower()]
+    # Which price the cap applies to, and what we are actually buying. On-demand is not
+    # merely "safer" — on the host this was measured on it costs $1.49 against a $1.48
+    # floor, a 0.7% premium that removes preemption entirely. Two runs died to preemption
+    # before their first checkpoint, each losing 30+ steps of paid compute; that is far
+    # more than 0.7%. Bidding is right for a long run that resumes cheaply, on-demand for
+    # a short one that must finish in a single window.
+    price_of = (lambda o: o.get("dph_total")) if a.on_demand else (lambda o: o.get("min_bid"))
     bids = []
     for o in offers:
-        mb = o.get("min_bid")
+        mb = price_of(o)
         if mb and mb / a.gpus <= a.max_price:
             bids.append((mb, o))
     if not bids:
+        kind = "on-demand" if a.on_demand else "bid"
         raise SystemExit(
-            f"no offer at <= ${a.max_price:.2f}/GPU-h bid for {a.gpus}x {a.gpu}. "
+            f"no offer at <= ${a.max_price:.2f}/GPU-h {kind} for {a.gpus}x {a.gpu}. "
             f"Market moved; re-run later or raise --max-price.")
     bids.sort(key=lambda t: t[0])
     bid, pick = bids[0]
     env = dict(creds)
     env.update(REPO=a.repo, NGPU=str(a.gpus), CONFIG=a.config,
                RUN_PREFIX=a.run_prefix, BUCKET_IN=a.bucket_in, BUCKET_OUT=a.bucket_out)
-    r = vast.call("PUT", f"/asks/{pick['id']}/", {
-        "client_id": "me", "image": a.image, "disk": a.min_disk,
-        "onstart": onstart(a), "env": env, "runtype": "ssh",
-        "price": round(bid * 1.02, 4),   # a hair above the floor, still under the cap
-    }, key=key)
+    body = {"client_id": "me", "image": a.image, "disk": a.min_disk,
+            "onstart": onstart(a), "env": env, "runtype": "ssh"}
+    if not a.on_demand:
+        # Sending a price is what makes the contract INTERRUPTIBLE. Omitting it rents
+        # on-demand, which is the whole mechanism behind --on-demand.
+        body["price"] = round(bid * 1.02, 4)   # a hair above the floor, under the cap
+    r = vast.call("PUT", f"/asks/{pick['id']}/", body, key=key)
     inst = r.get("new_contract")
     if not inst:
         raise SystemExit(f"create failed: {r}")
-    print(f"  rented {inst} at ${bid:.2f}/h ({a.gpus}x {pick.get('gpu_name')}, "
-          f"rel {pick.get('reliability2', 0):.3f}, {pick.get('geolocation')})", flush=True)
+    print(f"  rented {inst} at ${bid:.2f}/h "
+          f"({'on-demand' if a.on_demand else 'interruptible'}, {a.gpus}x "
+          f"{pick.get('gpu_name')}, rel {pick.get('reliability2', 0):.3f}, "
+          f"{pick.get('geolocation')})", flush=True)
     return inst, bid
 
 
@@ -208,6 +225,13 @@ def main() -> int:
                     help="include hosts Vast has not designated as datacenters. They are "
                          "the cheap tier and often fine, but reliability varies more — "
                          "pair with --min-reliability rather than trusting the label.")
+    ap.add_argument("--on-demand", action="store_true",
+                    help="rent NON-interruptible: --max-price then caps dph_total instead "
+                         "of min_bid. Measured on the host used here, on-demand is $1.49 "
+                         "against a $1.48 floor — 0.7% to remove preemption, after two "
+                         "runs were preempted before their first checkpoint and lost 30+ "
+                         "steps each. Prefer it for short runs that must finish in one "
+                         "window; bid for long runs that resume cheaply.")
     ap.add_argument("--geo", default=None,
                     help="substring the offer's geolocation must contain, e.g. 'US'")
     ap.add_argument("--bucket-in", default="microlab-corpus")
@@ -289,7 +313,12 @@ def main() -> int:
 
             time.sleep(a.poll)
             elapsed_h = (time.time() - t_ep) / 3600
-            alive = any(i.get("id") == inst for i in vast.live_instances(key))
+            # Presence in the list is NOT liveness. A preempted box stays listed with
+            # actual_status "exited", and treating that as alive kept the supervisor
+            # reporting a healthy run — and paying for it — for 11 minutes after the
+            # container had stopped, instead of re-provisioning immediately.
+            alive = any(i.get("id") == inst and i.get("actual_status") in RUNNING_STATES
+                        for i in vast.live_instances(key))
             now = remote_step(s3, a.bucket_out, a.run_prefix)
             live = logged_step(s3, a.bucket_out, a.run_prefix, since=t_ep)
             if now > st["last_step"]:

@@ -164,6 +164,35 @@ def _s3_with(text: str, when=None):
     return S3()
 
 
+def test_an_exited_container_is_not_alive():
+    """Presence in the instance list is not liveness.
+
+    Preemption leaves the instance LISTED with actual_status "exited". Counting that as
+    alive kept the supervisor reporting a healthy run — and paying for it — for 11 minutes
+    after the container had stopped, instead of re-provisioning at once.
+    """
+    assert "exited" not in sup.RUNNING_STATES
+    assert "stopped" not in sup.RUNNING_STATES
+    assert {"running", "loading"} <= sup.RUNNING_STATES
+
+
+def test_on_demand_omits_the_price_field():
+    """Sending a price is what makes a Vast contract interruptible; --on-demand works by
+    omitting it. A regression here would silently sell the run back to preemption."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert 'if not a.on_demand:' in src
+    i = src.index("if not a.on_demand:")
+    assert 'body["price"]' in src[i:i + 400], "price must be set only in the bid branch"
+    assert '"price": round(' not in src, "price must not be unconditional in the body"
+
+
+def test_on_demand_caps_the_right_price_field():
+    """--max-price means dph_total on-demand and min_bid interruptible. Capping min_bid
+    while renting on-demand would let the actual rate exceed the cap."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert 'o.get("dph_total")) if a.on_demand else' in src
+
+
 def test_logged_step_reads_progress_from_the_shipped_log():
     """The watchdog needs a signal that moves on ITS timescale.
 
