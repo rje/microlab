@@ -1,0 +1,24 @@
+# The exact validated training stack, baked. Eliminates two per-episode costs on rented
+# boxes: the 5-10 minute pip install, and the version drift it allows — the cu126 torch
+# pin exists because "--index-url .../cu128" once silently installed a torch whose
+# compile path was broken, and a baked image makes that class of failure unrepresentable.
+#
+#   docker build -f docker/Dockerfile.train -t ghcr.io/rje/microlab-train:cu126-1 .
+#   docker push ghcr.io/rje/microlab-train:cu126-1
+#
+# Then: vast_supervisor.py --image ghcr.io/rje/microlab-train:cu126-1
+#
+# The image deliberately does NOT contain the repo (cloned fresh per episode — code moves
+# faster than the stack) or credentials (supplied via instance env).
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
+
+# Same order and pins as scripts/cloud_train.sh, which remains the source of truth and
+# still asserts the versions at boot — an image built from a stale Dockerfile fails there
+# loudly instead of training on the wrong stack.
+RUN pip uninstall -y -q torchvision torchaudio 2>/dev/null; \
+    pip install -q torch==2.12.1 --index-url https://download.pytorch.org/whl/cu126 && \
+    pip install -q flash-linear-attention==0.5.2 liger-kernel boto3 tokenizers tensorboard && \
+    python -c "import torch, triton; \
+      assert torch.__version__.startswith('2.12'), torch.__version__; \
+      assert tuple(int(x) for x in triton.__version__.split('.')[:2]) >= (3, 6); \
+      print('baked:', torch.__version__, 'triton', triton.__version__)"

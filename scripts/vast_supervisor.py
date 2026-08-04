@@ -341,10 +341,18 @@ def main() -> int:
             if inst is None:
                 print(f"\nprovisioning (spent ${st['spent']:.2f}, "
                       f"step {st['last_step']:,}/{a.target_step:,})", flush=True)
-                # Belt and braces with the freshness gate: remove the previous episode's
-                # log so there is nothing stale to misread even if clocks disagree.
+                # Belt and braces with the freshness gate: move the previous episode's
+                # log aside so there is nothing stale to misread even if clocks disagree.
+                # ARCHIVE, not delete: a box that died during setup leaves the log as its
+                # only post-mortem, and purging it here destroyed the evidence for a
+                # $2 sixty-minute grace window that ended in a mystery.
+                ep_n = len(st["episodes"])
                 for k in list(b2.remote_sizes(s3, a.bucket_out, f"{a.run_prefix}/logs")):
+                    if "/logs/archive/" in k:
+                        continue                    # already archived
                     try:
+                        dest = k.replace("/logs/", f"/logs/archive/ep{ep_n:03d}-", 1)
+                        s3.copy({"Bucket": a.bucket_out, "Key": k}, a.bucket_out, dest)
                         s3.delete_object(Bucket=a.bucket_out, Key=k)
                     except Exception:               # noqa: BLE001
                         pass

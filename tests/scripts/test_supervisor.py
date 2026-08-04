@@ -433,3 +433,14 @@ def test_compile_caches_round_trip_through_b2():
     assert restore < train, "restore must happen before training starts"
     assert "sleep 1500" in sh, "ship must wait for autotune to finish first"
     assert ship < train, "the shipping subshell must be launched before the blocking train"
+
+
+def test_episode_logs_are_archived_not_destroyed():
+    """A box that dies during setup leaves its shipped log as the ONLY post-mortem.
+    The provision-time purge deleted it, so a $2 sixty-minute grace window ended in a
+    mystery. Old logs move to logs/archive/epNNN-*, they do not vanish."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    i = src.index("nothing stale to misread")
+    block = src[i:i + 900]
+    assert "/logs/archive/" in block, "old episode logs must be archived"
+    assert "s3.copy(" in block, "archive must copy before deleting"
