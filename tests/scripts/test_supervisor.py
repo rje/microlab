@@ -417,3 +417,19 @@ def test_bids_are_sticky_but_never_exceed_the_cap():
     src = (SCRIPTS / "vast_supervisor.py").read_text()
     assert "min(bid * 1.25, a.max_price * a.gpus)" in src
     assert "round(bid * 1.02, 4)" not in src, "the snipeable bid must be gone"
+
+
+def test_compile_caches_round_trip_through_b2():
+    """Every re-provision re-paid 15-20 min of max-autotune at full 4-GPU price. The
+    inductor/triton caches are arch-keyed (all our hosts are sm90), so shipping them
+    through B2 turns compile into ~2-3 min of validation. Both halves must exist:
+    restore BEFORE training, ship AFTER autotune completes."""
+    sh = (SCRIPTS / "cloud_train.sh").read_text()
+    assert "TORCHINDUCTOR_CACHE_DIR" in sh and "TRITON_CACHE_DIR" in sh
+    assert "caches/compile-cache.tar" in sh
+    restore = sh.index("compile cache restored")
+    train = sh.index('say "train: $NGPU GPU(s)"')
+    ship = sh.index("compile cache shipped")
+    assert restore < train, "restore must happen before training starts"
+    assert "sleep 1500" in sh, "ship must wait for autotune to finish first"
+    assert ship < train, "the shipping subshell must be launched before the blocking train"

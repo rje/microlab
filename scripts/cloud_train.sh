@@ -92,6 +92,28 @@ PY
 export MICROLAB_SHARD_BUCKET="$BUCKET_IN"
 export MICROLAB_SHARD_PREFIX="$SHARD_PREFIX"
 
+say "compile caches: restore from B2 if present"
+# Inductor + Triton caches are keyed by kernel source and tuning shape, and every host we
+# rent is sm90 — kernels autotuned on one H100 are valid on the next. Without this, every
+# re-provision re-pays 15-20 minutes of max-autotune across 24 blocks at full 4-GPU
+# price; with it, compile is ~2-3 minutes of cache validation.
+export TORCHINDUCTOR_CACHE_DIR=$WORK/inductor-cache
+export TRITON_CACHE_DIR=$WORK/triton-cache
+python - <<PYCACHE
+import boto3, io, os, tarfile
+from botocore.config import Config
+s3 = boto3.client('s3', endpoint_url=os.environ['B2_CKPT_ENDPOINT'],
+    aws_access_key_id=os.environ['B2_CKPT_KEY_ID'],
+    aws_secret_access_key=os.environ['B2_CKPT_APPLICATION_KEY'],
+    config=Config(retries={'max_attempts':6,'mode':'adaptive'}))
+try:
+    obj = s3.get_object(Bucket='$BUCKET_OUT', Key='$RUN_PREFIX/caches/compile-cache.tar')
+    tarfile.open(fileobj=io.BytesIO(obj['Body'].read())).extractall('$WORK')
+    print('compile cache restored')
+except Exception as e:
+    print(f'no compile cache yet ({type(e).__name__}) — this episode pays full autotune')
+PYCACHE
+
 say "resume: newest checkpoint from B2, if any"
 mkdir -p "$RUNDIR"
 python - <<PY
@@ -124,6 +146,25 @@ python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
   --log "$WORK/train.log" --log "$WORK/ckptsync.log" > "$WORK/ckptsync.log" 2>&1 &
 SYNC_PID=$!
 echo "syncer pid $SYNC_PID"
+
+# Ship the compile cache ~25 min in — after autotune has finished — in the background,
+# so even an episode that later gets preempted usually leaves the next one a warm cache.
+# Skipped when the tar would be empty (compile off) because upload_file would fail late.
+( sleep 1500
+  if tar -C "$WORK" -cf "$WORK/compile-cache.tar" inductor-cache triton-cache 2>/dev/null; then
+    python - <<PYSHIP
+import boto3, os
+from botocore.config import Config
+s3 = boto3.client('s3', endpoint_url=os.environ['B2_CKPT_ENDPOINT'],
+    aws_access_key_id=os.environ['B2_CKPT_KEY_ID'],
+    aws_secret_access_key=os.environ['B2_CKPT_APPLICATION_KEY'],
+    config=Config(retries={'max_attempts':6,'mode':'adaptive'}))
+s3.upload_file('$WORK/compile-cache.tar', '$BUCKET_OUT',
+               '$RUN_PREFIX/caches/compile-cache.tar')
+print('compile cache shipped to B2', flush=True)
+PYSHIP
+  fi
+) &
 
 say "train: $NGPU GPU(s)"
 # Rewrite by PATTERN, then PROVE the rewrite took. sed exits 0 on a no-match, and an
