@@ -120,6 +120,7 @@ cp "$CORPUS/tokenizer.json" "$RUNDIR/" 2>/dev/null || true
 say "checkpoint syncer (background)"
 python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
   --prefix "$RUN_PREFIX" --interval 120 --env-prefix B2_CKPT \
+  --remote-keep 3 --milestone-interval 2000 \
   --log "$WORK/train.log" --log "$WORK/ckptsync.log" > "$WORK/ckptsync.log" 2>&1 &
 SYNC_PID=$!
 echo "syncer pid $SYNC_PID"

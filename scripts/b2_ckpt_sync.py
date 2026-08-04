@@ -48,6 +48,16 @@ def main() -> int:
                     help="credentials from <PREFIX>_KEY_ID/_APPLICATION_KEY/_ENDPOINT")
     ap.add_argument("--log", action="append", default=None,
                     help="also ship this file to B2 each pass; repeatable")
+    ap.add_argument("--remote-keep", type=int, default=0,
+                    help="prune REMOTE rolling checkpoints beyond the newest N "
+                         "(milestones exempt; 0 disables). Without this the bucket "
+                         "accumulates every 50-step checkpoint forever: a 44-checkpoint "
+                         "run left 405 GB behind, and the full 40k-step run would leave "
+                         "7.4 TB (~$44/mo) of files nothing will ever resume from.")
+    ap.add_argument("--milestone-interval", type=int, default=0,
+                    help="checkpoints at multiples of this step are PERMANENT and never "
+                         "remote-pruned. Must match the trainer's "
+                         "ckpt_milestone_interval or the emergence trajectory is lost.")
     a = ap.parse_args()
 
     run = Path(a.run)
@@ -87,6 +97,24 @@ def main() -> int:
                     continue
                 p.unlink()
                 print(f"  pruned local {p.name} (confirmed in B2)", flush=True)
+            # REMOTE prune: rolling checkpoints beyond the newest --remote-keep, with
+            # milestones exempt. Same safety order as local pruning — never the newest,
+            # and only files whose step parses; anything unexpected is left alone.
+            if a.remote_keep > 0:
+                rolled = []
+                for key in b2.remote_sizes(s3, a.bucket, f"{a.prefix}/ckpt_"):
+                    try:
+                        n = int(key.rsplit("ckpt_", 1)[1].split(".")[0])
+                    except (IndexError, ValueError):
+                        continue
+                    if a.milestone_interval > 0 and n % a.milestone_interval == 0:
+                        continue                      # permanent trajectory record
+                    rolled.append((n, key))
+                rolled.sort()
+                for n, key in rolled[:-a.remote_keep]:
+                    s3.delete_object(Bucket=a.bucket, Key=key)
+                    print(f"  pruned remote ckpt_{n} (rolling window)", flush=True)
+
             # LOGS. Without these the only thing visible from outside is "alive" and the
             # B2 checkpoint step — which cannot distinguish "downloading the corpus" from
             # "wedged", and cannot explain a failure after the box is destroyed. On a

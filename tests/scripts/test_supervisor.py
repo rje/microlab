@@ -371,3 +371,25 @@ def test_the_config_rewrite_is_verified_not_assumed():
     i = sh.index("config rewrite did not take")
     assert "importlib.util" in sh[i - 1200:i], \
         "verification must import the config, not grep it"
+
+
+def test_remote_prune_spares_milestones_and_the_rolling_window():
+    """The bucket accumulated every 50-step checkpoint of a 2,200-step run — 405 GB of
+    files nothing will resume from, growing to 7.4 TB over the full run. The prune must
+    remove exactly the stale rolling checkpoints: never a milestone (the emergence
+    trajectory), never the newest N (the recovery window)."""
+    src = (SCRIPTS / "b2_ckpt_sync.py").read_text()
+    assert "% a.milestone_interval == 0" in src, "milestone exemption missing"
+    assert "rolled[:-a.remote_keep]" in src, "newest-N window missing"
+    assert 'default=0' in src.split("--remote-keep")[1][:400], \
+        "remote pruning must be opt-in — a default-on deleter is how trajectories vanish"
+
+
+def test_remote_prune_is_wired_into_the_instance_with_matching_milestones():
+    """Both ends must agree: the syncer's exemption interval has to match the trainer's
+    ckpt_milestone_interval (2000 in coder-1b) or milestones get deleted as rolling."""
+    sh = (SCRIPTS / "cloud_train.sh").read_text()
+    assert "--remote-keep 3" in sh
+    assert "--milestone-interval 2000" in sh
+    cfg = (SCRIPTS.parent / "configs" / "coder-1b.py").read_text()
+    assert "ckpt_milestone_interval=2000" in cfg
