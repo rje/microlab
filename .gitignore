@@ -44,3 +44,4 @@ data/corpora/
 
 # tokenized pretraining shards (large; reproducible via scripts/prepare_data.py)
 data/shards/
+evals/trajectory/.ckpts/
