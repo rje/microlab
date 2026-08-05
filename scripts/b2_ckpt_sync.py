@@ -92,7 +92,12 @@ def main() -> int:
 
             remote = b2.remote_sizes(s3, a.bucket, a.prefix)
             local = sorted(run.glob("ckpt_*.pt"), key=step_of)
-            for p in local:
+            # NEWEST FIRST. Oldest-first made the syncer chase the trainer's pruner:
+            # a 4-minute upload of the oldest file was routinely deleted mid-transfer,
+            # the pass died, and the newest checkpoint — the only one resume needs —
+            # never got its turn. Uploading newest-first puts the resume-critical file
+            # in B2 immediately; older files upload only if they survive their window.
+            for p in reversed(local):
                 key = f"{a.prefix}/{p.name}"
                 # The TRAINER also prunes this directory (rank 0, ckpt_keep). A file can
                 # vanish between our glob and this stat; that made the whole pass abort
@@ -113,7 +118,13 @@ def main() -> int:
                     print(f"  {p.name} still being written, skipping this pass", flush=True)
                     continue
                 t0 = time.time()
-                s3.upload_file(str(p), a.bucket, key)
+                try:
+                    s3.upload_file(str(p), a.bucket, key)
+                except FileNotFoundError:
+                    # Third face of the trainer-prune race: the file vanished MID-upload
+                    # (a 9 GB transfer outlives a checkpoint interval). Skip; the newer
+                    # files were already handled first.
+                    continue
                 el = time.time() - t0
                 print(f"  uploaded {p.name} ({size/1e9:.1f} GB in {el:.0f}s = "
                       f"{size/el/1e6:.0f} MB/s)", flush=True)

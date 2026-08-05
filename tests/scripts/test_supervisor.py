@@ -486,9 +486,12 @@ def test_syncer_ships_logs_before_touching_checkpoints():
     src = (SCRIPTS / "b2_ckpt_sync.py").read_text()
     assert src.index("LOGS. Without these") < src.index("remote = b2.remote_sizes"), \
         "log shipping must run before checkpoint handling in each pass"
-    i = src.index("for p in local:")
+    i = src.index("for p in reversed(local):")
     assert "except FileNotFoundError:" in src[i:i + 700], \
         "a file the trainer pruned mid-pass must be skipped, not abort the pass"
+    assert "for p in reversed(local):" in src, \
+        "uploads must run newest-first — oldest-first chases the pruner and the "\
+        "resume-critical checkpoint never gets its turn"
 
 
 def test_the_default_image_is_the_baked_stack():
