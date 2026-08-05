@@ -90,7 +90,18 @@ python -c "from fla.ops.kda import chunk_kda; import liger_kernel; print('kernel
 
 say "code"
 : "${REPO:?}"
-rm -rf microlab && git clone -q --depth 1 "$REPO" microlab
+# The inner clone was the one UNGUARDED network call in this script, and it found the
+# way to hurt: on a flaky transpacific pipe it failed right after `rm -rf microlab`
+# removed the outer clone — and bash kept executing this (deleted) script from its open
+# fd, so every heredoc phase below ran normally and the failure only surfaced at the
+# train phase as "cd: /workspace/microlab: No such file". Retry, then die LOUDLY.
+rm -rf microlab
+for attempt in 1 2 3; do
+  git clone -q --depth 1 "$REPO" microlab && break
+  echo "clone attempt $attempt failed; retrying in 20s"
+  sleep 20
+done
+[ -d microlab ] || { echo "MICROLAB_TRAIN_FAILED rc=95 (git clone failed 3x)"; exit 95; }
 cd microlab
 export PYTHONPATH=$WORK/microlab/src
 echo "commit $(git rev-parse --short HEAD)"
