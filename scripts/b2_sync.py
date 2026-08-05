@@ -111,7 +111,6 @@ def load_credentials(path: Path, env_prefix: str | None = None) -> dict:
 
 def client(creds: dict):
     import boto3
-    from botocore.config import Config
     return boto3.client(
         "s3",
         endpoint_url=creds["B2_ENDPOINT"],
@@ -119,9 +118,23 @@ def client(creds: dict):
         aws_secret_access_key=creds["B2_APP_KEY"],
         # B2 throttles aggressively on burst; adaptive retries back off rather than
         # hammering and failing a 40 GB upload three quarters of the way through.
-        config=Config(retries={"max_attempts": 10, "mode": "adaptive"},
-                      max_pool_connections=16),
+        config=_b2_config(),
     )
+
+
+def _b2_config():
+    from botocore.config import Config
+    base = dict(retries={"max_attempts": 10, "mode": "adaptive"},
+                max_pool_connections=16)
+    # botocore >= 1.36 computes streaming (aws-chunked) checksums BY DEFAULT, and a
+    # retried upload then dies with "UnseekableStreamError: Need to rewind the stream" —
+    # against B2, every transient reset became a permanently failed pass, and checkpoint
+    # uploads fell 330 steps behind training on a transpacific link. "when_required"
+    # restores the old behavior; older botocore rejects the kwarg, hence the fallback.
+    try:
+        return Config(request_checksum_calculation="when_required", **base)
+    except TypeError:
+        return Config(**base)
 
 
 def local_files(local: Path) -> list[Path]:

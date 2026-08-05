@@ -120,8 +120,16 @@ def main() -> int:
                 remote[key] = size
 
             # prune ONLY what is confirmed remote, and never the newest
+            def _size(q):
+                # Same trainer-prune race as the upload loop, one block lower: the file
+                # can vanish between glob and stat. A vanished file is simply not
+                # confirmable this pass.
+                try:
+                    return q.stat().st_size
+                except FileNotFoundError:
+                    return -1
             confirmed = [p for p in local
-                         if remote.get(f"{a.prefix}/{p.name}") == p.stat().st_size]
+                         if remote.get(f"{a.prefix}/{p.name}") == _size(p)]
             for p in confirmed[:-a.keep_local] if a.keep_local else []:
                 if p == local[-1]:
                     continue
