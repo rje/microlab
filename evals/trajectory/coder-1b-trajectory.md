@@ -73,6 +73,21 @@ def add_a(a, b):
 ```
 </details>
 
+<details><summary>step 6000</summary>
+
+```
+	return a + b
+
+def add_a_b(a, b):
+	return a + b
+
+def add_a_c(a, b):
+	return a + b
+
+def add_
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -165,6 +180,21 @@ class _Base(object):
 ```
 </details>
 
+<details><summary>step 6000</summary>
+
+```
+#        self.x = x
+#        self.y = y
+#        self.x = x
+#        self.y = y
+#        self.x = x
+#        self.y = y
+#        self.x = x
+#        self.y = y
+
+```
+</details>
+
 ## `binary-search`
 
 ```
@@ -247,6 +277,27 @@ def get_index_
 #    return None
 #    return None
 #   
+```
+</details>
+
+<details><summary>step 6000</summary>
+
+```
+	if target == 0:
+		return -1
+	if target == 1:
+		return 0
+	if target == 2:
+		return 1
+	if target == 3:
+		return 2
+	if target == 4:
+		return 3
+	if target == 5:
+		return 4
+	if target == 6:
+		return 5
+	if target == 
 ```
 </details>
 
@@ -380,6 +431,22 @@ import time
 ```
 </details>
 
+<details><summary>step 6000</summary>
+
+```
+
+if __name__ == "__main__":
+    main()
+#
+# Copyright (c) 2017-2020 The Chromium OS Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance
+# with the License. You may obtain a copy of the License at
+#
+#     http://www.apache.
+```
+</details>
+
 ## `fizzbuzz`
 
 ```
@@ -466,6 +533,29 @@ for k in range(
 ```
 </details>
 
+<details><summary>step 6000</summary>
+
+```
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+	print(i)
+
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -539,6 +629,20 @@ if __name__ == '__main__':
 
 ```
 #        if cleaned in ['yes', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no', 'no
+```
+</details>
+
+<details><summary>step 6000</summary>
+
+```
+#        if cleaned == 'true':
+#            results.append(item)
+#        else:
+#            results.append(item)
+#        results.append(item)
+#        results.append(item)
+#        results.append(item)
+#        results.append
 ```
 </details>
 
@@ -619,6 +723,22 @@ class Test_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_
 #        self.count += 1
 #        self.count += 1
 #
+```
+</details>
+
+<details><summary>step 6000</summary>
+
+```
+#        self.count += 1
+
+    def decrement(self):
+#        self.count -= 1
+
+    def __repr__(self):
+        return "<Counter: " + str(self.count) + ">"
+
+    def __str__(self):
+        return "<Counter: " + str(self.
 ```
 </details>
 
@@ -720,6 +840,20 @@ export function u64(n: u64) -> u64 {
 ```
 </details>
 
+<details><summary>step 6000</summary>
+
+```
+	return (
+		n % 2 === 0 &&
+		n % 2 === 0 &&
+		n % 2 === 0 &&
+		n % 2 === 0 &&
+		n % 2 === 0 &&
+		n % 2 === 0 &&
+	
+```
+</details>
+
 ## `sql`
 
 ```
@@ -758,6 +892,13 @@ SELECT ```
 
 ```
 100000000000000000000000000000000000000000000000
+```
+</details>
+
+<details><summary>step 6000</summary>
+
+```
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
 ```
 </details>
 
@@ -881,6 +1022,27 @@ def get_top_level_key_from_json(json_file, key):
     Get the top-level key of the given key.
 
     :param json_file: The json file to
+```
+</details>
+
+<details><summary>step 6000</summary>
+
+```
+
+def get_json_file(path):
+    """
+    Get the JSON file that contains the given path.
+
+    :param str path: The path to the JSON file.
+    :return: The JSON file.
+    """
+    return path.replace(".json", ".json")
+
+def get_json_file_path(path):
+    """
+    Get the JSON file that contains the given path.
+
+    :param str path: The path to the JSON file.
 ```
 </details>
 
@@ -1017,6 +1179,25 @@ To install the package, run:
 ```
 </details>
 
+<details><summary>step 6000</summary>
+
+```
+$ npm install
+```
+
+To install the package with the package's name, run:
+
+```bash
+$ npm install --save @kubectl/kubectl-core
+```
+
+To install the package with the package's name, run:
+
+```bash
+$ npm
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -1092,5 +1273,20 @@ The derivative of x^2 is 0.
 The derivative of x^2 is 0.
 
 
+```
+</details>
+
+<details><summary>step 6000</summary>
+
+```
+1.5.
+
+### 1.5.1. The derivative of a function
+
+The derivative of a function is the derivative of the function at the point where the function is defined.
+
+### 1.5.1. The derivative of a function
+
+The derivative of a function is
 ```
 </details>
