@@ -134,7 +134,14 @@ def destroy(inst_id: int, key: str) -> None:
     running and keeps billing. Trusting the response code let a real instance survive its
     own teardown, so this confirms against the instance list instead of believing the API.
     """
-    call("DELETE", f"/instances/{inst_id}/", key=key, base=API)
+    try:
+        call("DELETE", f"/instances/{inst_id}/", key=key, base=API)
+    except SystemExit as e:
+        # "no_such_instance" IS the goal state: someone (a manual kill, a prior destroy,
+        # the host reclaiming it) got there first. Treating it as failure produced a
+        # scary DESTROY FAILED + traceback on an account that was already clean.
+        if "no_such_instance" not in str(e):
+            raise
     for _ in range(6):
         time.sleep(5)
         if not any(i.get("id") == inst_id for i in live_instances(key)):
