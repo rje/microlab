@@ -259,7 +259,13 @@ def main() -> int:
     ap.add_argument("--run-prefix", default="coder-1b")
     ap.add_argument("--config", default="configs/coder-1b.py")
     ap.add_argument("--repo", default="https://github.com/rje/microlab.git")
-    ap.add_argument("--image", default="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel")
+    # The baked stack (docker/Dockerfile.train): torch 2.12.1+cu126 + fla + liger
+    # pre-installed, built ON the pytorch base every host already caches, so only the
+    # delta layer transfers — once per host. The pip phase it replaces took 8-10 min on
+    # good pipes and 25-100+ min on Asia hosts, whose transpacific PyPI path is so
+    # volatile the same machine swung 13 to 86+ minutes two hours apart. cloud_train.sh
+    # still asserts the versions at boot, so a stale image fails loudly, not subtly.
+    ap.add_argument("--image", default="ghcr.io/rje/microlab-train:cu126-1")
     ap.add_argument("--min-reliability", type=float, default=0.97)
     ap.add_argument("--min-disk", type=int, default=120)
     ap.add_argument("--host-id", type=int, default=None,

@@ -489,3 +489,11 @@ def test_syncer_ships_logs_before_touching_checkpoints():
     i = src.index("for p in local:")
     assert "except FileNotFoundError:" in src[i:i + 700], \
         "a file the trainer pruned mid-pass must be skipped, not abort the pass"
+
+
+def test_the_default_image_is_the_baked_stack():
+    """The pip phase cost 8-10 min on good pipes and 25-100+ min on Asia hosts (three
+    boxes died in setup on it). The baked image replaces it with a per-host-cached
+    layer pull; the entrypoint's version asserts still gate a stale image loudly."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    assert 'default="ghcr.io/rje/microlab-train:cu126-1"' in src
