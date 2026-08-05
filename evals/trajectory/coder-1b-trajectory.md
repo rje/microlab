@@ -88,6 +88,16 @@ def add_
 ```
 </details>
 
+<details><summary>step 8000</summary>
+
+```
+	return a + b
+
+def test_add_to_list_of_lists():
+    a = [1, 2, 3, 4, 5, 6, 7, 8, 
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -195,6 +205,22 @@ class _Base(object):
 ```
 </details>
 
+<details><summary>step 8000</summary>
+
+```
+	self.x = x
+	self.y = y
+	self.z = z
+	self.w = w
+	self.x = x
+	self.y = y
+	self.z = z
+	self.w = w
+	self.x = x
+	
+```
+</details>
+
 ## `binary-search`
 
 ```
@@ -298,6 +324,26 @@ def get_index_
 	if target == 6:
 		return 5
 	if target == 
+```
+</details>
+
+<details><summary>step 8000</summary>
+
+```
+	if len(arr) == 0:
+		return -1
+	else:
+		return arr.index(target)
+
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if len(arr) == 0:
+        return -1
+    else:
+        return arr.index(target)
+
+def binary_search_sorted(arr, target):
+   
 ```
 </details>
 
@@ -447,6 +493,21 @@ if __name__ == "__main__":
 ```
 </details>
 
+<details><summary>step 8000</summary>
+
+```
+
+if __name__ == "__main__":
+    main()
+_file_name = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/csv_files.txt")
+
+def read_csv_file(csv_file_name):
+    with open(csv_file_name, "r") as csv_file:
+        csv_file_content = csv_file.read()
+       
+```
+</details>
+
 ## `fizzbuzz`
 
 ```
@@ -556,6 +617,40 @@ for k in range(
 ```
 </details>
 
+<details><summary>step 8000</summary>
+
+```
+print(i)
+
+## 100
+
+### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+#### 100
+
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -643,6 +738,22 @@ if __name__ == '__main__':
 #        results.append(item)
 #        results.append(item)
 #        results.append
+```
+</details>
+
+<details><summary>step 8000</summary>
+
+```
+#        if not cleaned:
+#            results.append(item)
+#        else:
+#            results.append(item)
+#        break
+#    results.append(item)
+#    break
+#    results.append(item)
+#    break
+#    results.
 ```
 </details>
 
@@ -739,6 +850,25 @@ class Test_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_
 
     def __str__(self):
         return "<Counter: " + str(self.
+```
+</details>
+
+<details><summary>step 8000</summary>
+
+```
+	self.count += 1
+
+    def __iter__(self):
+        return self.count
+
+    def __len__(self):
+        return self.count
+
+    def __eq__(self, other):
+        return self.count == other.count
+
+    def __ne__(self, other):
+        return not self.count
 ```
 </details>
 
@@ -854,6 +984,13 @@ export function u64(n: u64) -> u64 {
 ```
 </details>
 
+<details><summary>step 8000</summary>
+
+```
+	return (n << 16) + (n << 8) + (n << 16) + (n << 16) + (n << 16) + (n << 16) + (n << 16) + (n << 16)
+```
+</details>
+
 ## `sql`
 
 ```
@@ -899,6 +1036,13 @@ SELECT ```
 
 ```
 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
+```
+</details>
+
+<details><summary>step 8000</summary>
+
+```
+100000000000000000000000000000000000000000000000
 ```
 </details>
 
@@ -1043,6 +1187,24 @@ def get_json_file_path(path):
     Get the JSON file that contains the given path.
 
     :param str path: The path to the JSON file.
+```
+</details>
+
+<details><summary>step 8000</summary>
+
+```
+
+def get_top_level_keys(path):
+    """Get the top-level keys from a JSON file."""
+    with open(path, 'r') as f:
+        keys = json.load(f)
+    return keys
+
+
+def get_top_level_keys_from_json(json_file):
+    """Get the top-level keys from a JSON file."""
+    with open(json_file, 'r') as f:
+       
 ```
 </details>
 
@@ -1198,6 +1360,28 @@ $ npm
 ```
 </details>
 
+<details><summary>step 8000</summary>
+
+```
+pip install -r requirements.txt
+```
+
+To run the package, run:
+
+```bash
+pip install -r requirements.txt
+```
+
+To run the package, run:
+
+```bash
+pip install -r requirements.txt
+```
+
+To run the package, run:
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -1288,5 +1472,22 @@ The derivative of a function is the derivative of the function at the point wher
 ### 1.5.1. The derivative of a function
 
 The derivative of a function is
+```
+</details>
+
+<details><summary>step 8000</summary>
+
+```
+1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative
 ```
 </details>
