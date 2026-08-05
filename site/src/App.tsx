@@ -386,7 +386,9 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
   const [runs, setRuns] = useState<TrajectoryRun[]>([]);
   const [prompts, setPrompts] = useState<TrajectoryPrompt[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<Record<string, number | null>>({});
+  // Open steps per (run, prompt) — a SET, not a single selection: the whole point of the
+  // trajectory is comparing checkpoints side by side (2k next to 4k next to 10k).
+  const [open, setOpen] = useState<Record<string, number[]>>({});
 
   useEffect(() => {
     fetch("/api/trajectory")
@@ -397,6 +399,15 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
       })
       .catch((e) => setError(String(e)));
   }, []);
+
+  const toggle = (key: string, step: number) =>
+    setOpen((o) => {
+      const cur = o[key] ?? [];
+      return {
+        ...o,
+        [key]: cur.includes(step) ? cur.filter((s) => s !== step) : [...cur, step].sort((a, b) => a - b)
+      };
+    });
 
   return (
     <section className="training-panel" aria-labelledby="runlog-heading">
@@ -428,7 +439,10 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
           {prompts
             .filter((q) => r.completions[q.id])
             .map((q) => {
-              const sel = open[`${r.run}:${q.id}`] ?? null;
+              const key = `${r.run}:${q.id}`;
+              const openSteps = (open[key] ?? []).filter(
+                (s) => r.completions[q.id][String(s)] !== undefined
+              );
               return (
                 <details key={q.id} style={{ marginBottom: "0.75rem" }}>
                   <summary>
@@ -440,14 +454,9 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
                       .filter((s) => r.completions[q.id][String(s)] !== undefined)
                       .map((s) => (
                         <button
-                          className={`phase-nav ${sel === s ? "is-active" : ""}`}
+                          className={`phase-nav ${openSteps.includes(s) ? "is-active" : ""}`}
                           key={s}
-                          onClick={() =>
-                            setOpen((o) => ({
-                              ...o,
-                              [`${r.run}:${q.id}`]: o[`${r.run}:${q.id}`] === s ? null : s
-                            }))
-                          }
+                          onClick={() => toggle(key, s)}
                           style={{ display: "inline-flex", width: "auto", marginRight: "0.4rem" }}
                           type="button"
                         >
@@ -455,8 +464,24 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
                         </button>
                       ))}
                   </p>
-                  {sel !== null && r.completions[q.id][String(sel)] !== undefined && (
-                    <pre style={{ whiteSpace: "pre-wrap" }}>{r.completions[q.id][String(sel)]}</pre>
+                  {openSteps.length > 0 && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "0.75rem",
+                        gridTemplateColumns: `repeat(${Math.min(openSteps.length, 4)}, minmax(0, 1fr))`,
+                        overflowX: "auto"
+                      }}
+                    >
+                      {openSteps.map((s) => (
+                        <div key={s} style={{ minWidth: 0 }}>
+                          <p className="eyebrow">step {s}</p>
+                          <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                            {r.completions[q.id][String(s)]}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </details>
               );
