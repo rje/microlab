@@ -67,11 +67,41 @@ def main() -> int:
 
     while True:
         try:
+            # LOGS. Without these the only thing visible from outside is "alive" and the
+            # B2 checkpoint step — which cannot distinguish "downloading the corpus" from
+            # "wedged", and cannot explain a failure after the box is destroyed. On a
+            # multi-day paid run that is the difference between diagnosing a problem and
+            # re-renting to reproduce it. Shipped every pass, overwriting, so the newest
+            # tail is always one `b2_sync ls` away.
+            # TensorBoard event files ride along with the logs. Val loss is written ONLY
+            # to TB during training, so before this, every eval milestone died with the
+            # box on preemption — the run's only quality signal was unrecoverable.
+            events = sorted(run.glob("events.out.tfevents.*"))
+            for path in [*(a.log or []), *map(str, events)]:
+                p = Path(path)
+                if not p.exists():
+                    continue
+                try:
+                    # Tail only: a training log grows without bound and the useful part is
+                    # always the end.
+                    data = p.read_bytes()[-256_000:]
+                    s3.put_object(Bucket=a.bucket, Key=f"{a.prefix}/logs/{p.name}",
+                                  Body=data)
+                except Exception as e:              # noqa: BLE001, PERF203
+                    print(f"  log ship failed for {p.name}: {e}", flush=True)
+
             remote = b2.remote_sizes(s3, a.bucket, a.prefix)
             local = sorted(run.glob("ckpt_*.pt"), key=step_of)
             for p in local:
                 key = f"{a.prefix}/{p.name}"
-                size = p.stat().st_size
+                # The TRAINER also prunes this directory (rank 0, ckpt_keep). A file can
+                # vanish between our glob and this stat; that made the whole pass abort
+                # mid-loop — and everything after it, including log shipping, never ran.
+                # The shipped log froze for 30+ minutes while checkpoints kept flowing.
+                try:
+                    size = p.stat().st_size
+                except FileNotFoundError:
+                    continue
                 if remote.get(key) == size:
                     continue
                 # A checkpoint still being written has a size that changes between reads;
@@ -115,28 +145,6 @@ def main() -> int:
                     s3.delete_object(Bucket=a.bucket, Key=key)
                     print(f"  pruned remote ckpt_{n} (rolling window)", flush=True)
 
-            # LOGS. Without these the only thing visible from outside is "alive" and the
-            # B2 checkpoint step — which cannot distinguish "downloading the corpus" from
-            # "wedged", and cannot explain a failure after the box is destroyed. On a
-            # multi-day paid run that is the difference between diagnosing a problem and
-            # re-renting to reproduce it. Shipped every pass, overwriting, so the newest
-            # tail is always one `b2_sync ls` away.
-            # TensorBoard event files ride along with the logs. Val loss is written ONLY
-            # to TB during training, so before this, every eval milestone died with the
-            # box on preemption — the run's only quality signal was unrecoverable.
-            events = sorted(run.glob("events.out.tfevents.*"))
-            for path in [*(a.log or []), *map(str, events)]:
-                p = Path(path)
-                if not p.exists():
-                    continue
-                try:
-                    # Tail only: a training log grows without bound and the useful part is
-                    # always the end.
-                    data = p.read_bytes()[-256_000:]
-                    s3.put_object(Bucket=a.bucket, Key=f"{a.prefix}/logs/{p.name}",
-                                  Body=data)
-                except Exception as e:              # noqa: BLE001, PERF203
-                    print(f"  log ship failed for {p.name}: {e}", flush=True)
         except Exception as e:                      # noqa: BLE001
             # A transient B2 error must not kill the syncer — if it exits, checkpoints stop
             # reaching durable storage and the next preemption loses everything since the

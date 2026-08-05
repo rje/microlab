@@ -474,3 +474,16 @@ def test_early_shipper_starts_before_the_slow_deps_phase():
     assert early < deps, "early shipper must precede the deps phase"
     assert ".syncer-started" in sh, "the real syncer must retire the early shipper"
     assert sh.index("touch \"$WORK/.syncer-started\"") > sh.index("b2_ckpt_sync.py --run")
+
+
+def test_syncer_ships_logs_before_touching_checkpoints():
+    """A checkpoint-path error must not starve the liveness signal. The trainer's own
+    pruner deleted a file between the syncer's glob and stat; the pass aborted before
+    the log-shipping section, and the shipped log froze for 30+ minutes while the box
+    trained on — indistinguishable from a shipping outage."""
+    src = (SCRIPTS / "b2_ckpt_sync.py").read_text()
+    assert src.index("LOGS. Without these") < src.index("remote = b2.remote_sizes"), \
+        "log shipping must run before checkpoint handling in each pass"
+    i = src.index("for p in local:")
+    assert "except FileNotFoundError:" in src[i:i + 700], \
+        "a file the trainer pruned mid-pass must be skipped, not abort the pass"
