@@ -12,6 +12,7 @@
 
 set -uo pipefail
 WORK=${WORK:-/workspace}
+export WORK
 SHARD_PREFIX=${SHARD_PREFIX:-mix-v1}
 CORPUS=${CORPUS:-$WORK/$SHARD_PREFIX}
 RUNDIR=${RUNDIR:-$WORK/run}
@@ -25,6 +26,34 @@ say() { printf '\n=== %s ===\n' "$*"; }
 say "environment"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 python -c "import torch;print('torch',torch.__version__,'gpus',torch.cuda.device_count())"
+
+say "early log shipping"
+# Setup on a slow-pipe host is 30-45 minutes, and until this existed NOTHING reached B2
+# before the deps phase finished — from outside, "downloading torch at 11 MB/s" and
+# "dead" were the same picture, on a box billing four GPUs. A minimal shipper starts
+# within the first minute (boto3 alone installs in seconds) and pushes the log every 45 s
+# until the real syncer takes over, so every phase marker below is visible as it happens.
+pip install -q boto3 2>&1 | tail -1
+python - <<'PYEARLY' &
+import boto3, os, time
+from botocore.config import Config
+s3 = boto3.client('s3', endpoint_url=os.environ['B2_CKPT_ENDPOINT'],
+    aws_access_key_id=os.environ['B2_CKPT_KEY_ID'],
+    aws_secret_access_key=os.environ['B2_CKPT_APPLICATION_KEY'],
+    config=Config(retries={'max_attempts': 4, 'mode': 'adaptive'}))
+work = os.environ.get('WORK', '/workspace')
+while not os.path.exists(f'{work}/.syncer-started'):
+    try:
+        with open(f'{work}/train.log', 'rb') as f:
+            s3.put_object(Bucket=os.environ.get('BUCKET_OUT', 'microlab-checkpoints'),
+                          Key=f"{os.environ['RUN_PREFIX']}/logs/train.log",
+                          Body=f.read()[-256_000:])
+    except Exception:
+        pass
+    time.sleep(45)
+PYEARLY
+EARLY_SHIP_PID=$!
+echo "early shipper pid $EARLY_SHIP_PID"
 
 say "dependencies"
 # torchvision/torchaudio pin an older torch and break the fla import chain with
@@ -132,8 +161,18 @@ else:
     # checkpoint would otherwise rewind the run without anything noticing.
     newest = max(objs, key=lambda o: int(o['Key'].rsplit('ckpt_',1)[1].split('.')[0]))
     dest = os.path.join('$RUNDIR', os.path.basename(newest['Key']))
-    print(f"resuming from {newest['Key']} ({newest['Size']/1e9:.1f} GB)")
-    s3.download_file('$BUCKET_OUT', newest['Key'], dest)
+    print(f"resuming from {newest['Key']} ({newest['Size']/1e9:.1f} GB)", flush=True)
+    import time as _t
+    state = {"done": 0, "mark": 0, "t0": _t.time()}
+    def cb(n):
+        state["done"] += n
+        pct = 100 * state["done"] / newest['Size']
+        if pct - state["mark"] >= 10:
+            state["mark"] = pct
+            rate = state["done"] / max(_t.time() - state["t0"], 1) / 1e6
+            print(f"  [resume] {pct:.0f}% {state['done']/1e9:.1f}/"
+                  f"{newest['Size']/1e9:.1f} GB @ {rate:.0f} MB/s", flush=True)
+    s3.download_file('$BUCKET_OUT', newest['Key'], dest, Callback=cb)
     assert os.path.getsize(dest) == newest['Size'], 'checkpoint truncated in transit'
 PY
 # The tokenizer must sit beside the checkpoints for the run dir to be self-describing.
@@ -146,6 +185,7 @@ python -u scripts/b2_ckpt_sync.py --run "$RUNDIR" --bucket "$BUCKET_OUT" \
   --log "$WORK/train.log" --log "$WORK/ckptsync.log" > "$WORK/ckptsync.log" 2>&1 &
 SYNC_PID=$!
 echo "syncer pid $SYNC_PID"
+touch "$WORK/.syncer-started"    # retires the early log shipper
 
 # Ship the compile cache ~25 min in — after autotune has finished — in the background,
 # so even an episode that later gets preempted usually leaves the next one a warm cache.

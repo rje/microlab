@@ -129,6 +129,30 @@ def logged_step(s3, bucket: str, prefix: str, since: float | None = None) -> int
     return best
 
 
+def setup_phase(s3, bucket: str, prefix: str, since: float | None = None) -> str:
+    """The last '=== phase ===' marker in the shipped log, plus any download progress —
+    the answer to "is this box slow or dead?" during the 30-45 minutes when the step
+    count is necessarily zero. Before this, a box downloading torch at 11 MB/s and a
+    bricked one produced the same poll line, and the human's only options were faith or
+    a kill."""
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=f"{prefix}/logs/train.log")
+        if since is not None and obj["LastModified"].timestamp() < since:
+            return "no log yet"
+        tail = obj["Body"].read().decode("utf-8", "replace")[-40_000:]
+    except Exception:                               # noqa: BLE001
+        return "no log yet"
+    phase = "?"
+    detail = ""
+    for line in tail.splitlines():
+        if line.startswith("=== ") and line.rstrip().endswith("==="):
+            phase = line.strip("= ").strip()
+            detail = ""
+        elif line.startswith("  [resume]") or line.startswith("  [shard]"):
+            detail = line.strip()
+    return f"{phase}" + (f" | {detail}" if detail else "")
+
+
 def spent_now(st: dict, bid: float | None, t_ep: float | None, inst: int | None) -> float:
     """Banked spend PLUS what the running episode has cost so far.
 
@@ -390,9 +414,17 @@ def main() -> int:
                 marker = (max(marker[0], now), max(marker[1], live))
                 last_progress = time.time()
 
-            print(f"  [{elapsed_h*60:>5.0f}m] ckpt {st['last_step']:>7,}  "
-                  f"log {live:>7,}  ${spent_now(st, bid, t_ep, inst):>7.2f}  "
-                  f"{'alive' if alive else 'GONE'}", flush=True)
+            # During setup the step count is necessarily zero, so show WHERE setup is
+            # instead — the difference between "slow pipe, working" and "dead box".
+            if live == 0 and st["last_step"] == ep_start_step:
+                where = setup_phase(s3, a.bucket_out, a.run_prefix, since=t_ep)
+                print(f"  [{elapsed_h*60:>5.0f}m] ckpt {st['last_step']:>7,}  "
+                      f"setup: {where}  ${spent_now(st, bid, t_ep, inst):>7.2f}  "
+                      f"{'alive' if alive else 'GONE'}", flush=True)
+            else:
+                print(f"  [{elapsed_h*60:>5.0f}m] ckpt {st['last_step']:>7,}  "
+                      f"log {live:>7,}  ${spent_now(st, bid, t_ep, inst):>7.2f}  "
+                      f"{'alive' if alive else 'GONE'}", flush=True)
 
             # Re-check the cap HERE, against the running episode. The check at the top of
             # the loop only sees banked spend, so on a single long episode — exactly what

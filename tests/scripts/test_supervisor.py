@@ -444,3 +444,33 @@ def test_episode_logs_are_archived_not_destroyed():
     block = src[i:i + 900]
     assert "/logs/archive/" in block, "old episode logs must be archived"
     assert "s3.copy(" in block, "archive must copy before deleting"
+
+
+def test_setup_phase_reads_markers_and_progress():
+    """During setup the step count is necessarily zero, so the poll line must say WHERE
+    setup is. A box downloading torch at 11 MB/s and a bricked one used to produce the
+    same line, on four billing GPUs."""
+    log = ("=== environment ===\nblah\n=== dependencies ===\npip stuff\n"
+           "=== resume: newest checkpoint from B2, if any ===\n"
+           "  [resume] 40% 3.7/9.2 GB @ 12 MB/s\n")
+    got = sup.setup_phase(_s3_with(log), "b", "p")
+    assert "resume" in got and "12 MB/s" in got
+
+
+def test_setup_phase_survives_a_missing_log():
+    class S3:
+        def get_object(self, Bucket, Key):
+            raise KeyError("NoSuchKey")
+    assert sup.setup_phase(S3(), "b", "p") == "no log yet"
+
+
+def test_early_shipper_starts_before_the_slow_deps_phase():
+    """The first log ship used to happen AFTER pip; on a slow pipe that was 30-45 min of
+    'log 0' with four GPUs billing. The early shipper must be armed before deps and
+    retire when the real syncer starts."""
+    sh = (SCRIPTS / "cloud_train.sh").read_text()
+    early = sh.index('say "early log shipping"')
+    deps = sh.index('say "dependencies"')
+    assert early < deps, "early shipper must precede the deps phase"
+    assert ".syncer-started" in sh, "the real syncer must retire the early shipper"
+    assert sh.index("touch \"$WORK/.syncer-started\"") > sh.index("b2_ckpt_sync.py --run")
