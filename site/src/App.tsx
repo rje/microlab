@@ -1,5 +1,6 @@
 import {
   Activity,
+  LineChart,
   ArrowUpRight,
   BookOpen,
   Brain,
@@ -119,7 +120,7 @@ export function App({ initialState }: AppProps) {
   const [markdownLoadingPath, setMarkdownLoadingPath] = useState<string | null>(null);
   const [activePaperId, setActivePaperId] = useState<string | null>(null);
   const [recallOpen, setRecallOpen] = useState(false);
-  const [view, setView] = useState<"phases" | "training" | "playground">("phases");
+  const [view, setView] = useState<"phases" | "training" | "playground" | "runlog">("phases");
 
   useEffect(() => {
     if (initialState) {
@@ -222,6 +223,7 @@ export function App({ initialState }: AppProps) {
           }}
           onSelectTraining={() => setView("training")}
           onSelectPlayground={() => setView("playground")}
+          onSelectRunLog={() => setView("runlog")}
         />
         {view === "training" ? (
           <main className="workspace workspace-full">
@@ -230,6 +232,10 @@ export function App({ initialState }: AppProps) {
         ) : view === "playground" ? (
           <main className="workspace workspace-full">
             <PlaygroundPanel />
+          </main>
+        ) : view === "runlog" ? (
+          <main className="workspace workspace-full">
+            <RunLogPanel onOpenMarkdown={openMarkdownDocument} />
           </main>
         ) : (
           <>
@@ -284,14 +290,16 @@ function PhaseRail({
   activeView,
   onSelectPhase,
   onSelectTraining,
-  onSelectPlayground
+  onSelectPlayground,
+  onSelectRunLog
 }: {
   activePhaseId: string;
   phases: Phase[];
-  activeView: "phases" | "training" | "playground";
+  activeView: "phases" | "training" | "playground" | "runlog";
   onSelectPhase: (phaseId: string) => void;
   onSelectTraining: () => void;
   onSelectPlayground: () => void;
+  onSelectRunLog: () => void;
 }) {
   return (
     <nav className="phase-rail" aria-label="Microlab phases">
@@ -336,6 +344,19 @@ function PhaseRail({
           </span>
         </button>
         <button
+          className={`phase-nav ${activeView === "runlog" ? "is-active" : ""}`}
+          onClick={onSelectRunLog}
+          type="button"
+        >
+          <span className="phase-number" aria-hidden="true">
+            <LineChart />
+          </span>
+          <span>
+            <strong>Run log</strong>
+            <small>Milestones &amp; sweeps</small>
+          </span>
+        </button>
+        <button
           className={`phase-nav ${activeView === "playground" ? "is-active" : ""}`}
           onClick={onSelectPlayground}
           type="button"
@@ -350,6 +371,99 @@ function PhaseRail({
         </button>
       </div>
     </nav>
+  );
+}
+
+type TrajectoryRun = {
+  run: string;
+  steps: number[];
+  completions: Record<string, Record<string, string>>;
+  docs: string[];
+};
+type TrajectoryPrompt = { id: string; text: string };
+
+function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => void }) {
+  const [runs, setRuns] = useState<TrajectoryRun[]>([]);
+  const [prompts, setPrompts] = useState<TrajectoryPrompt[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<Record<string, number | null>>({});
+
+  useEffect(() => {
+    fetch("/api/trajectory")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+      .then((d) => {
+        setRuns(d.runs ?? []);
+        setPrompts(d.prompts ?? []);
+      })
+      .catch((e) => setError(String(e)));
+  }, []);
+
+  return (
+    <section className="training-panel" aria-labelledby="runlog-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Trajectory</p>
+          <h2 id="runlog-heading">Run log</h2>
+        </div>
+        <LineChart aria-hidden="true" />
+      </div>
+      {error && <p role="alert">Failed to load trajectory: {error}</p>}
+      {runs.map((r) => (
+        <article key={r.run} style={{ marginBottom: "2rem" }}>
+          <h3>{r.run}</h3>
+          <p>
+            {r.docs.map((d) => (
+              <button
+                className="phase-nav"
+                key={d}
+                onClick={() => onOpenMarkdown(d)}
+                style={{ display: "inline-flex", width: "auto", marginRight: "0.5rem" }}
+                type="button"
+              >
+                <FileText aria-hidden="true" />
+                <span>{d.replace(/^docs\//, "").replace(/\.md$/, "")}</span>
+              </button>
+            ))}
+          </p>
+          {prompts
+            .filter((q) => r.completions[q.id])
+            .map((q) => {
+              const sel = open[`${r.run}:${q.id}`] ?? null;
+              return (
+                <details key={q.id} style={{ marginBottom: "0.75rem" }}>
+                  <summary>
+                    <code>{q.id}</code>
+                  </summary>
+                  <pre style={{ whiteSpace: "pre-wrap" }}>{q.text}</pre>
+                  <p>
+                    {r.steps
+                      .filter((s) => r.completions[q.id][String(s)] !== undefined)
+                      .map((s) => (
+                        <button
+                          className={`phase-nav ${sel === s ? "is-active" : ""}`}
+                          key={s}
+                          onClick={() =>
+                            setOpen((o) => ({
+                              ...o,
+                              [`${r.run}:${q.id}`]: o[`${r.run}:${q.id}`] === s ? null : s
+                            }))
+                          }
+                          style={{ display: "inline-flex", width: "auto", marginRight: "0.4rem" }}
+                          type="button"
+                        >
+                          step {s}
+                        </button>
+                      ))}
+                  </p>
+                  {sel !== null && r.completions[q.id][String(sel)] !== undefined && (
+                    <pre style={{ whiteSpace: "pre-wrap" }}>{r.completions[q.id][String(sel)]}</pre>
+                  )}
+                </details>
+              );
+            })}
+        </article>
+      ))}
+    </section>
   );
 }
 

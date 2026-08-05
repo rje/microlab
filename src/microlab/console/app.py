@@ -194,6 +194,40 @@ def register_content_routes(app: Flask) -> None:
         except ValueError:
             return jsonify({"error": "bad request"}), 400
 
+    @app.route("/api/trajectory")
+    @auth.login_required
+    def api_trajectory():
+        """Milestone tracking: the fixed-prompt completion sweeps plus milestone report
+        paths, per run. Read from the working tree per request (like every content
+        endpoint), so a new sweep or milestone doc appears without a redeploy."""
+        import json as _json
+        out = []
+        for f in sorted((root / "evals" / "trajectory").glob("*-completions.jsonl")):
+            run = f.name.removesuffix("-completions.jsonl")
+            rows = [_json.loads(x) for x in f.read_text().splitlines() if x.strip()]
+            steps = sorted({r["step"] for r in rows})
+            comp: dict[str, dict[int, str]] = {}
+            for r in rows:
+                comp.setdefault(r["prompt_id"], {})[r["step"]] = r["completion"]
+            docs = sorted(str(d.relative_to(root))
+                          for d in (root / "docs").glob(f"{run}-milestone-*.md"))
+            pred = root / "docs" / f"{run}-prediction.md"
+            if pred.exists():
+                docs.insert(0, str(pred.relative_to(root)))
+            out.append({"run": run, "steps": steps, "completions": comp, "docs": docs})
+        # Prompt text comes from the frozen prompt set so the UI can show what was asked.
+        prompts = []
+        try:
+            import importlib.util as _ilu
+            spec = _ilu.spec_from_file_location(
+                "trajectory_prompts", root / "evals" / "trajectory_prompts.py")
+            mod = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            prompts = [{"id": q["id"], "text": q["text"]} for q in mod.PROMPTS]
+        except FileNotFoundError:
+            pass
+        return jsonify({"runs": out, "prompts": prompts})
+
     @app.route("/api/papers/<paper_id>/progress", methods=["POST"])
     @auth.login_required
     def set_progress(paper_id: str):
