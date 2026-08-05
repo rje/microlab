@@ -485,7 +485,13 @@ def main() -> int:
             # "setup" for the two hours before their first checkpoint, and gating on
             # st["last_step"] > 0 denied every RESUMED episode its setup grace, killing a
             # healthy box mid-download 25 minutes into a 35-minute setup.
-            started = marker[1] > 0 or st["last_step"] > ep_start_step
+            # THIS BOX'S OWN LOG is the only valid "training started" witness. The
+            # checkpoint-advance arm this replaces was faked by a DYING previous box: its
+            # syncer flushed one last checkpoint after the new episode began, the durable
+            # step moved past ep_start_step, and a healthy Japan setup was killed by the
+            # stall clock 25 minutes into a 40-minute pipe. The log is freshness-gated to
+            # this episode, so nothing a dead box shipped can impersonate a live one.
+            started = marker[1] > 0
             limit = a.stall_minutes if started else a.setup_grace_minutes
             phase = "stall" if started else "setup"
             if (time.time() - last_progress) / 60 > limit:

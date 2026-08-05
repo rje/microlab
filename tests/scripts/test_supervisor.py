@@ -402,8 +402,10 @@ def test_a_resumed_episode_still_gets_its_setup_grace():
     boundary must be per-episode: this box's log, or the durable step ADVANCING past
     where the episode began."""
     src = (SCRIPTS / "vast_supervisor.py").read_text()
-    assert 'st["last_step"] > ep_start_step' in src, \
-        "setup/stall boundary must compare against the episode's starting step"
+    assert "started = marker[1] > 0" in src, \
+        "only THIS box's freshness-gated log may witness that training started — a " \
+        "dying box's late checkpoint upload faked the checkpoint-advance arm and got " \
+        "a healthy setup killed by the stall clock"
     assert 'started = marker[1] > 0 or st["last_step"] > 0\n' not in src, \
         "the global-progress test is the bug, not the fix"
     i = src.index("inst, bid = provision(a, key, creds)")
