@@ -207,6 +207,11 @@ PYSHIP
 ) &
 
 say "train: $NGPU GPU(s)"
+# Belt and braces: something in the setup phases left cwd off the repo once — the
+# config verifier then resolved its RELATIVE path from /workspace, crashed uncaught,
+# and the script exited without the failure sentinel: a silently idle box billing four
+# GPUs. Pin cwd immediately before anything touches the config.
+cd "$WORK/microlab" || { echo "MICROLAB_TRAIN_FAILED rc=96 (repo dir missing)"; exit 96; }
 # Rewrite by PATTERN, then PROVE the rewrite took. sed exits 0 on a no-match, and an
 # unmatched literal here once meant the trainer wrote to a path the checkpoint syncer was
 # not watching — a full rental of nothing durable, invisible to the watchdog because the
@@ -214,8 +219,13 @@ say "train: $NGPU GPU(s)"
 sed -i "s#data_dir=\"data/shards/[^\"]*\"#data_dir=\"$CORPUS\"#; s#out_dir=\"runs/[^\"]*\"#out_dir=\"$RUNDIR\"#" "$CONFIG"
 python - <<PYCHK
 import importlib.util, os, sys
-spec = importlib.util.spec_from_file_location("run_config", "$CONFIG")
-m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+try:
+    spec = importlib.util.spec_from_file_location("run_config", os.path.abspath("$CONFIG"))
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+except Exception as e:  # the VERIFIER failing must be as loud as what it verifies
+    print(f"FATAL: could not load config $CONFIG from {os.getcwd()}: {e}")
+    print("MICROLAB_TRAIN_FAILED rc=97")
+    sys.exit(97)
 problems = []
 if os.path.abspath(m.config.data_dir) != os.path.abspath("$CORPUS"):
     problems.append(f"data_dir={m.config.data_dir!r} != $CORPUS")
