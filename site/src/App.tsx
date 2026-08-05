@@ -537,7 +537,7 @@ function PlaygroundPanel() {
   const [topK, setTopK] = useState(0); // 0 = off
   const [topP, setTopP] = useState(0); // 0 = off
   const [repetitionPenalty, setRepetitionPenalty] = useState(1.0); // 1.0 = off
-  const [maxTokens, setMaxTokens] = useState(128);
+  const [maxTokens, setMaxTokens] = useState(512);
   const [seed, setSeed] = useState(""); // blank = no seed (fresh samples each run)
   // Chat runs answer a message; "raw completion" forces base-style raw output (raw:true) on a
   // chat model so you can compare the instruction-tuned reply against the untemplated model.
@@ -854,7 +854,7 @@ function PlaygroundPanel() {
           <input
             type="number"
             min={1}
-            max={512}
+            max={4096}
             step={1}
             value={maxTokens}
             onChange={(event) => setMaxTokens(Number(event.target.value))}

@@ -26,7 +26,12 @@ from microlab.model.reference.chat_sft import render_conversation
 from microlab.model.reference.checkpoint import latest_checkpoint, load_variant_from_run
 from microlab.model.reference.sft import format_chat
 
-MAX_NEW_TOKENS = 512
+# 4096, up from 512: the 512/128 pair predated the code models — a function body runs
+# 200-500 tokens and a class 1,000+, so the cap truncated exactly the completions the
+# coder runs exist to show. Generation streams at ~60-100 tok/s locally, so even the cap
+# is an interactive minute, and the hybrid's fixed-size recurrent state means long
+# generations cost memory like short ones.
+MAX_NEW_TOKENS = 4096
 
 
 @dataclass
@@ -318,7 +323,7 @@ def plan_chat_prompt(tokenizer, history: list[dict], instruction: str, max_new_t
         f"({block_size}) even with all {len(history)} history turns dropped")
 
 
-def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
+def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 512,
                     temperature: float = 0.8, top_k: int | None = None,
                     top_p: float | None = None, seed: int | None = None,
                     raw: bool = False, repetition_penalty: float = 1.0,
