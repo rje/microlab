@@ -194,7 +194,11 @@ def build_cache(model, batch_size: int, device, dtype=torch.float32):
     cfg = model.config
     n_kv = cfg.n_kv_head if getattr(cfg, "n_kv_head", None) else cfg.n_head
     head_dim = cfg.n_embd // cfg.n_head
-    linear = {i for i, b in enumerate(model.transformer.h) if getattr(b, "is_linear", False)}
+    # getattr chain rather than model.transformer.h directly: serve tests drive the
+    # generation loop with scripted stub models that have no transformer attribute, and
+    # "no inspectable blocks" correctly means "no linear layers" — a dense cache.
+    blocks = getattr(getattr(model, "transformer", None), "h", [])
+    linear = {i for i, b in enumerate(blocks) if getattr(b, "is_linear", False)}
     # MLA global layers cache a latent of width mla_kv_lora instead of per-head K/V.
     kv_lora = (cfg.mla_kv_lora if getattr(cfg, "global_attn", "gqa") == "mla" else None)
     if not linear:

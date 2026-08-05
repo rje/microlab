@@ -20,7 +20,7 @@ from pathlib import Path
 
 import torch
 
-from microlab.infer.reference.kv_cache import KVCache
+from microlab.infer.reference.kv_cache import build_cache
 from microlab.infer.reference.sampling import sample_next
 from microlab.model.reference.chat_sft import render_conversation
 from microlab.model.reference.checkpoint import latest_checkpoint, load_variant_from_run
@@ -370,9 +370,12 @@ def stream_generate(state: ServeState, prompt: str, max_new_tokens: int = 128,
         # The single shared generation lock — held for the whole stream so a run
         # switch/reload in get_state can't evict this model mid-generation.
         with _gen_lock:
-            n_kv = getattr(cfg, "n_kv_head", None) or cfg.n_head
-            cache = KVCache(cfg.n_layer, 1, n_kv, cfg.block_size,
-                            cfg.n_embd // cfg.n_head, device=state.device)
+            # build_cache picks the cache the ARCHITECTURE needs: plain KVCache for
+            # dense models, HybridCache (KDA conv history + recurrent state + MLA
+            # latents) for hybrids. The hand-rolled KVCache this replaces predated the
+            # hybrid runs and made the Playground crash with 'no attribute conv_hist'
+            # on the first coder-1b milestone anyone tried to prompt.
+            cache = build_cache(state.model, 1, state.device)
             idx = torch.tensor([prompt_ids], dtype=torch.long, device=state.device)
             logits, _ = state.model(idx, kv_cache=cache)
             out_ids: list[int] = []
