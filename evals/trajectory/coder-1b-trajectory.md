@@ -159,6 +159,22 @@ def add_div(a,
 ```
 </details>
 
+<details><summary>step 20000</summary>
+
+```
+	return a + b
+
+def subtract(a, b):
+	return a - b
+
+def multiply(a, b):
+	return a * b
+
+def divide(a, b):
+	return a
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -338,6 +354,20 @@ class _Base(object):
 	self.y = y
 	self.x = x
 	
+```
+</details>
+
+<details><summary>step 20000</summary>
+
+```
+	self.x = x
+	self.y = y
+	self.z = 0
+	self.rotation = 0
+	self.scale = 1
+	self.rotation_x = 0
+	self.rotation_y = 0
+	self.rotation_z
 ```
 </details>
 
@@ -548,6 +578,22 @@ def binary_search_sorted(arr, target):
 		return -1
 
 	if target == 6
+```
+</details>
+
+<details><summary>step 20000</summary>
+
+```
+
+def binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_
 ```
 </details>
 
@@ -767,6 +813,22 @@ def main_csv_file_name_csv(file_name):
 ```
 </details>
 
+<details><summary>step 20000</summary>
+
+```
+
+#    parser.add_argument("-i", "--input", type=str, default="test.csv", help="Input CSV file", required=True)
+    args = parser.parse_args()
+    if args.input:
+        with open(args.input, "r") as f:
+            data = f.read()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.
+```
+</details>
+
 ## `fizzbuzz`
 
 ```
@@ -978,6 +1040,32 @@ print(i)
 ```
 </details>
 
+<details><summary>step 20000</summary>
+
+```
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print(i)
+print
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1150,6 +1238,20 @@ def get_data_from_file(file_path, data_path, data_type):
         if cleaned.startswith('python'):
             continue
        
+```
+</details>
+
+<details><summary>step 20000</summary>
+
+```
+#        if item.startswith('test') or item.startswith('test test'):
+        #            continue
+        #        if item.startswith('test test'):
+        #            continue
+        #        if item.startswith('test test'):
+        #            continue
+        #        if item.startswith('test test'):
+        #
 ```
 </details>
 
@@ -1345,6 +1447,25 @@ class Test_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_1_
 ```
 </details>
 
+<details><summary>step 20000</summary>
+
+```
+#        print("increment")
+        self.count += 1
+
+class Counter_1:
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+        self.count += 1
+
+class Counter_2:
+    def __init__(self):
+        self.
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1518,6 +1639,13 @@ function factorial(n: u64)
 ```
 </details>
 
+<details><summary>step 20000</summary>
+
+```
+	return n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n * n *
+```
+</details>
+
 ## `sql`
 
 ```
@@ -1598,6 +1726,13 @@ SELECT ```
 
 ```
 1.customer_name, 2.customer_id, 3.customer_name, 4.customer_id, 5.customer_name, 6.customer_id, 7.customer_name,
+```
+</details>
+
+<details><summary>step 20000</summary>
+
+```
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
 ```
 </details>
 
@@ -1846,6 +1981,22 @@ def read_json_file(filename):
 
 
 def read_json
+```
+</details>
+
+<details><summary>step 20000</summary>
+
+```
+
+def read_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_with_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_
 ```
 </details>
 
@@ -2104,6 +2255,34 @@ import {
 ```
 </details>
 
+<details><summary>step 20000</summary>
+
+```
+npm install
+```
+
+To install the package, run:
+
+```bash
+npm install
+```
+
+To install the package, run:
+
+```bash
+npm install
+```
+
+To install the package, run:
+
+```bash
+npm install
+```
+
+To install the package
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2270,5 +2449,216 @@ The derivative of x^2 is 1.
 The derivative of x^2 is 1.
 
 
+```
+</details>
+
+<details><summary>step 20000</summary>
+
+```
+1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative
+```
+</details>
+
+## `argparse-long`
+
+```
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(description="Convert CSV files to JSON")
+```
+
+<details><summary>step 20000</summary>
+
+```
+
+#    parser.add_argument("-i", "--input", type=str, default="test.csv", help="Input CSV file", required=True)
+    args = parser.parse_args()
+    if args.input:
+        with open(args.input, "r") as f:
+            data = f.read()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip()
+        data = data.strip
+```
+</details>
+
+## `binary-search-long`
+
+```
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+```
+
+<details><summary>step 20000</summary>
+
+```
+
+def binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_binary_search_binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    return binary_search(arr, target)
+
+def binary_search_binary_search_binary_search(arr, target):
+    """Return the index of target
+```
+</details>
+
+## `class-long`
+
+```
+class LRUCache:
+    """A least-recently-used cache with a fixed capacity."""
+
+    def __init__(self, capacity):
+```
+
+<details><summary>step 20000</summary>
+
+```
+	"""Initializes a LRUCache with a fixed capacity."""
+	self.capacity = capacity
+	self.cache = {}
+	self.cache_size = 0
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+	self.cache_size = 0
+	self.cache_type = LRUCacheType.LRU
+```
+</details>
+
+## `docstring-long`
+
+```
+"""Read a JSON file and return the number of top-level keys."""
+```
+
+<details><summary>step 20000</summary>
+
+```
+
+def read_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_with_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_with_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_with_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_with_json_file(json_file):
+    """Read a JSON file and return the number of top-level keys."""
+    return json.load(open(json_file))
+
+def read_json_file_with_json_file(json_file):
+    """Read a JSON file and return the
 ```
 </details>

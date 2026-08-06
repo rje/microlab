@@ -1,0 +1,76 @@
+{
+ "run": "runs/coder-1b",
+ "ckpt": "ckpt_20000.pt",
+ "step": 20000,
+ "tokens_seen": 10485760000,
+ "block": 4096,
+ "per_slice_val": {
+  "code": {
+   "loss": 1.10958535472552,
+   "ppl": 3.033100472879981
+  },
+  "web": {
+   "loss": 3.058890253305435,
+   "ppl": 21.30390210395213
+  },
+  "math": {
+   "loss": 2.300162668029467,
+   "ppl": 9.975805067390208
+  },
+  "markdown": {
+   "loss": 2.036374531686306,
+   "ppl": 7.662777620652844
+  },
+  "arxiv": {
+   "loss": 1.260062546779712,
+   "ppl": 3.525641998022588
+  },
+  "commits": {
+   "loss": 1.15801536043485,
+   "ppl": 3.1836086864176285
+  }
+ },
+ "timing_val_s": 76.5,
+ "fim": {
+  "trained_with_fim": true,
+  "n": 63,
+  "middle_loss": 0.6964767849634564,
+  "middle_ppl": 2.006670307387048
+ },
+ "syntax_valid": {
+  "n": 6,
+  "parsed": 4,
+  "parse_rate": 0.6666666666666666,
+  "failures": [
+   "def fibonacci(n):\n\treturn fibonacci(n)\n\ndef fibonacci(n):\n\treturn fibonacci(n)\n\ndef fibonacci(n):\n\treturn fibonacci(n)\n\ndef fibonacci(n):\n\treturn fibonacci(n)\n\n",
+   "def binary_search(xs, target):\n\t\"\"\"\n\tGiven a list of elements, find the smallest element in the list that is closest to the target.\n\t\"\"\"\n\tif len(xs) == 0:\n\t\tret"
+  ]
+ },
+ "repetition": {
+  "prompts": 8,
+  "looped": 7,
+  "loop_rate": 0.875
+ },
+ "delegated": {
+  "humaneval": {
+   "returncode": 1,
+   "tail": "run=runs/coder-1b step=20000 mode=base dataset=humaneval tasks=164 n=1 (resuming past 0 samples)\n"
+  },
+  "mbpp": {
+   "returncode": 1,
+   "tail": "run=runs/coder-1b step=20000 mode=base dataset=mbpp tasks=257 n=1 (resuming past 0 samples)\n"
+  },
+  "multipl-js": {
+   "returncode": 1,
+   "tail": "l last):\n  File \"/home/rje/src/python/microlab/scripts/eval_code.py\", line 189, in <module>\n    main()\n  File \"/home/rje/src/python/microlab/scripts/eval_code.py\", line 126, in main\n    tasks = load_tasks(args.dataset)\n            ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/rje/src/python/microlab/src/microlab/evals/code/tasks.py\", line 125, in load_tasks\n    raise NotImplementedError(\nNotImplementedError: MultiPL-E JS/TS needs a sandboxed node runtime (the executor only caps Python today); the CodeTask interface is language-agnostic \u2014 add a multipl_task converter plus a node executor to enable it\n"
+  },
+  "multipl-ts": {
+   "returncode": 1,
+   "tail": "l last):\n  File \"/home/rje/src/python/microlab/scripts/eval_code.py\", line 189, in <module>\n    main()\n  File \"/home/rje/src/python/microlab/scripts/eval_code.py\", line 126, in main\n    tasks = load_tasks(args.dataset)\n            ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/rje/src/python/microlab/src/microlab/evals/code/tasks.py\", line 125, in load_tasks\n    raise NotImplementedError(\nNotImplementedError: MultiPL-E JS/TS needs a sandboxed node runtime (the executor only caps Python today); the CodeTask interface is language-agnostic \u2014 add a multipl_task converter plus a node executor to enable it\n"
+  },
+  "probes": {
+   "returncode": 0,
+   "tail": ""
+  }
+ }
+}

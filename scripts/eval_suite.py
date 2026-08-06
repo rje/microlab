@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 import time
@@ -219,7 +220,13 @@ def main() -> int:
                     help="skip track_probes.py (the qualitative + scored probe battery)")
     ap.add_argument("--with-retrieval", action="store_true",
                     help="passkey + length-gen; MEASURED AND REPORTED, never a gate")
-    ap.add_argument("--code-datasets", default="humaneval,mbpp,multipl-js,multipl-ts")
+    # multipl-js/ts are NOT in the default: the executor sandboxes Python only, and
+    # eval_code raises NotImplementedError for them — every milestone recorded rc=1
+    # noise. Re-add once a node executor exists.
+    ap.add_argument("--code-datasets", default="humaneval,mbpp")
+    ap.add_argument("--code-mode", default="base", choices=["base", "chat"],
+                    help="passed to eval_code.py as --mode; a raw pretrain checkpoint "
+                         "has no serve_config.json for --mode auto to read")
     ap.add_argument("--math-tasks", default="gsm8k,arithmetic_2da,arithmetic_2ds")
     a = ap.parse_args()
 
@@ -262,7 +269,11 @@ def main() -> int:
     # It is NOT a fallback: for a run whose config used the FIM tokenizer, missing
     # sentinels would mean the corpus was built wrong, and `trained_with_fim` in the
     # output is what makes those two cases tell apart at a glance.
-    mix_val = Path(train_cfg.data_dir) / "val-00000.bin"
+    # The checkpoint's data_dir is the TRAINING box's path (/workspace/mix-v2 on cloud
+    # episodes), which does not exist on the eval host. MICROLAB_MIX_DIR is the same
+    # operator override the trainer honors — not a fallback: if neither points at a val
+    # shard the result records the miss explicitly.
+    mix_val = Path(os.environ.get("MICROLAB_MIX_DIR", train_cfg.data_dir)) / "val-00000.bin"
     has_fim = all(tok._tok.token_to_id(t) is not None
                   for t in ("<|fim_prefix|>", "<|fim_suffix|>", "<|fim_middle|>"))
     if not has_fim:
@@ -306,6 +317,7 @@ def main() -> int:
         # mistake as gating on passkey at 32k.
         for ds in a.code_datasets.split(","):
             run_script(["scripts/eval_code.py", "--run", str(run), "--dataset", ds,
+                        "--mode", a.code_mode,
                         "--out", str(outdir / f"{run.name}-{step}-{ds}.jsonl")], ds)
     if a.with_math:
         run_script(["scripts/lmeval_microlab.py", "--run", str(run), "--tasks",

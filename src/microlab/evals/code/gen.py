@@ -9,7 +9,7 @@ from __future__ import annotations
 import torch
 from torch.nn import functional as F
 
-from microlab.infer.reference.kv_cache import KVCache
+from microlab.infer.reference.kv_cache import build_cache
 
 
 @torch.no_grad()
@@ -34,9 +34,11 @@ def generate_until(
             f"prompt ({len(prompt_ids)} tokens) + max_new ({max_new}) exceeds "
             f"block_size {cfg.block_size}; shrink the prompt or the budget"
         )
-    n_kv = cfg.n_kv_head if getattr(cfg, "n_kv_head", None) else cfg.n_head
-    cache = KVCache(cfg.n_layer, 1, n_kv, len(prompt_ids) + max_new,
-                    cfg.n_embd // cfg.n_head, device=device)
+    # build_cache, not a hand-rolled KVCache: hybrid (KDA/MLA) models need HybridCache's
+    # conv_hist/linear state — the same crash the console's serve path hit at the 4k
+    # milestone. The cache is block_size-long rather than prompt+max_new; the guard
+    # above already bounds that.
+    cache = build_cache(model, 1, device)
     idx = torch.tensor([prompt_ids], dtype=torch.long, device=device)
     logits, _ = model(idx, kv_cache=cache)
 
