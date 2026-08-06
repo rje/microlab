@@ -92,12 +92,16 @@ def main() -> int:
 
             remote = b2.remote_sizes(s3, a.bucket, a.prefix)
             local = sorted(run.glob("ckpt_*.pt"), key=step_of)
-            # NEWEST FIRST. Oldest-first made the syncer chase the trainer's pruner:
-            # a 4-minute upload of the oldest file was routinely deleted mid-transfer,
-            # the pass died, and the newest checkpoint — the only one resume needs —
-            # never got its turn. Uploading newest-first puts the resume-critical file
-            # in B2 immediately; older files upload only if they survive their window.
-            for p in reversed(local):
+            # MILESTONES FIRST, then newest-first. Newest-first alone fixed the
+            # prune-chase but starved milestones: a box preempted at step 18,060 had
+            # uploaded ckpt_18050 (rolling, prunable) while ckpt_18000 — the PERMANENT
+            # trajectory record — was still queued, and died with the box. Milestones
+            # are the artifacts the emergence sweep reads; they outrank everything.
+            def _priority(q):
+                n = step_of(q)
+                is_ms = a.milestone_interval > 0 and n % a.milestone_interval == 0
+                return (0 if is_ms else 1, -n)
+            for p in sorted(local, key=_priority):
                 key = f"{a.prefix}/{p.name}"
                 # The TRAINER also prunes this directory (rank 0, ckpt_keep). A file can
                 # vanish between our glob and this stat; that made the whole pass abort
