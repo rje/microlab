@@ -234,31 +234,53 @@ def provision(a, key, creds) -> tuple[int, float]:
             f"Market moved; re-run later or raise --max-price.")
     bids.sort(key=lambda t: t[0])
     bid, pick = bids[0]
+    on_demand = a.on_demand
+    if on_demand:
+        price = bid
+    else:
+        # What we would actually pay interruptible (the bid we send), not the floor.
+        price = round(min(bid * 1.25, a.max_price * a.gpus), 4)
+        # Under load the bid floor drifts toward the on-demand ask (measured on machine
+        # 139968: floor+25% = $2.04/h against a $2.00/h on-demand price). When the bid we
+        # would place meets or exceeds the cheapest on-demand offer, interruptible is
+        # strictly worse — same money plus preemption risk — so take on-demand instead.
+        od = sorted(((o["dph_total"], o) for o in offers
+                     if o.get("dph_total")
+                     and o["dph_total"] / a.gpus <= a.max_price),
+                    key=lambda t: t[0])
+        if od and od[0][0] <= price:
+            print(f"  on-demand ${od[0][0]:.4f}/h beats planned interruptible bid "
+                  f"${price:.4f}/h — renting on-demand", flush=True)
+            (price, pick), on_demand = od[0], True
     env = dict(creds)
     env.update(REPO=a.repo, NGPU=str(a.gpus), CONFIG=a.config,
                RUN_PREFIX=a.run_prefix, BUCKET_IN=a.bucket_in, BUCKET_OUT=a.bucket_out,
                SHARD_PREFIX=a.shard_prefix)
     body = {"client_id": "me", "image": a.image, "disk": a.min_disk,
             "onstart": onstart(a), "env": env, "runtype": "ssh"}
-    if not a.on_demand:
+    if not on_demand:
         # Sending a price is what makes the contract INTERRUPTIBLE. Omitting it rents
-        # on-demand, which is the whole mechanism behind --on-demand.
+        # on-demand, which is the whole mechanism behind --on-demand and the auto
+        # comparison above.
         #
         # Bid floor+25%, capped at --max-price — NOT floor+2%. A hair-above-floor bid is
         # trivially sniped: five preemptions across two hosts in one day, several during
         # SETUP, each burning $0.40-0.75 of dead setup and a market slot. Paying up to
         # 25% over floor while running is cheaper than repeatedly paying full price for
         # boxes that die before their first step. Never exceeds the user-approved cap.
-        body["price"] = round(min(bid * 1.25, a.max_price * a.gpus), 4)
+        body["price"] = price
     r = vast.call("PUT", f"/asks/{pick['id']}/", body, key=key)
     inst = r.get("new_contract")
     if not inst:
         raise SystemExit(f"create failed: {r}")
-    print(f"  rented {inst} at ${bid:.2f}/h "
-          f"({'on-demand' if a.on_demand else 'interruptible'}, {a.gpus}x "
+    # `price` is what Vast will actually charge per hour (the sent bid, or the on-demand
+    # ask) — NOT the floor. Printing and banking the floor understated real spend by up
+    # to 25% for the first ~$86 of the coder-1b run.
+    print(f"  rented {inst} at ${price:.2f}/h "
+          f"({'on-demand' if on_demand else 'interruptible'}, {a.gpus}x "
           f"{pick.get('gpu_name')}, rel {pick.get('reliability2', 0):.3f}, "
           f"{pick.get('geolocation')})", flush=True)
-    return inst, bid
+    return inst, price
 
 
 def main() -> int:

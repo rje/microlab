@@ -217,13 +217,28 @@ def test_an_exited_container_is_not_alive():
 
 
 def test_on_demand_omits_the_price_field():
-    """Sending a price is what makes a Vast contract interruptible; --on-demand works by
-    omitting it. A regression here would silently sell the run back to preemption."""
+    """Sending a price is what makes a Vast contract interruptible; on-demand rentals
+    (--on-demand, or the auto-switch when the bid market converges) work by omitting it.
+    A regression here would silently sell the run back to preemption."""
     src = (SCRIPTS / "vast_supervisor.py").read_text()
-    assert 'if not a.on_demand:' in src
-    i = src.index("if not a.on_demand:")
+    assert 'if not on_demand:' in src, \
+        "the price field must be gated on the RESOLVED rental kind, not the flag"
+    i = src.index("if not on_demand:")
     assert 'body["price"]' in src[i:i + 1100], "price must be set only in the bid branch"
     assert '"price": round(' not in src, "price must not be unconditional in the body"
+
+
+def test_bid_path_takes_on_demand_when_it_is_no_more_expensive():
+    """Under load the bid floor drifts up to the on-demand ask (machine 139968: planned
+    bid $2.04/h against a $2.00/h on-demand price). Interruptible at or above the
+    on-demand price is the same money plus preemption risk, so provision() must compare
+    what it WOULD bid (floor+25%, capped) against the cheapest cap-eligible on-demand
+    offer and switch when on-demand is no more expensive."""
+    src = (SCRIPTS / "vast_supervisor.py").read_text()
+    i = src.index("od = sorted(")
+    window = src[i:i + 700]
+    assert "od[0][0] <= price" in window, "the switch must trigger at price parity, not only below"
+    assert "renting on-demand" in window, "the switch must be visible in the episode log"
 
 
 def test_on_demand_caps_the_right_price_field():
