@@ -228,27 +228,51 @@ def test_on_demand_omits_the_price_field():
     assert '"price": round(' not in src, "price must not be unconditional in the body"
 
 
-def test_bid_path_takes_on_demand_when_it_is_no_more_expensive():
-    """Under load the bid floor drifts up to the on-demand ask (machine 139968: planned
-    bid $2.04/h against a $2.00/h on-demand price). Interruptible at or above the
-    on-demand price is the same money plus preemption risk, so provision() must compare
-    what it WOULD bid (floor+25%, capped) against the cheapest cap-eligible on-demand
-    offer and switch when on-demand costs no more than a 10% premium — preemptions are
-    not free (~20 min billed re-setup, up to ~100 lost steps), so strict parity is the
-    wrong threshold: it once kept interruptible over a $0.0022/h difference."""
-    src = (SCRIPTS / "vast_supervisor.py").read_text()
-    i = src.index("od = sorted(")
-    window = src[i:i + 800]
-    assert "od[0][0] <= price * 1.10" in window, \
-        "the switch must tolerate a modest on-demand premium, not demand strict parity"
-    assert "renting on-demand" in window, "the switch must be visible in the episode log"
+def _offer(mid, min_bid, dph, gpus=4, **kw):
+    return {"id": mid, "machine_id": mid, "min_bid": min_bid, "dph_total": dph,
+            "num_gpus": gpus, "gpu_name": "H100 SXM", "reliability2": 0.99,
+            "geolocation": "Japan, JP", **kw}
 
 
-def test_on_demand_caps_the_right_price_field():
-    """--max-price means dph_total on-demand and min_bid interruptible. Capping min_bid
-    while renting on-demand would let the actual rate exceed the cap."""
-    src = (SCRIPTS / "vast_supervisor.py").read_text()
-    assert 'o.get("dph_total")) if a.on_demand else' in src
+def test_best_offer_ranks_by_the_bid_it_would_actually_place():
+    """The rate is floor * bid_multiplier, capped at the per-GPU ceiling — not the floor.
+    Two machines, floors $1.60 and $2.00; the cheaper floor wins and the returned rate is
+    what we would pay (1.60 * 1.25 = 2.00), not $1.60."""
+    offers = [_offer(1, 1.60, 6.40), _offer(2, 2.00, 6.40)]
+    rate, pick, on_demand = sup.best_offer(offers, 4, 0.80, 1.25)
+    assert pick["id"] == 1 and not on_demand
+    assert rate == 2.00
+
+
+def test_best_offer_bid_is_capped_at_max_price():
+    """floor * multiplier can exceed the ceiling; --max-price binds it absolutely."""
+    rate, _, _ = sup.best_offer([_offer(1, 3.00, 20.0)], 4, 0.80, 1.25)
+    assert rate == 0.80 * 4  # capped, not 3.00 * 1.25
+
+
+def test_best_offer_takes_on_demand_within_a_10pct_premium():
+    """Machine 139968: planned bid $2.00/h against a $2.00/h on-demand ask. On-demand at
+    or under a 10% premium is the same money without preemption risk, so it wins."""
+    rate, pick, on_demand = sup.best_offer([_offer(1, 1.60, 2.00)], 4, 0.80, 1.25)
+    assert on_demand and rate == 2.00
+
+
+def test_best_offer_keeps_interruptible_when_on_demand_is_far_dearer():
+    rate, _, on_demand = sup.best_offer([_offer(1, 1.60, 6.40)], 4, 0.80, 1.25)
+    assert not on_demand and rate == 2.00
+
+
+def test_best_offer_none_when_nothing_fits_the_cap():
+    assert sup.best_offer([_offer(1, 4.00, 20.0)], 4, 0.80, 1.25) is None
+
+
+def test_forced_on_demand_ranks_and_caps_on_dph_total():
+    """--on-demand caps dph_total, not min_bid: capping the wrong field would let the
+    actual charged rate exceed the ceiling."""
+    rate, pick, on_demand = sup.best_offer(
+        [_offer(1, 1.60, 3.00), _offer(2, 1.60, 2.40)], 4, 0.80, 1.25,
+        force_on_demand=True)
+    assert on_demand and pick["id"] == 2 and rate == 2.40
 
 
 def test_logged_step_reads_progress_from_the_shipped_log():
@@ -433,10 +457,80 @@ def test_a_resumed_episode_still_gets_its_setup_grace():
 
 def test_bids_are_sticky_but_never_exceed_the_cap():
     """floor+2% was sniped five times in a day, several mid-setup — dead spend each time.
-    The bid is now floor+25%, and the cap still binds it absolutely."""
+    The bid is floor * multiplier (default 1.25), and the cap still binds it absolutely."""
+    # Default multiplier lifts the bid meaningfully above the floor...
+    rate, _, _ = sup.best_offer([_offer(1, 1.60, 6.40)], 4, 0.80, 1.25)
+    assert rate == 2.00 and rate > 1.60
+    # ...but a raised multiplier in a hot market can never punch through --max-price.
+    rate, _, _ = sup.best_offer([_offer(1, 1.60, 6.40)], 4, 0.55, 2.0)
+    assert rate == 0.55 * 4
+
+
+class _Args:
+    """Just the fields cheaper_candidate reads."""
+    gpu = "H100 SXM"
+    gpus = 4
+    max_price = 0.80
+    min_reliability = 0.95
+    min_disk = 150
+    allow_unverified = True
+    host_id = None
+    geo = None
+    on_demand = False
+    bid_multiplier = 1.25
+    switch_margin = 0.20
+    switch_safety = 2.0
+    sec_per_step = 6.0
+    target_step = 40000
+
+
+def _patch_offers(monkeypatch, offers):
+    monkeypatch.setattr(sup.vast, "search_offers",
+                        lambda *a, **k: list(offers))
+
+
+def test_switch_down_fires_when_a_materially_cheaper_box_appears(monkeypatch):
+    """Paying $2.40/h; a machine with floor $1.20 appears → planned bid $1.50/h, 37%
+    cheaper, ~20k steps left. The saving dwarfs a migration, so migrate."""
+    _patch_offers(monkeypatch, [_offer(9, 1.20, 6.40)])
+    out = sup.cheaper_candidate(_Args(), "key", current_rate=2.40, last_step=20000)
+    assert out is not None
+    cand_rate, remaining_h, projected, mig_cost = out
+    assert cand_rate == 1.50
+    assert projected > mig_cost * _Args.switch_safety
+
+
+def test_switch_down_ignores_a_box_inside_the_margin(monkeypatch):
+    """A candidate only 10% cheaper does not clear the 20% margin — no churn for scraps."""
+    _patch_offers(monkeypatch, [_offer(9, 1.72, 6.40)])   # 1.72*1.25 = 2.15 vs 2.40
+    assert sup.cheaper_candidate(_Args(), "k", current_rate=2.40, last_step=20000) is None
+
+
+def test_switch_down_skips_the_tail_of_the_run(monkeypatch):
+    """A cheaper box near the finish cannot recoup its own migration cost."""
+    _patch_offers(monkeypatch, [_offer(9, 1.20, 6.40)])   # genuinely cheaper...
+    # ...but only 200 steps (~0.3h) remain, so projected saving < migration cost * safety.
+    assert sup.cheaper_candidate(_Args(), "k", current_rate=2.40, last_step=39800) is None
+
+
+def test_switch_down_survives_a_market_search_error(monkeypatch):
+    """A transient API/market error must never tear down a healthy, paid box."""
+    def boom(*a, **k):
+        raise SystemExit("vast API 502")
+    monkeypatch.setattr(sup.vast, "search_offers", boom)
+    assert sup.cheaper_candidate(_Args(), "k", current_rate=2.40, last_step=20000) is None
+
+
+def test_switch_down_teardown_destroys_the_box_and_is_gated_on_health():
+    """The migration path must destroy the current instance (an abandoned contract keeps
+    billing) and only run for a started episode whose syncer has caught up."""
     src = (SCRIPTS / "vast_supervisor.py").read_text()
-    assert "min(bid * 1.25, a.max_price * a.gpus)" in src
-    assert "round(bid * 1.02, 4)" not in src, "the snipeable bid must be gone"
+    i = src.index("SWITCH-DOWN:")
+    pre = src[max(0, i - 700):i]
+    assert "a.rescan_minutes and started" in pre, "must gate on training-started"
+    assert "(live - now) <= SWITCH_MAX_UNSYNCED" in pre, "must not throw away unsynced steps"
+    assert "rescan_hold_minutes" in pre, "must respect the minimum hold time"
+    assert "vast.destroy(inst, key)" in src[i:i + 500], "must destroy the box it leaves"
 
 
 def test_compile_caches_round_trip_through_b2():

@@ -207,7 +207,47 @@ bash microlab/scripts/cloud_train.sh 2>&1 | tee -a /workspace/train.log
 """
 
 
-def provision(a, key, creds) -> tuple[int, float]:
+# A switch-down costs ~one fast-path setup (cached image + compile cache) of paid idle
+# plus the small unsynced-step exposure a preemption would cost — call it ~20 min. This is
+# the yardstick the projected saving must clear before we tear down a HEALTHY box.
+MIGRATION_DOWNTIME_MIN = 20.0
+# Never migrate a box whose log has run this far ahead of the durable checkpoint: those
+# steps would be thrown away, turning a money-saving switch into a net loss. Well inside
+# the vigil's wedge threshold, so a genuinely stalled syncer is a separate alarm.
+SWITCH_MAX_UNSYNCED = 200
+
+
+def best_offer(offers, gpus, max_price, bid_multiplier, force_on_demand=False):
+    """The cheapest cap-eligible option as ``(rate, offer, on_demand)``, or ``None``.
+
+    ``rate`` is what Vast will actually CHARGE per hour — the interruptible bid we would
+    place (floor * ``bid_multiplier``, capped at the per-GPU price ceiling) or the
+    on-demand ask — never the bare floor. Interruptible offers are ranked by that planned
+    bid; on-demand wins only when it is no more than a 10% premium over the cheapest
+    planned bid, because a preemption is not free (~20 min of billed re-setup plus up to
+    ~100 lost steps), so strict parity is the wrong threshold — it once kept an
+    interruptible contract over a $0.0022/h difference.
+    """
+    price_of = (lambda o: o.get("dph_total")) if force_on_demand else (lambda o: o.get("min_bid"))
+    bids = [(price_of(o), o) for o in offers
+            if price_of(o) and price_of(o) / gpus <= max_price]
+    if not bids:
+        return None
+    bids.sort(key=lambda t: t[0])
+    floor, pick = bids[0]
+    if force_on_demand:
+        return floor, pick, True
+    price = round(min(floor * bid_multiplier, max_price * gpus), 4)
+    on_demand = False
+    od = sorted(((o["dph_total"], o) for o in offers
+                 if o.get("dph_total") and o["dph_total"] / gpus <= max_price),
+                key=lambda t: t[0])
+    if od and od[0][0] <= price * 1.10:
+        price, pick, on_demand = od[0][0], od[0][1], True
+    return price, pick, on_demand
+
+
+def _search(a, key):
     offers = vast.search_offers(a.gpu, a.max_price, a.min_reliability, a.min_disk,
                                 a.gpus, key, by_bid=True,
                                 verified=not a.allow_unverified)
@@ -215,44 +255,50 @@ def provision(a, key, creds) -> tuple[int, float]:
         offers = [o for o in offers if o.get("host_id") == a.host_id]
     if a.geo:
         offers = [o for o in offers if a.geo.lower() in str(o.get("geolocation", "")).lower()]
-    # Which price the cap applies to, and what we are actually buying. On-demand is not
-    # merely "safer" — on the host this was measured on it costs $1.49 against a $1.48
-    # floor, a 0.7% premium that removes preemption entirely. Two runs died to preemption
-    # before their first checkpoint, each losing 30+ steps of paid compute; that is far
-    # more than 0.7%. Bidding is right for a long run that resumes cheaply, on-demand for
-    # a short one that must finish in a single window.
-    price_of = (lambda o: o.get("dph_total")) if a.on_demand else (lambda o: o.get("min_bid"))
-    bids = []
-    for o in offers:
-        mb = price_of(o)
-        if mb and mb / a.gpus <= a.max_price:
-            bids.append((mb, o))
-    if not bids:
+    return offers
+
+
+def cheaper_candidate(a, key, current_rate, last_step):
+    """``(rate, remaining_h, projected_saving, migration_cost)`` when a materially cheaper
+    box is worth migrating a HEALTHY episode to, else ``None``.
+
+    Conservative by construction: the candidate must clear an absolute margin
+    (``--switch-margin``) AND its projected saving over the estimated remaining runtime
+    must beat one migration's cost by ``--switch-safety``, so neither a small market
+    wobble nor the tail of the run can trigger a paid teardown. A transient search error
+    returns ``None`` — a market hiccup must never destroy a working box."""
+    try:
+        offers = _search(a, key)
+    except SystemExit:
+        return None
+    chosen = best_offer(offers, a.gpus, a.max_price, a.bid_multiplier, a.on_demand)
+    if chosen is None:
+        return None
+    cand_rate = chosen[0]
+    if cand_rate > current_rate * (1 - a.switch_margin):
+        return None
+    remaining_h = max(0, a.target_step - last_step) * a.sec_per_step / 3600
+    migration_cost = current_rate * (MIGRATION_DOWNTIME_MIN / 60)
+    projected = (current_rate - cand_rate) * remaining_h
+    if projected < migration_cost * a.switch_safety:
+        return None
+    return cand_rate, remaining_h, projected, migration_cost
+
+
+def provision(a, key, creds) -> tuple[int, float]:
+    # Interruptible bidding is right for a long run that resumes cheaply; on-demand for a
+    # short one that must finish in a single window, or when a hot market has pushed the
+    # bid to within 10% of the on-demand ask (best_offer makes that call).
+    chosen = best_offer(_search(a, key), a.gpus, a.max_price, a.bid_multiplier, a.on_demand)
+    if chosen is None:
         kind = "on-demand" if a.on_demand else "bid"
         raise SystemExit(
             f"no offer at <= ${a.max_price:.2f}/GPU-h {kind} for {a.gpus}x {a.gpu}. "
             f"Market moved; re-run later or raise --max-price.")
-    bids.sort(key=lambda t: t[0])
-    bid, pick = bids[0]
-    on_demand = a.on_demand
-    if on_demand:
-        price = bid
-    else:
-        # What we would actually pay interruptible (the bid we send), not the floor.
-        price = round(min(bid * 1.25, a.max_price * a.gpus), 4)
-        # Under load the bid floor drifts toward the on-demand ask (measured on machine
-        # 139968: floor+25% = $2.04/h against a $2.00/h on-demand price). Preemption is
-        # not free — each one costs ~20 min of billed re-setup plus up to ~100 lost
-        # steps — so on-demand wins not just at parity but at any premium under 10%
-        # (strict parity once kept interruptible over a $0.0022/h difference).
-        od = sorted(((o["dph_total"], o) for o in offers
-                     if o.get("dph_total")
-                     and o["dph_total"] / a.gpus <= a.max_price),
-                    key=lambda t: t[0])
-        if od and od[0][0] <= price * 1.10:
-            print(f"  on-demand ${od[0][0]:.4f}/h beats planned interruptible bid "
-                  f"${price:.4f}/h — renting on-demand", flush=True)
-            (price, pick), on_demand = od[0], True
+    price, pick, on_demand = chosen
+    if on_demand and not a.on_demand:
+        print(f"  on-demand ${price:.4f}/h within 10% of the planned interruptible bid "
+              f"— renting on-demand", flush=True)
     env = dict(creds)
     env.update(REPO=a.repo, NGPU=str(a.gpus), CONFIG=a.config,
                RUN_PREFIX=a.run_prefix, BUCKET_IN=a.bucket_in, BUCKET_OUT=a.bucket_out,
@@ -262,13 +308,14 @@ def provision(a, key, creds) -> tuple[int, float]:
     if not on_demand:
         # Sending a price is what makes the contract INTERRUPTIBLE. Omitting it rents
         # on-demand, which is the whole mechanism behind --on-demand and the auto
-        # comparison above.
+        # comparison in best_offer.
         #
-        # Bid floor+25%, capped at --max-price — NOT floor+2%. A hair-above-floor bid is
-        # trivially sniped: five preemptions across two hosts in one day, several during
-        # SETUP, each burning $0.40-0.75 of dead setup and a market slot. Paying up to
-        # 25% over floor while running is cheaper than repeatedly paying full price for
-        # boxes that die before their first step. Never exceeds the user-approved cap.
+        # The bid is floor * --bid-multiplier, capped at --max-price — NOT floor+2%. A
+        # hair-above-floor bid is trivially sniped: five preemptions across two hosts in
+        # one day, several during SETUP, each burning $0.40-0.75 of dead setup and a
+        # market slot. A higher multiplier resists that; the switch-down scan
+        # (cheaper_candidate) is what keeps the higher bid from becoming a standing
+        # overpayment. Never exceeds the user-approved cap.
         body["price"] = price
     r = vast.call("PUT", f"/asks/{pick['id']}/", body, key=key)
     inst = r.get("new_contract")
@@ -344,6 +391,26 @@ def main() -> int:
                          "onto an EMPTY disk that restarted the same download — an "
                          "infinite loop that only the spend cap stopped.")
     ap.add_argument("--poll", type=int, default=120)
+    ap.add_argument("--bid-multiplier", type=float, default=1.25,
+                    help="interruptible bid = cheapest floor * this, capped at "
+                         "--max-price. Above 1.0 buys preemption resistance in a hot "
+                         "market; the switch-down scan keeps it from becoming a standing "
+                         "overpayment.")
+    ap.add_argument("--rescan-minutes", type=float, default=20.0,
+                    help="how often to re-price the market for a cheaper box while a "
+                         "healthy episode runs. 0 disables switch-down entirely.")
+    ap.add_argument("--rescan-hold-minutes", type=float, default=45.0,
+                    help="minimum age of the current episode before it may be migrated "
+                         "down — hysteresis so we never churn a box we just set up.")
+    ap.add_argument("--switch-margin", type=float, default=0.20,
+                    help="a candidate box must be at least this fraction cheaper than the "
+                         "rate we are paying now to be worth migrating to.")
+    ap.add_argument("--switch-safety", type=float, default=2.0,
+                    help="projected saving over the remaining run must exceed one "
+                         "migration's cost by this factor before switching down.")
+    ap.add_argument("--sec-per-step", type=float, default=6.0,
+                    help="throughput estimate used only to project remaining-run savings "
+                         "for the switch-down decision.")
     ap.add_argument("--yes", action="store_true")
     a = ap.parse_args()
 
@@ -395,6 +462,7 @@ def main() -> int:
 
     inst = bid = None
     t_ep = None
+    last_rescan = 0.0
     marker = (st["last_step"], 0)          # (durable checkpoint step, logged step)
     ep_start_step = st["last_step"]
     try:
@@ -425,6 +493,7 @@ def main() -> int:
                 inst, bid = provision(a, key, creds)
                 t_ep = time.time()
                 last_progress = time.time()
+                last_rescan = time.time()          # don't scan the box we just rented
                 # Reset the LIVENESS half only. The new box starts its log at step 0 even
                 # when resuming from a checkpoint, so carrying the old log high-water mark
                 # over would make every subsequent poll look like no progress.
@@ -534,6 +603,34 @@ def main() -> int:
             # stall clock 25 minutes into a 40-minute pipe. The log is freshness-gated to
             # this episode, so nothing a dead box shipped can impersonate a live one.
             started = marker[1] > 0
+
+            # Opportunistic switch-DOWN. A high --bid-multiplier buys preemption
+            # resistance in a hot market; this is the release valve that stops it becoming
+            # a standing overpayment. Only a HEALTHY episode (training started, held long
+            # enough to have earned back its setup, syncer caught up so we throw away no
+            # steps) is a candidate, and cheaper_candidate only fires when the saving over
+            # the remaining run beats a migration several times over.
+            if (a.rescan_minutes and started
+                    and (live - now) <= SWITCH_MAX_UNSYNCED
+                    and (time.time() - t_ep) / 60 >= a.rescan_hold_minutes
+                    and (time.time() - last_rescan) / 60 >= a.rescan_minutes):
+                last_rescan = time.time()
+                cheaper = cheaper_candidate(a, key, bid, st["last_step"])
+                if cheaper is not None:
+                    cand_rate, remaining_h, projected, mig_cost = cheaper
+                    st["spent"] += bid * elapsed_h
+                    save_state(st)
+                    print(f"  SWITCH-DOWN: ${cand_rate:.2f}/h available vs ${bid:.2f}/h "
+                          f"now — ~${projected:.0f} saved over ~{remaining_h:.0f}h left "
+                          f"(migration ~${mig_cost:.2f}); destroying {inst} to re-rent "
+                          f"cheaper", flush=True)
+                    try:
+                        vast.destroy(inst, key)
+                    except SystemExit as e:
+                        print(f"  {e}")
+                    inst = t_ep = None
+                    continue
+
             limit = a.stall_minutes if started else a.setup_grace_minutes
             phase = "stall" if started else "setup"
             if (time.time() - last_progress) / 60 > limit:
