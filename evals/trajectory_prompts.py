@@ -44,3 +44,21 @@ PROMPTS = [
     {"id": "math-prose", "n": 64,
      "text": "The derivative of x^2 is "},
 ]
+
+# Appended 2026-08-06 (columns begin at step 20,000): long-budget variants. The original
+# budgets (48-96 tokens) were sized for a model that derailed within lines; by ~9B tokens
+# they truncate exactly the sustained structure we are trying to observe. Originals stay
+# frozen for column continuity; these measure the same capabilities with room to breathe.
+PROMPTS += [
+    {"id": "argparse-long", "n": 384,
+     "text": 'import argparse\n\ndef main():\n    parser = argparse.ArgumentParser('
+             'description="Convert CSV files to JSON")\n'},
+    {"id": "binary-search-long", "n": 256,
+     "text": 'def binary_search(arr, target):\n    """Return the index of target in '
+             'sorted list arr, or -1 if absent."""\n'},
+    {"id": "class-long", "n": 512,
+     "text": "class LRUCache:\n    \"\"\"A least-recently-used cache with a fixed "
+             "capacity.\"\"\"\n\n    def __init__(self, capacity):\n"},
+    {"id": "docstring-long", "n": 256,
+     "text": '"""Read a JSON file and return the number of top-level keys."""\n'},
+]
