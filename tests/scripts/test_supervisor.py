@@ -233,11 +233,14 @@ def test_bid_path_takes_on_demand_when_it_is_no_more_expensive():
     bid $2.04/h against a $2.00/h on-demand price). Interruptible at or above the
     on-demand price is the same money plus preemption risk, so provision() must compare
     what it WOULD bid (floor+25%, capped) against the cheapest cap-eligible on-demand
-    offer and switch when on-demand is no more expensive."""
+    offer and switch when on-demand costs no more than a 10% premium — preemptions are
+    not free (~20 min billed re-setup, up to ~100 lost steps), so strict parity is the
+    wrong threshold: it once kept interruptible over a $0.0022/h difference."""
     src = (SCRIPTS / "vast_supervisor.py").read_text()
     i = src.index("od = sorted(")
-    window = src[i:i + 700]
-    assert "od[0][0] <= price" in window, "the switch must trigger at price parity, not only below"
+    window = src[i:i + 800]
+    assert "od[0][0] <= price * 1.10" in window, \
+        "the switch must tolerate a modest on-demand premium, not demand strict parity"
     assert "renting on-demand" in window, "the switch must be visible in the episode log"
 
 

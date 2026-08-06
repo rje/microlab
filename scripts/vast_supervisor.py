@@ -241,14 +241,15 @@ def provision(a, key, creds) -> tuple[int, float]:
         # What we would actually pay interruptible (the bid we send), not the floor.
         price = round(min(bid * 1.25, a.max_price * a.gpus), 4)
         # Under load the bid floor drifts toward the on-demand ask (measured on machine
-        # 139968: floor+25% = $2.04/h against a $2.00/h on-demand price). When the bid we
-        # would place meets or exceeds the cheapest on-demand offer, interruptible is
-        # strictly worse — same money plus preemption risk — so take on-demand instead.
+        # 139968: floor+25% = $2.04/h against a $2.00/h on-demand price). Preemption is
+        # not free — each one costs ~20 min of billed re-setup plus up to ~100 lost
+        # steps — so on-demand wins not just at parity but at any premium under 10%
+        # (strict parity once kept interruptible over a $0.0022/h difference).
         od = sorted(((o["dph_total"], o) for o in offers
                      if o.get("dph_total")
                      and o["dph_total"] / a.gpus <= a.max_price),
                     key=lambda t: t[0])
-        if od and od[0][0] <= price:
+        if od and od[0][0] <= price * 1.10:
             print(f"  on-demand ${od[0][0]:.4f}/h beats planned interruptible bid "
                   f"${price:.4f}/h — renting on-demand", flush=True)
             (price, pick), on_demand = od[0], True
