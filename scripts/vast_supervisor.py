@@ -186,11 +186,24 @@ def remote_step(s3, bucket: str, prefix: str) -> int:
 
 
 def onstart(a) -> str:
+    # The FIRST clone races container networking at boot: on one box the network came up
+    # seconds after the container did, the clone failed instantly, `|| exit 1` exited
+    # before tee ever created a log, and the machine idled at full price with nothing to
+    # observe from outside — the outer twin of the inner-clone bug. Retry generously;
+    # boot-time races resolve in seconds.
     return f"""
 set -uo pipefail
 cd /workspace 2>/dev/null || cd /root
-git clone -q --depth 1 {a.repo} microlab || exit 1
-bash microlab/scripts/cloud_train.sh 2>&1 | tee /workspace/train.log
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  git clone -q --depth 1 {a.repo} microlab && break
+  echo "onstart clone attempt $i failed; retrying in 15s" >> /workspace/train.log
+  sleep 15
+done
+if [ ! -d microlab ]; then
+  echo "MICROLAB_TRAIN_FAILED rc=94 (onstart clone)" >> /workspace/train.log
+  exit 94
+fi
+bash microlab/scripts/cloud_train.sh 2>&1 | tee -a /workspace/train.log
 """
 
 
