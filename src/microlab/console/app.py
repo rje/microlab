@@ -210,7 +210,8 @@ def register_content_routes(app: Flask) -> None:
             for r in rows:
                 comp.setdefault(r["prompt_id"], {})[r["step"]] = r["completion"]
             docs = sorted(str(d.relative_to(root))
-                          for d in (root / "docs").glob(f"{run}-milestone-*.md"))
+                          for d in (root / "docs").glob(f"{run}-*.md")
+                          if not d.name.endswith("-prediction.md"))
             pred = root / "docs" / f"{run}-prediction.md"
             if pred.exists():
                 docs.insert(0, str(pred.relative_to(root)))
