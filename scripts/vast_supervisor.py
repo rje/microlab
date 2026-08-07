@@ -247,9 +247,9 @@ def best_offer(offers, gpus, max_price, bid_multiplier, force_on_demand=False):
     return price, pick, on_demand
 
 
-def _search(a, key):
-    offers = vast.search_offers(a.gpu, a.max_price, a.min_reliability, a.min_disk,
-                                a.gpus, key, by_bid=True,
+def _search(a, key, gpu, gpus):
+    offers = vast.search_offers(gpu, a.max_price, a.min_reliability, a.min_disk,
+                                gpus, key, by_bid=True,
                                 verified=not a.allow_unverified)
     if a.host_id:
         offers = [o for o in offers if o.get("host_id") == a.host_id]
@@ -258,38 +258,72 @@ def _search(a, key):
     return offers
 
 
-def cheaper_candidate(a, key, current_rate, last_step):
-    """``(rate, remaining_h, projected_saving, migration_cost)`` when a materially cheaper
-    box is worth migrating a HEALTHY episode to, else ``None``.
+def parse_switch_classes(spec):
+    """'H100 SXM:4:5.6,H100 PCIE:2:18' -> [('H100 SXM', 4, 5.6), ('H100 PCIE', 2, 18.0)].
 
-    Conservative by construction: the candidate must clear an absolute margin
-    (``--switch-margin``) AND its projected saving over the estimated remaining runtime
-    must beat one migration's cost by ``--switch-safety``, so neither a small market
-    wobble nor the tail of the run can trigger a paid teardown. A transient search error
-    returns ``None`` — a market hiccup must never destroy a working box."""
-    try:
-        offers = _search(a, key)
-    except SystemExit:
+    The step-time is what makes cross-class comparison honest: a 2-GPU box at half the
+    $/h still costs MORE per step because it is ~2x slower. Ranking on $/h alone is how
+    the run got stranded on $3.19/h 4x PCIE while a $2.00/h 4x SXM sat available."""
+    out = []
+    for part in spec.split(","):
+        if not part.strip():
+            continue
+        gpu, gpus, sps = part.rsplit(":", 2)
+        out.append((gpu.strip(), int(gpus), float(sps)))
+    return out
+
+
+def cost_per_step(rate, sec_per_step):
+    """$/step = $/h x (h/step). The only fair yardstick across GPU classes and box sizes."""
+    return rate * sec_per_step / 3600.0
+
+
+def cheaper_candidate(a, key, current_rate, last_step):
+    """The best box to migrate a HEALTHY episode to, as a dict, or ``None`` — compared
+    ACROSS the ``--switch-classes`` by COST PER STEP, not $/h, so a fast box can win over
+    a cheap-but-slow one and we never strand on an expensive class again.
+
+    Conservative by construction: the winner must beat the current cost-per-step by an
+    absolute margin (``--switch-margin``) AND its projected saving over the remaining run
+    must clear one migration's cost by ``--switch-safety``, so neither a market wobble nor
+    the tail of the run can trigger a paid teardown. A per-class search error is skipped,
+    never fatal — a market hiccup must never destroy a working box."""
+    classes = parse_switch_classes(a.switch_classes)
+    cur_sps = next((s for g, n, s in classes if g == a.gpu and n == a.gpus), a.sec_per_step)
+    cur_cps = cost_per_step(current_rate, cur_sps)
+    best = None                       # (cps, rate, gpu, gpus, sps)
+    for gpu, gpus, sps in classes:
+        try:
+            offers = _search(a, key, gpu, gpus)
+        except SystemExit:
+            continue                  # transient market/API error on this class only
+        chosen = best_offer(offers, gpus, a.max_price, a.bid_multiplier, a.on_demand)
+        if chosen is None:
+            continue
+        cps = cost_per_step(chosen[0], sps)
+        if best is None or cps < best[0]:
+            best = (cps, chosen[0], gpu, gpus, sps)
+    if best is None:
         return None
-    chosen = best_offer(offers, a.gpus, a.max_price, a.bid_multiplier, a.on_demand)
-    if chosen is None:
+    cand_cps, cand_rate, gpu, gpus, sps = best
+    if cand_cps > cur_cps * (1 - a.switch_margin):
         return None
-    cand_rate = chosen[0]
-    if cand_rate > current_rate * (1 - a.switch_margin):
-        return None
-    remaining_h = max(0, a.target_step - last_step) * a.sec_per_step / 3600
+    remaining = max(0, a.target_step - last_step)
+    projected = (cur_cps - cand_cps) * remaining
     migration_cost = current_rate * (MIGRATION_DOWNTIME_MIN / 60)
-    projected = (current_rate - cand_rate) * remaining_h
     if projected < migration_cost * a.switch_safety:
         return None
-    return cand_rate, remaining_h, projected, migration_cost
+    return {"gpu": gpu, "gpus": gpus, "rate": cand_rate,
+            "remaining_h": remaining * sps / 3600, "projected": projected,
+            "migration_cost": migration_cost}
 
 
 def provision(a, key, creds) -> tuple[int, float]:
     # Interruptible bidding is right for a long run that resumes cheaply; on-demand for a
     # short one that must finish in a single window, or when a hot market has pushed the
     # bid to within 10% of the on-demand ask (best_offer makes that call).
-    chosen = best_offer(_search(a, key), a.gpus, a.max_price, a.bid_multiplier, a.on_demand)
+    chosen = best_offer(_search(a, key, a.gpu, a.gpus), a.gpus, a.max_price,
+                        a.bid_multiplier, a.on_demand)
     if chosen is None:
         kind = "on-demand" if a.on_demand else "bid"
         raise SystemExit(
@@ -409,8 +443,15 @@ def main() -> int:
                     help="projected saving over the remaining run must exceed one "
                          "migration's cost by this factor before switching down.")
     ap.add_argument("--sec-per-step", type=float, default=6.0,
-                    help="throughput estimate used only to project remaining-run savings "
-                         "for the switch-down decision.")
+                    help="throughput of the CURRENT box if its class is not in "
+                         "--switch-classes; only used to project remaining-run savings.")
+    ap.add_argument("--switch-classes",
+                    default="H100 SXM:4:5.6,H100 PCIE:4:9.3,H100 SXM:2:11.2,H100 PCIE:2:18.6",
+                    help="GPU classes the switch-down scan ranks by COST PER STEP, as "
+                         "'GPU:gpus:sec_per_step' items. Lets a healthy box migrate to a "
+                         "cheaper-per-step class, not just a cheaper box of its own class "
+                         "— the fix for stranding on $3.19/h PCIE while $2.00/h SXM was "
+                         "free. Step-times are estimates; they only weight the ranking.")
     ap.add_argument("--yes", action="store_true")
     a = ap.parse_args()
 
@@ -617,13 +658,19 @@ def main() -> int:
                 last_rescan = time.time()
                 cheaper = cheaper_candidate(a, key, bid, st["last_step"])
                 if cheaper is not None:
-                    cand_rate, remaining_h, projected, mig_cost = cheaper
                     st["spent"] += bid * elapsed_h
                     save_state(st)
-                    print(f"  SWITCH-DOWN: ${cand_rate:.2f}/h available vs ${bid:.2f}/h "
-                          f"now — ~${projected:.0f} saved over ~{remaining_h:.0f}h left "
-                          f"(migration ~${mig_cost:.2f}); destroying {inst} to re-rent "
-                          f"cheaper", flush=True)
+                    xclass = (f" [{cheaper['gpus']}x {cheaper['gpu']}]"
+                              if (cheaper["gpu"], cheaper["gpus"]) != (a.gpu, a.gpus)
+                              else "")
+                    print(f"  SWITCH-DOWN: ${cheaper['rate']:.2f}/h{xclass} beats "
+                          f"${bid:.2f}/h now on cost-per-step — ~${cheaper['projected']:.0f} "
+                          f"saved over ~{cheaper['remaining_h']:.0f}h left (migration "
+                          f"~${cheaper['migration_cost']:.2f}); destroying {inst} to "
+                          f"re-rent", flush=True)
+                    # Point the next re-provision at the winning class. May differ from the
+                    # class this supervisor was launched with — that is the whole point.
+                    a.gpu, a.gpus = cheaper["gpu"], cheaper["gpus"]
                     try:
                         vast.destroy(inst, key)
                     except SystemExit as e:

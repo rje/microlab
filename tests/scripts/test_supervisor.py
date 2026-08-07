@@ -482,55 +482,101 @@ class _Args:
     switch_safety = 2.0
     sec_per_step = 6.0
     target_step = 40000
+    # One item per class matched by gpu+gpus, so the current box (SXM:4) has a step-time.
+    switch_classes = "H100 SXM:4:5.6,H100 PCIE:4:9.3,H100 SXM:2:11.2,H100 PCIE:2:18.6"
+
+
+def _args(**over):
+    from types import SimpleNamespace
+    base = {k: getattr(_Args, k) for k in dir(_Args) if not k.startswith("_")}
+    base.update(over)
+    return SimpleNamespace(**base)
 
 
 def _patch_offers(monkeypatch, offers):
-    monkeypatch.setattr(sup.vast, "search_offers",
-                        lambda *a, **k: list(offers))
+    monkeypatch.setattr(sup.vast, "search_offers", lambda *a, **k: list(offers))
+
+
+def _patch_by_class(monkeypatch, mapping):
+    # Mirror the real server-side filter: search_offers(gpu, max_price, min_rel, min_disk,
+    # gpus, key, ...) returns only offers of that GPU type AND that GPU count. mapping is
+    # keyed by (gpu, gpus).
+    def fake(gpu, max_price, min_rel, min_disk, gpus, *a, **k):
+        return list(mapping.get((gpu, gpus), []))
+    monkeypatch.setattr(sup.vast, "search_offers", fake)
 
 
 def test_switch_down_fires_when_a_materially_cheaper_box_appears(monkeypatch):
-    """Paying $2.40/h; a machine with floor $1.20 appears → planned bid $1.50/h, 37%
-    cheaper, ~20k steps left. The saving dwarfs a migration, so migrate."""
+    """Paying $2.40/h on SXM:4; a floor-$1.20 box appears → planned bid $1.50/h, 37%
+    cheaper at the same step-time, ~20k steps left. The saving dwarfs a migration."""
     _patch_offers(monkeypatch, [_offer(9, 1.20, 6.40)])
-    out = sup.cheaper_candidate(_Args(), "key", current_rate=2.40, last_step=20000)
+    out = sup.cheaper_candidate(_args(), "key", current_rate=2.40, last_step=20000)
     assert out is not None
-    cand_rate, remaining_h, projected, mig_cost = out
-    assert cand_rate == 1.50
-    assert projected > mig_cost * _Args.switch_safety
+    assert out["rate"] == 1.50 and out["gpu"] == "H100 SXM" and out["gpus"] == 4
+    assert out["projected"] > out["migration_cost"] * _Args.switch_safety
+
+
+def test_switch_down_picks_a_cheaper_CLASS_by_cost_per_step(monkeypatch):
+    """The real stranding: on PCIE:4 at $3.20/h (~9.3s/step) while SXM:4 is free at
+    $2.00/h (~5.6s/step). $/h AND $/step both favor SXM — migrate cross-class to it."""
+    _patch_by_class(monkeypatch, {
+        ("H100 SXM", 4): [_offer(1, 1.60, 6.40, gpus=4)],   # floor 1.60 -> bid 2.00
+        ("H100 PCIE", 4): [_offer(2, 3.18, 8.00, gpus=4)],  # floor 3.18 -> bid 3.20 (on it)
+    })
+    out = sup.cheaper_candidate(_args(gpu="H100 PCIE", gpus=4),
+                                "k", current_rate=3.20, last_step=22000)
+    assert out is not None
+    assert out["gpu"] == "H100 SXM" and out["gpus"] == 4 and out["rate"] == 2.00
+
+
+def test_switch_down_will_not_migrate_to_a_cheaper_but_slower_class(monkeypatch):
+    """$/h is a trap: a 2-GPU box at half the $/h costs MORE per step. On SXM:4 at
+    $2.00/h, a $0.90/h 2x PCIE (18.6s/step) must NOT win — cost-per-step is higher."""
+    _patch_by_class(monkeypatch, {
+        ("H100 SXM", 4): [_offer(1, 1.60, 6.40, gpus=4)],   # our class, no improvement
+        ("H100 PCIE", 2): [_offer(2, 0.72, 8.00, gpus=2)],  # floor 0.72 -> bid 0.90, slow
+    })
+    out = sup.cheaper_candidate(_args(gpu="H100 SXM", gpus=4),
+                                "k", current_rate=2.00, last_step=22000)
+    # SXM:4 cps = 2.00*5.6/3600 = 0.00311; PCIE:2 cps = 0.90*18.6/3600 = 0.00465. Higher.
+    assert out is None
 
 
 def test_switch_down_ignores_a_box_inside_the_margin(monkeypatch):
-    """A candidate only 10% cheaper does not clear the 20% margin — no churn for scraps."""
+    """A candidate only ~10% cheaper does not clear the 20% margin — no churn for scraps."""
     _patch_offers(monkeypatch, [_offer(9, 1.72, 6.40)])   # 1.72*1.25 = 2.15 vs 2.40
-    assert sup.cheaper_candidate(_Args(), "k", current_rate=2.40, last_step=20000) is None
+    assert sup.cheaper_candidate(_args(), "k", current_rate=2.40, last_step=20000) is None
 
 
 def test_switch_down_skips_the_tail_of_the_run(monkeypatch):
     """A cheaper box near the finish cannot recoup its own migration cost."""
     _patch_offers(monkeypatch, [_offer(9, 1.20, 6.40)])   # genuinely cheaper...
-    # ...but only 200 steps (~0.3h) remain, so projected saving < migration cost * safety.
-    assert sup.cheaper_candidate(_Args(), "k", current_rate=2.40, last_step=39800) is None
+    # ...but only 200 steps remain, so projected saving < migration cost * safety.
+    assert sup.cheaper_candidate(_args(), "k", current_rate=2.40, last_step=39800) is None
 
 
 def test_switch_down_survives_a_market_search_error(monkeypatch):
-    """A transient API/market error must never tear down a healthy, paid box."""
+    """A transient API/market error on every class must never tear down a healthy box."""
     def boom(*a, **k):
         raise SystemExit("vast API 502")
     monkeypatch.setattr(sup.vast, "search_offers", boom)
-    assert sup.cheaper_candidate(_Args(), "k", current_rate=2.40, last_step=20000) is None
+    assert sup.cheaper_candidate(_args(), "k", current_rate=2.40, last_step=20000) is None
 
 
-def test_switch_down_teardown_destroys_the_box_and_is_gated_on_health():
-    """The migration path must destroy the current instance (an abandoned contract keeps
-    billing) and only run for a started episode whose syncer has caught up."""
+def test_switch_down_teardown_destroys_the_box_gated_on_health_and_retargets_class():
+    """The migration path must gate on health, destroy the current instance (an abandoned
+    contract keeps billing), and point the next re-provision at the winning class."""
     src = (SCRIPTS / "vast_supervisor.py").read_text()
+    gate = src.index("Opportunistic switch-DOWN")
     i = src.index("SWITCH-DOWN:")
-    pre = src[max(0, i - 700):i]
+    pre = src[gate:i]
     assert "a.rescan_minutes and started" in pre, "must gate on training-started"
     assert "(live - now) <= SWITCH_MAX_UNSYNCED" in pre, "must not throw away unsynced steps"
     assert "rescan_hold_minutes" in pre, "must respect the minimum hold time"
-    assert "vast.destroy(inst, key)" in src[i:i + 500], "must destroy the box it leaves"
+    post = src[i:i + 900]
+    assert 'a.gpu, a.gpus = cheaper["gpu"], cheaper["gpus"]' in post, \
+        "must retarget the next re-provision at the winning (possibly different) class"
+    assert "vast.destroy(inst, key)" in post, "must destroy the box it leaves"
 
 
 def test_compile_caches_round_trip_through_b2():
