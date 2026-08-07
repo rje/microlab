@@ -47,6 +47,24 @@ def gpu_scalars(device: str, include_nvml: bool) -> dict[str, float]:
     return s
 
 
+def cuda_rng_states_for_devices(saved_states: list, device_count: int) -> list:
+    """The per-device CUDA RNG states to restore on THIS box, given the states saved on
+    the checkpoint's box.
+
+    The world-size-invariant batch geometry deliberately lets a checkpoint resume on a
+    different GPU count (a 4-GPU checkpoint on a 2-GPU box is the retry loop's half-speed
+    fallback). ``torch.cuda.set_rng_state_all`` indexes ``default_generators[i]`` for
+    every ``i`` in the list, so passing MORE states than this box has devices raises
+    ``IndexError: tuple index out of range`` — the exact crash that killed a 2-GPU resume
+    of a 4-GPU checkpoint. Bounding to ``device_count`` restores the states that map to a
+    real device here and drops those for devices that do not exist. This is not a mask: on
+    a matching device count it is a no-op, and the CUDA RNG only seeds observational noise
+    (dropout) — loss continuity rides on the model and optimizer state, which ARE
+    world-size invariant. Fewer saved states than devices is fine as-is (the extra devices
+    keep their default seed), so only the longer direction needs bounding."""
+    return saved_states[:device_count]
+
+
 def get_lr(step: int, cfg: RunConfig) -> float:
     """nanoGPT LR schedule: linear warmup 0 -> cfg.lr over `warmup_steps`, then cosine
     decay cfg.lr -> cfg.min_lr over the remaining `lr_decay_steps - warmup_steps`, then
@@ -425,7 +443,12 @@ class Trainer:
         self.data_gen.set_state(ckpt["data_gen_state"].cpu())
         if ckpt.get("cuda_rng_state") is not None and torch.cuda.is_available():
             # map_location moved these ByteTensors onto CUDA; RNG state must be CPU bytes.
-            torch.cuda.set_rng_state_all([s.cpu() for s in ckpt["cuda_rng_state"]])
+            # Bound to THIS box's device count: the saved states belong to the SAVING box's
+            # GPU topology, and the world-size-invariant geometry deliberately allows a
+            # 4-GPU checkpoint to resume on 2 GPUs (the retry loop's half-speed fallback).
+            states = cuda_rng_states_for_devices(
+                [s.cpu() for s in ckpt["cuda_rng_state"]], torch.cuda.device_count())
+            torch.cuda.set_rng_state_all(states)
 
     @torch.no_grad()
     def _log_sample(self, writer, step: int) -> None:

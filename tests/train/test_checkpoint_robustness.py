@@ -199,3 +199,19 @@ def test_unreadable_bytes_are_classified_as_corruption(tmp_path):
     p.write_bytes(p.read_bytes()[:4000])             # truncate: undeserializable
     with pytest.raises(CorruptCheckpoint):
         Trainer(_cfg(tmp_path), _data()).load_checkpoint(str(p))
+
+
+def test_cuda_rng_states_are_bounded_to_this_boxs_device_count():
+    """Resuming a 4-GPU checkpoint on a 2-GPU box is a SUPPORTED operation (world-size-
+    invariant geometry; the retry loop's half-speed fallback). set_rng_state_all indexes
+    default_generators[i] for every i, so 4 saved states on a 2-GPU box raised
+    'IndexError: tuple index out of range' and killed the resume. The restore must be
+    bounded to the current device count."""
+    from microlab.train.trainer import cuda_rng_states_for_devices
+    saved = ["s0", "s1", "s2", "s3"]                  # saved on a 4-GPU box
+    assert cuda_rng_states_for_devices(saved, 2) == ["s0", "s1"], \
+        "too-many states must be truncated to the devices that exist here"
+    assert cuda_rng_states_for_devices(saved, 4) == saved, \
+        "matching device count must be an exact no-op (bit-identical 4->4 resume)"
+    assert cuda_rng_states_for_devices(["s0", "s1"], 4) == ["s0", "s1"], \
+        "fewer states than devices is fine as-is; extra devices keep their default seed"
