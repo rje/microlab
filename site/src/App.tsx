@@ -378,14 +378,19 @@ type TrajectoryRun = {
   run: string;
   steps: number[];
   completions: Record<string, Record<string, string>>;
+  completions_sampled?: Record<string, Record<string, string>>;
   docs: string[];
 };
 type TrajectoryPrompt = { id: string; text: string };
+type Decoder = "greedy" | "sampled";
 
 function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => void }) {
   const [runs, setRuns] = useState<TrajectoryRun[]>([]);
   const [prompts, setPrompts] = useState<TrajectoryPrompt[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Greedy is the frozen comparability track; sampled is the realistic free-running view
+  // (greedy argmax loops on this base model). Toggle switches which map every cell reads.
+  const [decoder, setDecoder] = useState<Decoder>("greedy");
   // Open steps per (run, prompt) — a SET, not a single selection: the whole point of the
   // trajectory is comparing checkpoints side by side (2k next to 4k next to 10k).
   const [open, setOpen] = useState<Record<string, number[]>>({});
@@ -416,10 +421,32 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
           <p className="eyebrow">Trajectory</p>
           <h2 id="runlog-heading">Run log</h2>
         </div>
-        <LineChart aria-hidden="true" />
+        <div role="group" aria-label="decoder">
+          {(["greedy", "sampled"] as Decoder[]).map((d) => (
+            <button
+              className={`phase-nav ${decoder === d ? "is-active" : ""}`}
+              key={d}
+              onClick={() => setDecoder(d)}
+              style={{ display: "inline-flex", width: "auto", marginLeft: "0.4rem" }}
+              type="button"
+            >
+              {d}
+            </button>
+          ))}
+        </div>
       </div>
+      {decoder === "sampled" && (
+        <p className="eyebrow">
+          Sampled (temp 0.7, top-k 40, fixed seed) — the realistic free-running view.
+          Greedy argmax loops on this base model and understates it.
+        </p>
+      )}
       {error && <p role="alert">Failed to load trajectory: {error}</p>}
-      {runs.map((r) => (
+      {runs.map((r) => {
+        // The active decoder's map. Sampled may be absent for older runs — fall back to
+        // an empty map so the prompt simply shows no cells rather than throwing.
+        const comp = (decoder === "sampled" ? r.completions_sampled : r.completions) ?? {};
+        return (
         <article key={r.run} style={{ marginBottom: "2rem" }}>
           <h3>{r.run}</h3>
           <p>
@@ -437,11 +464,11 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
             ))}
           </p>
           {prompts
-            .filter((q) => r.completions[q.id])
+            .filter((q) => comp[q.id])
             .map((q) => {
               const key = `${r.run}:${q.id}`;
               const openSteps = (open[key] ?? []).filter(
-                (s) => r.completions[q.id][String(s)] !== undefined
+                (s) => comp[q.id][String(s)] !== undefined
               );
               return (
                 <details key={q.id} style={{ marginBottom: "0.75rem" }}>
@@ -451,7 +478,7 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
                   <pre style={{ whiteSpace: "pre-wrap" }}>{q.text}</pre>
                   <p>
                     {r.steps
-                      .filter((s) => r.completions[q.id][String(s)] !== undefined)
+                      .filter((s) => comp[q.id][String(s)] !== undefined)
                       .map((s) => (
                         <button
                           className={`phase-nav ${openSteps.includes(s) ? "is-active" : ""}`}
@@ -477,7 +504,7 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
                         <div key={s} style={{ minWidth: 0 }}>
                           <p className="eyebrow">step {s}</p>
                           <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                            {r.completions[q.id][String(s)]}
+                            {comp[q.id][String(s)]}
                           </pre>
                         </div>
                       ))}
@@ -487,7 +514,8 @@ function RunLogPanel({ onOpenMarkdown }: { onOpenMarkdown: (href: string) => voi
               );
             })}
         </article>
-      ))}
+        );
+      })}
     </section>
   );
 }

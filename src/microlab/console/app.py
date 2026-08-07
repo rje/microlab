@@ -202,20 +202,35 @@ def register_content_routes(app: Flask) -> None:
         endpoint), so a new sweep or milestone doc appears without a redeploy."""
         import json as _json
         out = []
-        for f in sorted((root / "evals" / "trajectory").glob("*-completions.jsonl")):
-            run = f.name.removesuffix("-completions.jsonl")
-            rows = [_json.loads(x) for x in f.read_text().splitlines() if x.strip()]
-            steps = sorted({r["step"] for r in rows})
+        def _load(path):
             comp: dict[str, dict[int, str]] = {}
-            for r in rows:
+            steps: set[int] = set()
+            for x in path.read_text().splitlines():
+                if not x.strip():
+                    continue
+                r = _json.loads(x)
                 comp.setdefault(r["prompt_id"], {})[r["step"]] = r["completion"]
+                steps.add(r["step"])
+            return comp, steps
+
+        traj = root / "evals" / "trajectory"
+        for f in sorted(traj.glob("*-completions.jsonl")):
+            run = f.name.removesuffix("-completions.jsonl")
+            comp, steps = _load(f)
+            # The sampled track is a sibling file that does NOT match the glob above
+            # (…-completions-sampled.jsonl); serve it alongside greedy so the UI can offer
+            # a decoder toggle. Greedy argmax loops on this base model and understates it.
+            sampled_path = traj / f"{run}-completions-sampled.jsonl"
+            comp_s, steps_s = _load(sampled_path) if sampled_path.exists() else ({}, set())
             docs = sorted(str(d.relative_to(root))
                           for d in (root / "docs").glob(f"{run}-*.md")
                           if not d.name.endswith("-prediction.md"))
             pred = root / "docs" / f"{run}-prediction.md"
             if pred.exists():
                 docs.insert(0, str(pred.relative_to(root)))
-            out.append({"run": run, "steps": steps, "completions": comp, "docs": docs})
+            out.append({"run": run, "steps": sorted(steps | steps_s),
+                        "completions": comp, "completions_sampled": comp_s,
+                        "docs": docs})
         # Prompt text comes from the frozen prompt set so the UI can show what was asked.
         prompts = []
         try:

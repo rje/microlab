@@ -78,14 +78,27 @@ def main() -> int:
     ap.add_argument("--out-dir", default="evals/trajectory")
     ap.add_argument("--cache-dir", default=None,
                     help="where pulled checkpoints land (default: <out-dir>/.ckpts)")
+    # The greedy track is the frozen one (comparability). This adds a PARALLEL sampled
+    # track in its own files, because greedy argmax loops on this class of base model
+    # (loop rate 1.0 greedy vs 0.0 at temp 1.0 on ckpt_22000) and so understates it. Same
+    # frozen prompts and budgets; a fixed seed per (step, prompt) so a re-run reproduces
+    # and a column difference is still the MODEL, not the draw.
+    ap.add_argument("--decoder", choices=["greedy", "sampled"], default="greedy")
+    ap.add_argument("--temperature", type=float, default=0.7)
+    ap.add_argument("--top-k", type=int, default=40)
+    ap.add_argument("--seed", type=int, default=1234)
     a = ap.parse_args()
+    sampled = a.decoder == "sampled"
+    suffix = "-sampled" if sampled else ""
 
     from tokenizers import Tokenizer
     tok = Tokenizer.from_file(a.tokenizer)
     out_dir = Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     cache_dir = Path(a.cache_dir) if a.cache_dir else out_dir / ".ckpts"
-    rows_path = out_dir / f"{a.run}-completions.jsonl"
+    # The sampled track lives in its own file (…-completions-sampled.jsonl) that does NOT
+    # match the site's *-completions.jsonl glob, so the frozen greedy view is unchanged.
+    rows_path = out_dir / f"{a.run}-completions{suffix}.jsonl"
     have = set()
     if rows_path.exists():
         for line in rows_path.read_text().splitlines():
@@ -104,19 +117,28 @@ def main() -> int:
         model.load_state_dict(ck["model"])
         del ck
         model.to(a.device).eval()
-        print(f"step {step}: {len(todo)} prompts", flush=True)
+        print(f"step {step}: {len(todo)} prompts ({a.decoder})", flush=True)
+        from microlab.infer.reference.kv_cache import generate_cached
         with rows_path.open("a") as f:
-            for p in todo:
+            for i, p in enumerate(todo):
                 ids = torch.tensor([tok.encode(p["text"]).ids], device=a.device)
                 t0 = time.time()
+                # Fixed per-(step, prompt) seed: reproducible, and the same draw is used at
+                # every checkpoint so a column change is the model, not sampling luck.
+                gen = (torch.Generator(device=a.device).manual_seed(a.seed + step + i)
+                       if sampled else None)
                 with torch.no_grad():
-                    from microlab.infer.reference.kv_cache import generate_cached
-                    out = generate_cached(model, ids, p["n"], temperature=0.0)
+                    out = generate_cached(
+                        model, ids, p["n"],
+                        temperature=(a.temperature if sampled else 0.0),
+                        top_k=(a.top_k if sampled else None), generator=gen)
                 text = tok.decode(out[0].tolist())[len(p["text"]):]
-                f.write(json.dumps({
-                    "step": step, "prompt_id": p["id"], "prompt_sha": _psha(p),
-                    "n_tokens": p["n"], "completion": text,
-                    "gen_s": round(time.time() - t0, 1)}) + "\n")
+                row = {"step": step, "prompt_id": p["id"], "prompt_sha": _psha(p),
+                       "n_tokens": p["n"], "completion": text,
+                       "gen_s": round(time.time() - t0, 1), "decoder": a.decoder}
+                if sampled:
+                    row.update(temperature=a.temperature, top_k=a.top_k, seed=a.seed)
+                f.write(json.dumps(row) + "\n")
                 f.flush()
                 print(f"  {p['id']}: {time.time() - t0:.0f}s", flush=True)
         del model
@@ -129,16 +151,23 @@ def main() -> int:
     all_steps = sorted({r["step"] for r in rows})
     for r in rows:
         by_prompt.setdefault(r["prompt_id"], {})[r["step"]] = r["completion"]
-    md = [f"# {a.run} — completion trajectory\n",
-          "Greedy, fixed budgets; a difference between columns is the model changing.\n"]
+    if sampled:
+        head = (f"Sampled (temp {a.temperature}, top-k {a.top_k}, fixed seed), fixed "
+                "budgets. The parallel track to the greedy trajectory: greedy argmax "
+                "loops on this base model and understates it, so this is the realistic "
+                "free-running view. A column difference is still the model changing.\n")
+    else:
+        head = "Greedy, fixed budgets; a difference between columns is the model changing.\n"
+    md = [f"# {a.run} — completion trajectory ({a.decoder})\n", head]
     for p in PROMPTS:
         md.append(f"\n## `{p['id']}`\n\n```\n{p['text']}```\n")
         for s in all_steps:
             if s in by_prompt.get(p["id"], {}):
                 md.append(f"\n<details><summary>step {s}</summary>\n\n```\n"
                           f"{by_prompt[p['id']][s]}\n```\n</details>\n")
-    (out_dir / f"{a.run}-trajectory.md").write_text("".join(md))
-    print(f"wrote {rows_path} and {out_dir / (a.run + '-trajectory.md')}")
+    md_path = out_dir / f"{a.run}-trajectory{suffix}.md"
+    md_path.write_text("".join(md))
+    print(f"wrote {rows_path} and {md_path}")
     return 0
 
 
