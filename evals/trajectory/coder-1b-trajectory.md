@@ -222,6 +222,22 @@ def add(a, b):
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+	return a + b
+
+def sub(a, b):
+	return a - b
+
+def mul(a, b):
+	return a * b
+
+def div(a, b):
+	return a
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -458,6 +474,21 @@ class Point(object):
 
 class Line(object):
     def __init__(self, x1, y1
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+	self.x = x
+	self.y = y
+	self.z = 0
+	self.w = 0
+	self.h = 0
+	self.x = 0
+	self.y = 0
+	self.z = 0
+	self
 ```
 </details>
 
@@ -743,6 +774,27 @@ def binary_search_sorted_sorted(arr
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+#    if not arr:
+#        return -1
+#    if target not in arr:
+#        return -1
+#    return arr.index(target)
+
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if not arr:
+        return -1
+    if target not in arr:
+        return -1
+    return arr.index(target)
+
+
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1008,6 +1060,20 @@ def main_csv_file_name_csv(file_name):
     parser.add_argument("output_file", type=str, nargs=1, help="Output file")
     parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
     parser.add_argument("output
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+#    parser.add_argument('--csv-file', help='CSV file', required=True)
+    args = parser.parse_args()
+    csv_file = args.csv_file
+    if not os.path.exists(csv_file):
+        print("File does not exist")
+        exit(1)
+    with open(csv_file, 'r') as csv_file:
+        csv_data = csv.DictReader(csv_file)
 ```
 </details>
 
@@ -1292,6 +1358,21 @@ for i in
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+	print(i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+	print(i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+	print
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1515,6 +1596,22 @@ def get_data_from_file(file_path, data_path, data_type):
 #        if cleaned.startswith('http://www.'):
 #            cleaned = cleaned.replace('http://','http://')
 #        if cleaned.startswith('http://www.
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+#        if cleaned in results:
+#            results.remove(cleaned)
+#        else:
+#            results.append(cleaned)
+    return results
+
+def get_clean_name(name):
+    name = name.lower()
+    if name in ['name', 'title']:
+        return name
 ```
 </details>
 
@@ -1774,6 +1871,25 @@ class Counter_2:
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+#        self.count += 1
+        self.count += 1
+        return self.count
+
+    def __str__(self):
+        return str(self.count)
+
+class Counter2:
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+        self.
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1975,6 +2091,20 @@ return u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+	return (n * (n - 1) / 2) / 2;
+}
+
+export function factorial(n: u64) {
+	return n * (n - 1) / 2;
+}
+
+export function factorial2(n: u6
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2093,6 +2223,13 @@ ORDER BY order_id
 
 ```
 100000000000000000000000000000000000000000000000
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+1, '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '
 ```
 </details>
 
@@ -2419,6 +2556,21 @@ def _read_json_file_lines(filename):
     """Read a JSON file and return the number of top-level keys."""
     with open(filename, "r") as f:
         return f.read().splitlines()
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+def read_top_level_keys(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.loads(f.read())
+
+def read_top_level_keys_from_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return
 ```
 </details>
 
@@ -2756,6 +2908,23 @@ dna = Dna(
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+npm install --save @types/react-native-reanimated
+```
+
+## Usage
+
+```js
+import React from 'react';
+import { Animated } from 'react-native';
+
+const AnimatedExample = () => {
+  const [value, setValue] = React.useState
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2990,6 +3159,23 @@ $\frac{1}{2}x^2$
 $\frac{1}{2}x^2$
 
 $\
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative of x^2 is 1/2.
+
+The derivative
 ```
 </details>
 
@@ -3875,6 +4061,82 @@ def main_csv_file_name_csv(file_name):
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+#    parser.add_argument('--csv-file', help='CSV file', required=True)
+    args = parser.parse_args()
+    csv_file = args.csv_file
+    if not os.path.exists(csv_file):
+        print("File does not exist")
+        exit(1)
+    with open(csv_file, 'r') as csv_file:
+        csv_data = csv.DictReader(csv_file)
+        for row in csv_data:
+            print(row)
+
+if __name__ == '__main__':
+    main()
+import os
+import sys
+import argparse
+import json
+import logging
+import subprocess
+import time
+import datetime
+import shutil
+import glob
+import re
+import pandas as pd
+import numpy as np
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import pandas_utils
+import
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -4428,6 +4690,46 @@ def binary_search_sorted_sorted(arr, target):
 #     # return binary_search(arr, target)
 #     # return binary_search(arr, target)
 #     # return binary_search(arr,
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+#    if not arr:
+#        return -1
+#    if target not in arr:
+#        return -1
+#    return arr.index(target)
+
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if not arr:
+        return -1
+    if target not in arr:
+        return -1
+    return arr.index(target)
+
+def binary_search_sorted(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if not arr:
+        return -1
+    if target not in arr:
+        return -1
+    return arr.index(target)
+
+def binary_search_sorted_sorted(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if not arr:
+        return -1
+    if target not in arr:
+        return -1
+    return arr.index(target)
+
+def binary_search_sorted_sorted_sorted(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if not arr:
+        return
 ```
 </details>
 
@@ -5413,6 +5715,70 @@ class LRUCacheWithCapacity2(object):
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+#        self.capacity = capacity
+        self.capacity = capacity
+        self.cache = {}
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size = 0
+        self.cache_size =
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -6083,5 +6449,35 @@ def _read_json_file_lines(filename):
 
 
 def _read_json_file_
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+def read_top_level_keys(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.loads(f.read())
+
+def read_top_level_keys_from_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.loads(f.read())
+
+def read_top_level_keys(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.loads(f.read())
+
+def read_top_level_keys_from_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.loads(f.read())
+
+def read_top_level_keys(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.loads
 ```
 </details>

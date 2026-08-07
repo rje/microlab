@@ -199,6 +199,19 @@ a.e =
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+def f(a, b):
+def f(a, b):
+def f(a, b):
+def f(a, b):
+def f(a, b):
+def f(a, b):
+
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -427,6 +440,21 @@ class Rect:
         self.width = width
         self.height = height
         self.left =
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+	self.x = x
+	self.y = y
+	self.z = 0
+	self.w = 1
+	self.h = 1
+	self.distance = 0
+	self.up = []
+	self.right = []
+	self.left
 ```
 </details>
 
@@ -708,6 +736,23 @@ Created on Sun Feb 18 201
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+#    if not arr:
+#        return -1
+#    elif len(arr) == 0:
+#        return arr.index(target)
+#    elif len(arr) == 1:
+#        return 0
+#    else:
+#        return binary_search(arr, target)
+#
+#    # if target is not found, return -1
+#    return binary_search(arr, target)
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -953,6 +998,20 @@ from pandas import read_
 
     # Define CSV format
     csv_format
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+
+#    parser.add_argument("--input-files", action="store", action="store", nargs="*", default=[],
+#                        help="input files")
+#    parser.add_argument("--output-file", default="out.json",
+#                        help="output file name")
+#    parser.add_argument("--output-file-format", default="json",
+#                        help="output format")
+#    parser.add_
 ```
 </details>
 
@@ -1218,6 +1277,23 @@ print(i +
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+	print(i)
+
+# Print numbers 1 to 5, but Fizz for multiples of 3
+for i in range(1, 6):
+	print(i)
+
+# Print numbers 1 to 10, but Fizz for multiples of 3
+for i in range(1, 101):
+	print(i)
+
+# Print numbers 1 to 5, but Fizz
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1457,6 +1533,21 @@ def get_all_files(files):
 #     results = results.replace(' ', '_')
 #     results = results.replace(' ', '_')
 #     results = results.replace(' ', '_')
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+"""
+This file is part of the Neural Language Toolkit: a project of OpenAI.
+
+https://github.com/openai/neural-language-toolkit
+"""
+
+# Copyright 2018 The OpenAI Authors
+#
+# Licensed under the Apache License
 ```
 </details>
 
@@ -1750,6 +1841,23 @@ class Counter2:
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+#        print "Counter.increment()"
+        if self.count == 0:
+            self.count += 1
+        else:
+            self.count -= 1
+
+    def __str__(self):
+        return f'Count: {self.count}'
+
+    def __repr__(self):
+        return f'{self
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1964,6 +2072,37 @@ export function product(n: u
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ *
+ * ```
+ * ```
+ * ```
+ * ```
+ * ```
+ * ```
+ * ```
+ *
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2095,6 +2234,20 @@ WHERE customer_name IN (
 100, orders.order_no, customers.customer_name FROM orders AS orders LEFT JOIN customers AS customers ON orders.order_no = customers.order_no
 ORDER BY orders.order_no
 LIMIT 1
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+ COUNT(1) FROM orders WHERE customer_name = ? AND status = 'paid';
+```
+
+## Create a new customer
+
+Use `createCustomer()` to create a new customer
+```javascript
+function createCustomer(customer
 ```
 </details>
 
@@ -2445,6 +2598,20 @@ def get_file_size(filename):
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+
+def top_level_keys(filename):
+    """Return the number of top-level keys in the given filename."""
+    with open(filename, 'r') as f:
+        for key, val in json.loads(f.read()).items():
+            if not isinstance(val, dict):
+                raise RuntimeError("Expected key to be a dict, got %s" % val)
+            if key in ['all_tags_to_key_vals'] or
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -2767,6 +2934,22 @@ python3 -
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+$ yarn add @types/react-native-reanimated
+$ yarn add @types/react-native-reanimated
+```
+
+### Adding the package
+
+```json
+{
+  "name": "@reanimated/react-native-reanimated",
+  "version": "1.0.4
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2903,6 +3086,23 @@ The area under the graph is the sum of
 The derivative of x^3 is 1/10.
 The derivative of x^2 is 1/10, the derivative of x^3 is 1/10.
 The derivative of x^2 is 1/10, the derivative of x
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+4.
+
+a) Find the derivative of each of the following:
+
+i) $\frac{x^3}{x^2}$
+
+ii) $\frac{x^2}{x^{3}}$
+
+iii) $\sqrt{x}$
+
+iv) $\
 ```
 </details>
 
@@ -3463,6 +3663,55 @@ def main_cli():
                         type=str,
                         help="Path to the folder containing the CSV files to be converted to JSON.")
     parser.add_
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+#    parser.add_argument("--csv_dir", help="CSV directory", required=True)
+    parser.add_argument("--csv_pattern", help="CSV pattern", required=True)
+    args = parser.parse_args()
+
+    # CSV files must be separated by newlines
+    csv_lines = list(map(str.split, open(args.csv_, "utf8"))
+    with open(args.csv_file, "w", newline="") as csv_file:
+        for line in csv_lines:
+            csv_file.write(line)
+
+if __name__ == "__main__":
+    main()
+file"""This file is part of Dask.
+
+Dask is an Open Source Software distributed under the Apache License, Version 2.0.
+
+You may obtain a copy of the Dask Source Code at
+
+https://github.com/dask/dask
+
+If you have questions, please e-mail: https://dask.github.io/dask/
+
+The Dask project, at https://github.com/dask/dask
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable = Path(dirname(__file__)) / "tasks.json"
+    tasks = json.load(open(tasks))
+    """
+
+    # Load tasks
+    tasks = json.loads(tasks)
+
+    # Get default values
+    default_tasks = json.loads(default_tasks)
+
+    # Build the Dask graph
+    graph = DaskGraph()
+    graph.add_tasks(
 ```
 </details>
 
@@ -4053,6 +4302,45 @@ class Solution:
                 break
         return index
 # Given a list,
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent"""
+    if len(arr) == 0:
+        return -1
+    if target - arr[0] < 0:
+        return -1
+    if target - arr[0] == 0:
+        return 0
+    if target == arr[0]:
+        return 0
+    left, right, mid = binary_search(arr, target)
+    if left == right:
+        return mid
+    left, right = binary_search(arr, target)
+    if left == right:
+        return mid
+    mid = mid + 1
+    if mid == 0:
+        return -1
+    return mid
+
+def binary_search_by_key(arr, key):
+    """Return the index of target in sorted list arr, or -1 if absent"""
+    key = key.lower()
+    idx = binary_search(arr, key)
+    if idx == -1:
+        return -1
+    return idx
+
+def binary_search_by_value(arr, value):
+    """Return the index of value in sorted list arr, and its index"""
+    key = value.lower()
 ```
 </details>
 
@@ -5168,6 +5456,80 @@ In the present paper, we consider the $$\frac{1}{2}-$$projection of a finite-dim
 ```
 </details>
 
+<details><summary>step 28000</summary>
+
+```
+# -*- coding: utf-8 -*-
+"""
+"""
+import json
+
+from django.core.management.base import BaseCommand
+
+from .models import (
+    Activity,
+    ActivityLog,
+    ActivityLogItem,
+)
+
+
+class Command(BaseCommand):
+    """
+    Generate Activity Logs for all objects specified by a filter.
+    """
+
+    def handle(self, *args, **options):
+        """
+        Generate Activity Logs for all objects specified by a filter.
+        """
+        # Get all objects
+        objects = Activity.objects.all()
+
+        # If there are no objects then return no objects
+        if len(objects) == 0:
+            return
+
+        # Make Activity Logs
+        log_data = ActivityLog.objects.filter(activity_id=objects.values_list('id', flat=True)).values_list(
+            'id', flat=True
+        )
+        for log_data in log_data:
+            ActivityLogItem.objects.create(
+                activity_id=log_data['id'],
+                user_id=log_data['user_id'],
+                action_id=log_data['action_id'],
+                activity=log_data['activity'],
+                text=log_data['text'],
+            )
+
+        # Get Activity Logs for all objects
+        ActivityLog.objects.all().delete()
+        ActivityLog.objects.create(
+            activity_id=activity_ids,
+            user_id=user_ids,
+            activity=activity_ids,
+            text=activity_texts,
+            activity_type=activity_type,
+        )
+
+
+def get_activity_log_for_user_ids(user_ids=None, activity_ids=None):
+    """
+    Returns Activity Logs for all objects specified by a filter.
+    """
+    if activity_ids is not None:
+        ActivityLog.objects.filter(user_id__in=user_ids).delete()
+    if activity_type is not None:
+        ActivityLog.objects.filter(activity_type=activity_type).delete()
+    activity_ids = Activity.objects.values_list('id', flat=True)
+    activity_texts = ActivityLog.objects.filter(activity_id__in=activity_ids).values_list(
+        'activity', flat=True
+    )
+    activity_text_urls = ActivityLog.objects.values_list(
+        'text', flat=True
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -5713,5 +6075,54 @@ def Get_Top_Level_Keys_list(filename, top_level=1):
 	
 	Returns:
 		int: 0 if the file is not found, 
+```
+</details>
+
+<details><summary>step 28000</summary>
+
+```
+
+import json
+import logging
+import os
+import sys
+import time
+from multiprocessing import Process, Queue
+import typing
+
+import numpy as np
+from astropy.io import fits
+
+from astropy.io import fits as pyfits
+
+# Importing the necessary modules
+import astropy.units as u
+import astropy.units.units as uu
+import astropy.units.distance as d
+import astropy.units.units as uu
+
+# Import the modules
+import astropy.io._utils as pyastio
+import astropy.io._utils as pyastio
+import astropy.io._utils as pyastio
+
+
+def GetRms(arr: np.ndarray) -> np.ndarray:
+    """
+    Calculate the root mean squared (RMS) of an array of numbers
+
+    Parameters
+    ----------
+    arr : array
+        Array of numbers to calculate the root mean squared.
+    Returns
+    -------
+    RMS : array
+        RMS of the values.
+    """
+    # First, the array needs to be normalized
+    arr = arr / np.sqrt(np.mean(arr))
+    arr = arr * u.AA
+    # Now, we must take the square root
 ```
 </details>
