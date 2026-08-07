@@ -206,6 +206,22 @@ def add_div(a,
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#     return a + b
+
+def add(a, b):
+    return a + b
+
+def add(a, b):
+    return a + b
+
+def add(a, b):
+    return a + b
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -426,6 +442,22 @@ class _Base(object):
 	self.angle_rad_deg = 0
 	self.angle_rad_deg = 0
 	self.angle_rad_deg
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#        self.x = x
+#        self.y = y
+
+class Point(object):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class Line(object):
+    def __init__(self, x1, y1
 ```
 </details>
 
@@ -695,6 +727,22 @@ def binary_search_sorted_sorted(arr
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 1:
+#         return arr[0]
+#     if len(arr) == 2:
+#         return binary_search(arr, target)
+#     if len(arr) == 3:
+#         return binary
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -949,6 +997,17 @@ def main_csv_file_name_csv(file_name):
 	parser.add_argument('-o', '--output', type=str, required=True, help='CSV file to convert')
 	parser.add_argument('-d', '--directory', type=str, required=True, help='Directory to save converted files')
 	parser.add_argument('-c', '--csv
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#    parser = argparse.ArgumentParser(description="Convert CSV files to JSON")
+    parser.add_argument("csv_file", type=str, nargs=1, help="CSV file")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output
 ```
 </details>
 
@@ -1219,6 +1278,20 @@ for i in range(1, 101):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+print(f"{i} Fizz Buzz")
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+print(f"{i} Fizz Buzz")
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1431,6 +1504,17 @@ def get_data_from_file(file_path, data_path, data_type):
 #        if cleaned.startswith('gender'):
 #            cleaned = cleaned.replace(' ', '')
 #
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#        if cleaned.startswith('http'):
+#            cleaned = cleaned.replace('http://','http://')
+#        if cleaned.startswith('http://www.'):
+#            cleaned = cleaned.replace('http://','http://')
+#        if cleaned.startswith('http://www.
 ```
 </details>
 
@@ -1677,6 +1761,19 @@ class Counter_2:
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#        self.count += 1
+        self.count += 1
+        self.count = self.count + 1
+        self.count = self.count + 1
+        self.count = self.count + 1
+        self.count = self.count + 1
+        self.count =
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1871,6 +1968,13 @@ function factorial(n: u64)
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+return u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64(u64
+```
+</details>
+
 ## `sql`
 
 ```
@@ -1982,6 +2086,13 @@ ORDER BY order_id
 --
 --
 --
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+100000000000000000000000000000000000000000000000
 ```
 </details>
 
@@ -2292,6 +2403,22 @@ def get_top_level_keys(obj):
 
 def get_top_level_keys_from_dict(obj):
     """Get the top-level keys
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+def _read_json_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().count()
+
+
+def _read_json_file_lines(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().splitlines()
 ```
 </details>
 
@@ -2610,6 +2737,25 @@ import seaborn
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+$ pip install -r requirements.txt
+```
+
+## Usage
+
+```python
+from pydna.dna import Dna
+
+dna = Dna(
+    name='dna',
+    description='A Dna',
+    sequence='dna',
+    sequence_length=10,
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2825,6 +2971,25 @@ Find the derivative of x^2.
 • 10 minutes ago
 • 10 minutes ago
 • 10 minutes ago
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+1/2.
+
+#### Question:
+
+Find the derivative of $\frac{1}{2}x^2$
+
+#### Solution:
+
+$\frac{1}{2}x^2$
+
+$\frac{1}{2}x^2$
+
+$\
 ```
 </details>
 
@@ -3687,6 +3852,29 @@ def main_csv_file_name_csv(file_name):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#    parser = argparse.ArgumentParser(description="Convert CSV files to JSON")
+    parser.add_argument("csv_file", type=str, nargs=1, help="CSV file")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output_file", type=str, nargs=1, help="Output file")
+    parser.add_argument("output_dir", type=str, nargs=1, help="Output directory")
+    parser.add_argument("output
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -4212,6 +4400,34 @@ def binary_search_sorted_sorted(arr, target):
 		return 0
 	else:
 		return
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 1:
+#         return arr[0]
+#     if len(arr) == 2:
+#         return binary_search(arr, target)
+#     if len(arr) == 3:
+#         return binary_search(arr, target)
+#     return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr, target)
+#     # return binary_search(arr,
 ```
 </details>
 
@@ -5100,6 +5316,103 @@ class LRUCacheWithCapacity2(object):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#        self.capacity = capacity
+        self.capacity = capacity
+        self.lru = LRUCache(capacity)
+        self.lru = LRUCache(capacity)
+
+    def __len__(self):
+        return self.capacity
+
+    def __iter__(self):
+        return self.lru
+
+    def __getitem__(self, key):
+        return self.lru[key]
+
+    def __setitem__(self, key, value):
+        self.lru[key] = value
+
+    def __delitem__(self, key):
+        del self.lru[key]
+
+    def __len__(self):
+        return self.capacity
+
+    def __iter__(self):
+        return self.lru
+
+    def __getitem__(self, key):
+        return self.lru[key]
+
+    def __setitem__(self, key, value):
+        self.lru[key] = value
+
+    def __delitem__(self, key):
+        del self.lru[key]
+
+    def __len__(self):
+        return self.capacity
+
+    def __iter__(self):
+        return self.lru
+
+    def __getitem__(self, key):
+        return self.lru[key]
+
+    def __setitem__(self, key, value):
+        self.lru[key] = value
+
+    def __delitem__(self, key):
+        del self.lru[key]
+
+    def __len__(self):
+        return self.capacity
+
+    def __iter__(self):
+        return self.lru
+
+    def __getitem__(self, key):
+        return self.lru[key]
+
+    def __setitem__(self, key, value):
+        self.lru[key] = value
+
+    def __delitem__(self, key):
+        del self.lru[key]
+
+    def __len__(self):
+        return self.capacity
+
+    def __iter__(self):
+        return self.lru
+
+    def __getitem__(self, key):
+        return self.lru[key]
+
+    def __setitem__(self, key, value):
+        self.lru[key] = value
+
+    def __delitem__(self, key):
+        del self.lru[key]
+
+    def __len__(self):
+        return self.capacity
+
+    def __iter__(self):
+        return self.lru
+
+    def __getitem__(self, key):
+        return self.lru[key]
+
+    def __setitem__(self, key, value):
+        self.lru[
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -5733,5 +6046,42 @@ def get_top_level_keys_from_dict(obj):
 
     :param obj: The object to get the top-level keys from.
     :
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+def _read_json_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().count()
+
+
+def _read_json_file_lines(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().splitlines()
+
+
+def _read_json_file_lines(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().splitlines()
+
+
+def _read_json_file_lines(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().splitlines()
+
+
+def _read_json_file_lines(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, "r") as f:
+        return f.read().splitlines()
+
+
+def _read_json_file_
 ```
 </details>

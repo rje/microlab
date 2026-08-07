@@ -187,6 +187,18 @@ def div(a, b):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+a.a = a.a + b.a
+a.b = b.a
+a.b = b.a
+a.c = b.a
+a.d = b.a
+a.e =
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -399,6 +411,22 @@ class _Point
 	self.c_w = 0
 	self.c_b = 0
 	self.
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#        self.x = x
+#        self.y = y
+
+class Rect:
+    def __init__(self, x, y, width, height):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.left =
 ```
 </details>
 
@@ -662,6 +690,24 @@ def binary_search_sorted(arr, target, key=lambda x: x.value):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#     sorted_list = sorted(arr, reverse=True)
+    sorted_list = sorted(arr)
+    if target is None:
+        return -1
+    for i in range(len(sorted_list)):
+        if sorted_list[i] == target:
+            return i
+    return -1
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Feb 18 201
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -894,6 +940,19 @@ from pandas import read_
 	args.input = args.input.split(",")
 	args.output = args.output.split(",")
 	args
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#    parser = argparse.ArgumentParser(description="Convert CSV files to JSON")
+    parser.add_argument("csv_files", nargs="*", type=argparse.FileType("r"), help="CSV files to format.")
+    parser.add_argument("output_file", nargs="?", type=argparse.FileType("w"), help="JSON file to write the results.")
+    args = parser.parse_args()
+
+    # Define CSV format
+    csv_format
 ```
 </details>
 
@@ -1144,6 +1203,21 @@ print('1.000000000000000000000000000000000000
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+print(i + "  " * i)
+
+# Print numbers 1 to 200, but Fizz for multiples of 5
+for i in range(1, 201):
+print(i + "  " * i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 7
+for i in range(1, 100):
+print(i +
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1370,6 +1444,19 @@ def clean_up_items(items: List[str]):
 def get_all_files(files):
     files = files.split(',')
     files = [
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#         cleaned = cleaned.lower()
+        results.append(cleaned)
+#     print cleaned
+#     results = results + cleaned
+#     results = results.replace(' ', '_')
+#     results = results.replace(' ', '_')
+#     results = results.replace(' ', '_')
 ```
 </details>
 
@@ -1649,6 +1736,20 @@ class Counter2:
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+#        self.count += 1
+#        self.count = self.count + 1
+#        self.count = self.count
+#        self.count = self.count
+
+#    def decrement(self):
+#        self.count -= 1
+#        self.
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1845,6 +1946,24 @@ export function numberToU64(number: number): u64 {
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+let ret = 0;
+while (n != 0) {
+ret = ret * 2;
+n = n - 1;
+}
+return ret;
+}
+
+/**
+ * Returns the product of a and b modulo n
+ */
+export function product(n: u
+```
+</details>
+
 ## `sql`
 
 ```
@@ -1967,6 +2086,15 @@ WHERE customer_name IN (
 
 ```
 5 4.5 3.5 2.5 1.5 1.5 1.2 0.5 0.2 0.1 0.0 0.0 0.
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+100, orders.order_no, customers.customer_name FROM orders AS orders LEFT JOIN customers AS customers ON orders.order_no = customers.order_no
+ORDER BY orders.order_no
+LIMIT 1
 ```
 </details>
 
@@ -2300,6 +2428,23 @@ def count_top_level_keys(obj_dict):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+def _get_top_level_keys(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    #TODO: Remove this function once it is removed from the parser library.
+    import json
+    return 0
+
+
+def get_file_size(filename):
+    """Return the size of the file (in bytes) as a decimal number."""
+    with open(filename, 'rb') as f:
+        return f.read
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -2598,6 +2743,30 @@ pip install git+https://github.com/cerebro/django-simple-
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+# Install all dependencies
+python3 -m pip install -r requirements.txt
+```
+
+## Usage
+
+### Install
+
+```sh
+# Install dependencies
+python3 -m pip install -r requirements.txt
+```
+
+### Usage
+
+```sh
+# Install dependencies
+python3 -
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2724,6 +2893,16 @@ If you have a function y=f(x), you can use the formula:
 y=f(x)=f(x)+\frac{dy}{dx}
 
 The area under the graph is the sum of
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+1/10.
+The derivative of x^3 is 1/10.
+The derivative of x^2 is 1/10, the derivative of x^3 is 1/10.
+The derivative of x^2 is 1/10, the derivative of x
 ```
 </details>
 
@@ -3245,6 +3424,45 @@ if __name__ == "__main__":
 				line = line.replace('\n', '')
 				line = line.replace('\t', '')
 				line = line.replace('\r', '')
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+
+def main_cli():
+    parser.add_argument("csv_files_to_json", nargs="?", choices=["true", "false"], default=["true", "false"],
+                        type=int,
+                        help="Boolean to convert. Default: true")
+    parser.add_argument("csv_files_to_json", nargs="?", choices=["true", "false"],
+                        type=int,
+                        help="Boolean to convert. Default: true")
+    parser.add_argument("base_path", nargs="?",
+                        type=str,
+                        help="Path to the folder containing the CSV files to be converted to JSON.")
+    parser.add_argument("base_path", nargs="?",
+                        type=str,
+                        help="Path to the folder containing the CSV files to be converted to JSON.")
+    parser.add_argument("csv_files_to_json", nargs="?",
+                        action="store_true",
+                        help="Boolean to convert. Default: false")
+    parser.add_argument("base_path", nargs="?",
+                        type=str,
+                        help="Path to the folder containing the CSV files to be converted to JSON.")
+    parser.add_argument("path", nargs="?",
+                        type=str,
+                        help="Path to the folder containing the CSV files to be converted to JSON.")
+    parser.add_argument("base_path", nargs="?",
+                        type=str,
+                        help="Path to the folder containing the CSV files to be converted to JSON.")
+    parser.add_argument("csv_files_to_json", nargs="?",
+                        action="store_true",
+                        help="Boolean to convert. Default: false")
+    parser.add_argument("path", nargs="?",
+                        type=str,
+                        help="Path to the folder containing the CSV files to be converted to JSON.")
+    parser.add_
 ```
 </details>
 
@@ -3789,6 +4007,52 @@ def binary_search2(arr, target):
 	
 	index = 0
 	for elem in
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+#     for index, item in enumerate(arr):
+#         if target == item:
+#             return index
+#     return -1
+
+
+class Solution:
+    def binarySearch(self, arr, target):
+        """
+        :type arr: List[int]
+        :type target: int
+        :rtype: int
+        """
+        if len(arr) == 0 or len(arr) == 0:
+            return -1
+        index = 0
+        for i in range(len(arr)):
+            if target == arr[i]:
+                index = i
+                break
+        if index > len(arr):
+            index = 0
+        return index
+
+    def binarySearch(self, arr, target):
+        if target == 0 or len(arr) == 0:
+            return -1
+        if arr[0] <= target <= arr[0]:
+            return -1
+        if target > arr[0]:
+            index = len(arr) - 1
+        else:
+            index = 0
+        for i in range(len(arr)):
+            if target == arr[i]:
+                arr[index] = arr[index]
+                index += 1
+                break
+        return index
+# Given a list,
 ```
 </details>
 
@@ -4892,6 +5156,18 @@ class LRUCacheWithCapacityWithCapacity(LRUCacheWithCapacityWithCapacity):
 ```
 </details>
 
+<details><summary>step 26000</summary>
+
+```
+# zbMATH — the first resource for mathematics
+
+On the $$\frac{1}{2}$$-simplex method for the $$\frac{1}{2}-$$projection of a finite-dimensional vector space $$X$$ on a finite-dimensional hyperplane. (English)Zbl 0648.53008
+The $$\frac{1}{2}-$$projection of a finite-dimensional vector space $$X$$ on a finite-dimensional hyperplane $$Y$$ is defined as $$\mathcal{P}(Y)=\mathcal{S}$$, where $$\mathcal{S}$$ is the set of all points on $$Y$$ in $$X$$ which are in $$Y$$. The $$\frac{1}{2}-$$projection of a finite-dimensional vector space $$X$$ on the $$\frac{1}{2}-$$plane is defined by $$\mathcal{P}(\mathbf{x})=\{\mathbf{x}|(\mathbf{x}+1)\mathcal{P}(X)\leq \frac{1}{2}$$, $$\mathcal{P}(X)\geq 2$$} for $$0<\frac{1}{2}$$ and $$\mathcal{P}(X)$$, where $$\mathcal{P}(X)$$ denotes the projection of $$X$$ on the $$\frac{1}{2}-$$plane.
+In this paper, we introduce the $$\frac{1}{2}-$$projection of a finite-dimensional vector space $$X$$ on a finite-dimensional hyperplane $$Y$$ to $$X^2$$ and discuss the $$\frac{1}{2}-$$projection of a finite-dimensional vector space $$X$$ on a finite-dimensional hyperplane $$Y$$ to $$X^2$$. The $$\frac{1}{2}-$$projection $$\mathcal{P}$$ of $$X$$ onto $$Y$$ is defined as $$\mathcal{P}(Y)=\{\mathbf{x}|\mathcal{P}(X)^2\leq \frac{1}{2}-\frac{1}{2}\}$$ for $$0<\frac{1}{2}$$.
+In the present paper, we consider the $$\frac{1}{2}-$$projection of a finite-dimensional vector space $$X$$ onto a finite-dimensional hyper
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -5402,5 +5678,40 @@ def collect_bottom_keys(object):
     keys.add(object.keys()[0])
     bottom = set(object.keys())
     bottom.add(
+```
+</details>
+
+<details><summary>step 26000</summary>
+
+```
+	keys = json.loads(open(filename, 'r').read())
+	return keys[keys.index(key)]
+
+def Get_Top_Level_Keys(filename):
+	"""Read a JSON file and return the number of top-level keys."""
+	if not os.path.isfile(filename):
+		return 0
+
+	with open(filename, 'r') as f:
+		files = []
+		for line in f:
+			if line.startswith("{"):
+				keys = json.loads(line.replace("{", ""))
+			else:
+				keys = json.loads(line)
+			if keys:
+				files.append(keys)
+
+	return len(files)
+
+def Get_Top_Level_Keys_list(filename, top_level=1):
+	"""Read a JSON file and return the number of top-level keys, which are in the "top-level" section.
+	
+	Args:
+		filename (string): filename of the JSON file.
+		top_level (int): if True, return the top-level keys.
+	
+	Returns:
+		int: 0 if the file is not found, 
 ```
 </details>
