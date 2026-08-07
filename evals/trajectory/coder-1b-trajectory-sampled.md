@@ -171,6 +171,22 @@ def add_index(lst):
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	return b + a
+
+def subtract(a, b):
+	return b - a
+
+def multiply(a, b):
+	return a * b
+
+def div(a, b):
+	return (
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -369,6 +385,20 @@ class _Point
 #        if isinstance(x, (int, float)):
 #            if not isinstance(x, (int, float)):
 #                raise ValueError("Type of x
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	self.x = x
+	self.y = y
+	self.w = 100
+	self.b = 0
+	self.r = 80
+	self.c_w = 0
+	self.c_b = 0
+	self.
 ```
 </details>
 
@@ -614,6 +644,24 @@ def binary_search
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	# Sort the array
+	arr.sort()
+	# Find the index of target
+	index = arr.index(target)
+	# Return the index of target
+	return index
+
+
+def binary_search_sorted(arr, target, key=lambda x: x.value):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+	if key is None:
+		return binary_search(arr
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -832,6 +880,20 @@ from pandas import read_
 	#data = [row.split(",") for row in data]
 
 	#print(
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	parser.add_argument("--input", help="CSV file names", nargs='*', metavar="CSV file names",
+                        help="csv file names")
+	parser.add_argument("--output", help="output directory", nargs='?', metavar="output",
+                        help="output directory")
+	args = parser.parse_args()
+	args.input = args.input.split(",")
+	args.output = args.output.split(",")
+	args
 ```
 </details>
 
@@ -1071,6 +1133,17 @@ print("Fizz:", i, " / ", j)
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	print(i)
+
+# 100.
+print('100.1010000000000000000000000000000000')
+print('1.000000000000000000000000000000000000
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1281,6 +1354,22 @@ def clean_up_items(items: List[str]):
 #
 #    # raise an error if nothing is found
 #    return []
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+#         if cleaned == '':
+#             cleaned = item.replace('@', '').lower()
+#         if cleaned.lower() != cleaned:
+#             results.append(cleaned)
+
+    return results
+
+def get_all_files(files):
+    files = files.split(',')
+    files = [
 ```
 </details>
 
@@ -1543,6 +1632,23 @@ Created on Thu Dec 24 11:40:05 2019
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+#        self.count += 1
+        self.count += 1
+
+    def __str__(self):
+        return "{:03d} {}".format(self.count, self.count)
+
+class Counter2:
+    def __init__(self):
+        self.counter = Counter()
+
+    def increment
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1723,6 +1829,22 @@ export function sqrt(n: u64)
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	return Math.floor(Math.log(n) / Math.log(2))
+}
+
+export type U64 = number | string | number[]
+
+export {
+  U64,
+}
+
+export function numberToU64(number: number): u64 {
+```
+</details>
+
 ## `sql`
 
 ```
@@ -1838,6 +1960,13 @@ WHERE customer_name IN (select customer_name from orders)
 ORDER BY  customer_name;
 SELECT  ORDER BY customer_name
 WHERE customer_name IN (
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+5 4.5 3.5 2.5 1.5 1.5 1.2 0.5 0.2 0.1 0.0 0.0 0.
 ```
 </details>
 
@@ -2152,6 +2281,25 @@ plt.close('all')
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+
+def get_top_level_keys(obj_dict):
+    """Get a list of top-level keys in a dictionary.
+
+    Returns a list of top-level keys.
+
+    """
+    return [top_level[key] for key in obj_dict.keys()]
+
+def count_top_level_keys(obj_dict):
+    """Count the number of top-level keys in a dictionary.
+
+    Returns a tuple of the count of top
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -2437,6 +2585,19 @@ pip3 install
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+pip install --upgrade git+https://github.com/cerebro/django-simple-auth.git
+```
+
+Alternatively, to install the project from a git repository, run:
+
+```bash
+pip install git+https://github.com/cerebro/django-simple-
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2550,6 +2711,19 @@ so the derivative of x^
 (B) $\dfrac{2}{x}$
 (C) $\dfrac{2}{x}$
 (D) $\dfrac{
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+20, what is the area under the graph of the function?
+
+If you have a function y=f(x), you can use the formula:
+
+y=f(x)=f(x)+\frac{dy}{dx}
+
+The area under the graph is the sum of
 ```
 </details>
 
@@ -3034,6 +3208,43 @@ if __name__ == "__main__":
 	parser.add_argument("--delimiter", help="delimiter", default=',\t')
 	parser.add_argument("--delimiter", help="delimiter", default=',\t')
 	parser.add
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	parser.add_argument('-d', '--directory', help='Directory to convert to JSON', nargs='?', metavar='PATH')
+	parser.add_argument('-i', '--input-file', dest='input-file', help='CSV file to convert to JSON')
+	parser.add_argument('-o', '--output-file', dest='output-file', help='JSON file to write to')
+	args = parser.parse_args()
+	print(args)
+
+	if args.input-file != None:
+		with open(args.input-file,'r', encoding='utf-8') as f:
+			for line in f:
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
+				line = line.replace('\n', '')
+				line = line.replace('\t', '')
+				line = line.replace('\r', '')
 ```
 </details>
 
@@ -3528,6 +3739,56 @@ if __name__ == "__main__":
 
     arr.add(4)
     arr.add(5)
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	if arr is None:
+		return -1
+	
+	index = 0
+	for elem in arr:
+		if elem == target:
+			index = index + 1
+			break
+	
+	return index
+
+def binary_search2(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr is None:
+		return -1
+	
+	index = 0
+	for elem in arr:
+		if elem == target:
+			index = index + 1
+			break
+	
+	return index
+
+def binary_search2(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr is None:
+		return -1
+	
+	index = 0
+	for elem in arr:
+		if elem == target:
+			index = index + 1
+			break
+	
+	return index
+
+def binary_search2(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr is None:
+		return -1
+	
+	index = 0
+	for elem in
 ```
 </details>
 
@@ -4540,6 +4801,97 @@ class LRUCacheWithCapacityWithCapacity(LRUCacheWithCapacityWithCapacity):
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	# type: (int) -> None
+        """Constructor.
+
+        :param capacity: The capacity to use.
+        """
+        self.capacity = capacity
+        self.cache = None
+
+    def get(self):
+        """Gets the latest cache entry."""
+        if self.cache is None:
+            self.cache = self._cache()
+        return self.cache
+
+    def set(self, cache):
+        """Sets the next entry in the cache, which will be used when retrieving the next entry."""
+        self.cache = cache
+
+    def clear(self):
+        """Clears the cache.
+
+        :return: True if the cache is empty.
+        """
+        if self.cache is None:
+            return False
+        self.cache.clear()
+        return True
+
+    def clear_all(self):
+        """Clears all entries in the cache.
+
+        :return: True if the cache is empty.
+        """
+        if self.cache is None:
+            return False
+        self.cache = self._cache()
+        return True
+
+    def _cache(self):
+        """A memoized cache with a capacity limit."""
+        if self.cache is None:
+            self.cache = LRUCache(self.capacity)
+        return self.cache
+
+    def __len__(self):
+        """Return the capacity of the cache."""
+        return self.capacity
+
+    def __iter__(self):
+        """Iterate over the entries in the cache."""
+        return self.cache
+
+    def __next__(self):
+        """Next entry in the cache."""
+        self.clear()
+        if self.cache is None:
+            raise EOFError("No entry available")
+        entry = self.cache.get()
+        if entry is None:
+            raise EOFError("No entry available")
+        return entry
+
+    def __getitem__(self, index):
+        """Get the next entry."""
+        self.cache.clear()
+        if self.cache is None:
+            raise EOFError("No entry available")
+        if index >= self.capacity:
+            raise EOFError("No entry available")
+        return self.cache.get()
+
+    def __contains__(self, key):
+        """Return whether the cache contains the keys."""
+        return key in self.cache
+
+    def __len__(self):
+        """Return the total number of entries in the cache."""
+        return self.cache.capacity
+
+    def __iter__(self):
+        """Iterate over the entries in the cache."""
+        return self.cache
+
+    def __repr__(self):
+        """Return a human
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -5011,5 +5363,44 @@ else:
 #     print(readme)
 
 
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+
+from .common import *
+from .common import *
+from .common import read_json
+from .common import read_json
+from .common import write_json
+from .common import write_json
+
+#
+# The following function is to collect the "top" keys in an object.
+#
+# The "top" keys are the keys that are the top of the object.
+#
+def collect_top_keys(object):
+    """Collect the keys that are the top of the object."""
+    keys = set(object.keys())
+    keys.add(object.keys()[0])
+    top = set(object.keys())
+    top.add(object.keys()[0])
+    return dict(list(top))
+
+
+#
+# The following function is to collect the "bottom" keys in an object.
+#
+# The "bottom" keys are the keys that are the bottom of the object.
+#
+def collect_bottom_keys(object):
+    """Collect the keys that are the bottom of the object."""
+    keys = set(object.keys())
+    keys.add(object.keys()[0])
+    bottom = set(object.keys())
+    bottom.add(
 ```
 </details>

@@ -191,6 +191,21 @@ def divide(a, b):
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	return a + b
+
+def add_sub(a, b):
+	return a - b
+
+def add_mul(a, b):
+	return a * b
+
+def add_div(a,
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -398,6 +413,19 @@ class _Base(object):
 #
 #    def __repr__(self):
 #        return "
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	self.x = x
+	self.y = y
+	self.angle = 0
+	self.angle_rad = 0
+	self.angle_rad_deg = 0
+	self.angle_rad_deg = 0
+	self.angle_rad_deg
 ```
 </details>
 
@@ -647,6 +675,26 @@ def binary_search_
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	if arr[0] == target:
+		return 0
+	else:
+		return -1
+	return -1
+
+def binary_search_sorted(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr[0] == target:
+		return 0
+	else:
+		return -1
+
+def binary_search_sorted_sorted(arr
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -891,6 +939,16 @@ def main_csv_file_name_csv(file_name):
 #    if args.file:
 #        with open(args.file, "r") as f:
 
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	parser.add_argument('-i', '--input', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-o', '--output', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-d', '--directory', type=str, required=True, help='Directory to save converted files')
+	parser.add_argument('-c', '--csv
 ```
 </details>
 
@@ -1146,6 +1204,21 @@ print(i)
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	print(i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+	print(i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+	print
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1345,6 +1418,19 @@ def get_data_from_file(file_path, data_path, data_type):
 #        elif cleaned == 'all_2':
 #            results.append(item)
 #        elif cleaned == '
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+#        if cleaned.startswith('name'):
+#            cleaned = cleaned.replace(' ', '')
+#        if cleaned.startswith('age'):
+#            cleaned = cleaned.replace(' ', '')
+#        if cleaned.startswith('gender'):
+#            cleaned = cleaned.replace(' ', '')
+#
 ```
 </details>
 
@@ -1576,6 +1662,21 @@ class Counter_2:
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	self.count += 1
+	print(self.count)
+	print(self.count)
+	print(self.count)
+	print(self.count)
+	print(self.count)
+	print(self.count)
+	print(self.count)
+
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -1763,6 +1864,13 @@ function factorial(n: u64)
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	return n.to_u64().to_u64().to_u64().to_u64().to_u64().to_u64().to_u64().to_u64().to_u64().to_u64().
+```
+</details>
+
 ## `sql`
 
 ```
@@ -1857,6 +1965,23 @@ SELECT ```
 
 ```
 1.customer.name, customer.id, customer.name, customer.id, customer.name, customer.id, customer.name, customer.id, customer.name, customer.id, customer.name, customer.
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+1.customer_name, SUM(order_id) as order_id FROM orders WHERE order_id IS NOT NULL
+ORDER BY order_id
+
+--
+--
+--
+--
+--
+--
+--
+--
 ```
 </details>
 
@@ -2150,6 +2275,23 @@ import matplotlib.gridspec as gridspec
 import matplotlib.gridspec as gridspec
 
 import
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+
+def get_top_level_keys(obj):
+    """Get the top-level keys of a dict.
+
+    :param obj: The object to get the top-level keys from.
+    :return: The top-level keys.
+    """
+    return [k for k in dir(obj) if k.startswith('top_')]
+
+def get_top_level_keys_from_dict(obj):
+    """Get the top-level keys
 ```
 </details>
 
@@ -2449,6 +2591,25 @@ This work is licensed under the terms of the [MIT License](LICENSE.md).
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+pip install --upgrade --user-packages
+```
+
+## Usage
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib.colors as mcolors
+import matplotlib.cm as mcm
+import matplotlib.pyplot as plt
+import seaborn
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -2647,6 +2808,23 @@ The derivative of a function is the rate of change of the function.
 The derivative of a function is the rate of change of the function.
 
 The derivative of a function is the rate of change
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+1/2.
+
+Find the derivative of x^2.
+
+• 10 minutes ago
+• 10 minutes ago
+• 10 minutes ago
+• 10 minutes ago
+• 10 minutes ago
+• 10 minutes ago
+• 10 minutes ago
 ```
 </details>
 
@@ -3489,6 +3667,26 @@ def main_csv_file_name_csv(file_name):
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	parser.add_argument('-i', '--input', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-o', '--output', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-d', '--directory', type=str, required=True, help='Directory to save converted files')
+	parser.add_argument('-c', '--csv', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-o', '--output', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-d', '--directory', type=str, required=True, help='Directory to save converted files')
+	parser.add_argument('-c', '--csv', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-o', '--output', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-d', '--directory', type=str, required=True, help='Directory to save converted files')
+	parser.add_argument('-c', '--csv', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-o', '--output', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-d', '--directory', type=str, required=True, help='Directory to save converted files')
+	parser.add_argument('-c', '--csv', type=str, required=True, help='CSV file to convert')
+	parser.add_argument('-o', '--output', type=str,
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -3975,6 +4173,45 @@ def binary_search_binary_search_binary_search(arr, target):
 #     if arr is None:
 #         return -1
 #     if arr
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+	if arr[0] == target:
+		return 0
+	else:
+		return -1
+	return -1
+
+def binary_search_sorted(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr[0] == target:
+		return 0
+	else:
+		return -1
+
+def binary_search_sorted_sorted(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr[0] == target:
+		return 0
+	else:
+		return -1
+
+def binary_search_sorted_sorted(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr[0] == target:
+		return 0
+	else:
+		return -1
+
+def binary_search_sorted_sorted(arr, target):
+	"""Return the index of target in sorted list arr, or -1 if absent."""
+	if arr[0] == target:
+		return 0
+	else:
+		return
 ```
 </details>
 
@@ -4763,6 +5000,106 @@ cache[capacity] = cache.get(capacity, None)
 ```
 </details>
 
+<details><summary>step 24000</summary>
+
+```
+	self.capacity = capacity
+
+    def __len__(self):
+        return self.capacity
+
+    def __getitem__(self, key):
+        return self.capacity[key]
+
+    def __setitem__(self, key, value):
+        self.capacity[key] = value
+
+    def __delitem__(self, key):
+        del self.capacity[key]
+
+    def __iter__(self):
+        return iter(self.capacity)
+
+    def __len__(self):
+        return self.capacity[0]
+
+    def __contains__(self, key):
+        return key in self.capacity
+
+    def __str__(self):
+        return self.capacity[0]
+
+    def __repr__(self):
+        return self.capacity[0]
+
+class LRUCacheWithCapacity(object):
+    """A least-recently-used cache with a fixed capacity."""
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+
+    def __len__(self):
+        return self.capacity
+
+    def __getitem__(self, key):
+        return self.capacity[key]
+
+    def __setitem__(self, key, value):
+        self.capacity[key] = value
+
+    def __delitem__(self, key):
+        del self.capacity[key]
+
+    def __iter__(self):
+        return iter(self.capacity)
+
+    def __len__(self):
+        return self.capacity[0]
+
+    def __contains__(self, key):
+        return key in self.capacity
+
+    def __str__(self):
+        return self.capacity[0]
+
+    def __repr__(self):
+        return self.capacity[0]
+
+class LRUCacheWithCapacity2(object):
+    """A least-recently-used cache with a fixed capacity."""
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+
+    def __len__(self):
+        return self.capacity
+
+    def __getitem__(self, key):
+        return self.capacity[key]
+
+    def __setitem__(self, key, value):
+        self.capacity[key] = value
+
+    def __delitem__(self, key):
+        del self.capacity[key]
+
+    def __iter__(self):
+        return iter(self.capacity)
+
+    def __len__(self):
+        return self.capacity[0]
+
+    def __contains__(self, key):
+        return key in self.capacity
+
+    def __str__(self):
+        return self.capacity[0]
+
+    def __repr__(self):
+        return
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -5360,5 +5697,41 @@ import matplotlib.gridspec as gridspec
 import matplotlib.gridspec as gridspec
 
 import matplotlib.gridspec as
+```
+</details>
+
+<details><summary>step 24000</summary>
+
+```
+
+def get_top_level_keys(obj):
+    """Get the top-level keys of a dict.
+
+    :param obj: The object to get the top-level keys from.
+    :return: The top-level keys.
+    """
+    return [k for k in dir(obj) if k.startswith('top_')]
+
+def get_top_level_keys_from_dict(obj):
+    """Get the top-level keys from a dict.
+
+    :param obj: The object to get the top-level keys from.
+    :return: The top-level keys.
+    """
+    return get_top_level_keys(obj)
+
+def get_top_level_keys_from_dict(obj):
+    """Get the top-level keys from a dict.
+
+    :param obj: The object to get the top-level keys from.
+    :return: The top-level keys.
+    """
+    return get_top_level_keys(obj)
+
+def get_top_level_keys_from_dict(obj):
+    """Get the top-level keys from a dict.
+
+    :param obj: The object to get the top-level keys from.
+    :
 ```
 </details>
