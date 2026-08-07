@@ -266,6 +266,24 @@ def test_best_offer_none_when_nothing_fits_the_cap():
     assert sup.best_offer([_offer(1, 4.00, 20.0)], 4, 0.80, 1.25) is None
 
 
+def test_search_filters_out_low_bandwidth_hosts(monkeypatch):
+    """The corpus streams from B2 during training, so a slow-downlink host starves the
+    GPUs (a 239 Mbps India host ran ~200 s/step at 0%% util, billing full price). _search
+    must drop hosts below --min-inet-down and keep the fast ones."""
+    from types import SimpleNamespace
+    offers = [{"id": 1, "inet_down": 239, "geolocation": "India"},     # data-starved
+              {"id": 2, "inet_down": 9234, "geolocation": "UK"},       # fast
+              {"id": 3, "geolocation": "US"}]                          # missing field -> 0
+    monkeypatch.setattr(sup.vast, "search_offers", lambda *a, **k: list(offers))
+    a = SimpleNamespace(max_price=0.8, min_reliability=0.9, min_disk=150,
+                        allow_unverified=True, host_id=None, geo=None, min_inet_down=1000)
+    assert [o["id"] for o in sup._search(a, "k", "H100 SXM", 2)] == [2], \
+        "only the >=1000 Mbps host survives; the slow and the field-less ones are dropped"
+    # min_inet_down=0 (default) disables the filter — every offer passes.
+    a.min_inet_down = 0
+    assert [o["id"] for o in sup._search(a, "k", "H100 SXM", 2)] == [1, 2, 3]
+
+
 def test_forced_on_demand_ranks_and_caps_on_dph_total():
     """--on-demand caps dph_total, not min_bid: capping the wrong field would let the
     actual charged rate exceed the ceiling."""
@@ -476,6 +494,7 @@ class _Args:
     allow_unverified = True
     host_id = None
     geo = None
+    min_inet_down = 0
     on_demand = False
     bid_multiplier = 1.25
     switch_margin = 0.20

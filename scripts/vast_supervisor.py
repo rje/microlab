@@ -255,6 +255,13 @@ def _search(a, key, gpu, gpus):
         offers = [o for o in offers if o.get("host_id") == a.host_id]
     if a.geo:
         offers = [o for o in offers if a.geo.lower() in str(o.get("geolocation", "")).lower()]
+    if a.min_inet_down:
+        # Corpus shards STREAM from B2 during training. A host whose downlink can't keep up
+        # starves the GPUs (measured: a 239 Mbps India host fed shards at ~2 MB/s, GPUs at
+        # 0% util, ~200 s/step — billing full price for near-zero progress, and the stall
+        # watchdog does not catch it because a few steps DO trickle through). inet_down is
+        # the host's advertised downlink; filtering on it keeps us off data-starved hosts.
+        offers = [o for o in offers if (o.get("inet_down") or 0) >= a.min_inet_down]
     return offers
 
 
@@ -385,6 +392,11 @@ def main() -> int:
     ap.add_argument("--image", default="ghcr.io/rje/microlab-train:cu126-1")
     ap.add_argument("--min-reliability", type=float, default=0.97)
     ap.add_argument("--min-disk", type=int, default=120)
+    ap.add_argument("--min-inet-down", type=float, default=0,
+                    help="skip hosts whose advertised downlink (Mbps) is below this. The "
+                         "corpus streams from B2 during training, so a slow host starves "
+                         "the GPUs — a 239 Mbps India host ran at ~200 s/step, 0%% util. "
+                         "1000 (1 Gbps) excludes those while keeping datacenter hosts.")
     ap.add_argument("--host-id", type=int, default=None,
                     help="restrict to this Vast host. Cheapest-first selection is right "
                          "for a multi-day run, where a slow corpus pull amortises away, "
