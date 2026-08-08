@@ -212,6 +212,21 @@ def f(a, b):
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+	return a + b
+
+
+def sum_of_squares(a):
+	return a.sum()
+
+
+def square_of_sum_of_squares(a):
+	return a.sum() **
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -455,6 +470,21 @@ class Rect:
 	self.up = []
 	self.right = []
 	self.left
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+#        self.x = x
+#        self.y = y
+
+class Line:
+    def __init__(self, start, end):
+        self.x1 = start[0]
+        self.y1 = start[1]
+        self.x2 = end[0]
+        self.
 ```
 </details>
 
@@ -753,6 +783,25 @@ Created on Sun Feb 18 201
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+#    index = binary_search(arr, target)
+#    if index < 0:
+#        return -1
+#    return index + 1
+
+
+def binary_search_sorted(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if target is None:
+        return -1
+    index = binary_search(arr, target)
+    if index < 0:
+        return
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1012,6 +1061,20 @@ from pandas import read_
 #    parser.add_argument("--output-file-format", default="json",
 #                        help="output format")
 #    parser.add_
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+#     parser.add_argument("-m", "--model", type=str,
+#                     required=False,
+#                     help="model file path")
+    parser.add_argument("-w", "--work-dir", required=True,
+                        type=str,
+                        help="the directory where the .csv files (model and results) will be generated")
+    parser.add_argument("-v","--verbose", action="store_true",
+                        default=
 ```
 </details>
 
@@ -1294,6 +1357,21 @@ for i in range(1, 101):
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+	print("{0:02d} * {1:02d}".format(i, i ** 2))
+
+print(number_to_word(100))
+
+# Print numbers 1 to 100, but Fizz for 100
+for i in range(100):
+	print("{0:02d}".format(i))
+
+print(number_to_word(1
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1548,6 +1626,20 @@ https://github.com/openai/neural-language-toolkit
 # Copyright 2018 The OpenAI Authors
 #
 # Licensed under the Apache License
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+#        if not cleaned or cleaned.endswith("_"):
+#            continue
+        cleaned = cleaned.replace(" ", "")
+        cleaned = cleaned.replace("-", "_")
+#        if cleaned.find(" ") != -1:
+#            continue
+        cleaned = cleaned.lower()
+        cleaned = cleaned.replace
 ```
 </details>
 
@@ -1858,6 +1950,21 @@ class Counter2:
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+#        print("COUNTER: " + str(self.count) + " += " + str(self.count) + " += " + str(self.count))
+        self.count += 1
+
+
+#=======================
+#=======================
+#=======================
+#=======================
+#================
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2103,6 +2210,13 @@ export function product(n: u
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+	return (n * (n - 1)) * (n - 1) * (n - 1) * (n - 1) * (n - 1) * (n - 1) * (n - 1) * (n - 1) * (n -
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2248,6 +2362,25 @@ LIMIT 1
 Use `createCustomer()` to create a new customer
 ```javascript
 function createCustomer(customer
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+
+SELECT customer_name
+FROM orders
+WHERE customer_name
+IN ('
+SELECT customer_name
+FROM orders
+WHERE customer_name
+)
+ORDER BY customer_name
+;
+
+-- Find the most recent orders with
 ```
 </details>
 
@@ -2612,6 +2745,22 @@ def top_level_keys(filename):
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+def get_top_level_keys(json_file):
+    with open(json_file) as json_file:
+        return get_top_level_keys_from_json(json_file)
+_dict(json_file)
+
+    # Now we need to return a list of top-level keys from the JSON file
+    return json_dict['keys']
+
+@staticmethod
+def get_top_level_keys_from_json
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -2950,6 +3099,26 @@ $ yarn add @types/react-native-reanimated
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+npm install --save-dev hapi-node
+```
+
+Then restart the server:
+
+```bash
+npm run dev
+```
+
+To access the server, use `http://localhost:8000`
+
+### Nodemon
+
+To run the server in nodemon mode, run
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -3103,6 +3272,15 @@ ii) $\frac{x^2}{x^{3}}$
 iii) $\sqrt{x}$
 
 iv) $\
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+2x^4 - 12x^2 + 16x^3.
+
+The derivative of x^3 is 3x^5 + 10x^4 + 10x^3 - 16x^2 - 16x^1 + 1
 ```
 </details>
 
@@ -3712,6 +3890,75 @@ Unless required by applicable = Path(dirname(__file__)) / "tasks.json"
     # Build the Dask graph
     graph = DaskGraph()
     graph.add_tasks(
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+	parser.add_argument(
+        '-c', '--csv',
+        required=True,
+        type=str,
+        help="CSV file to convert to JSON"
+    )
+    args = parser.parse_args()
+    result = pd.read_csv(args.csv, parse_dates=True)
+    return result
+
+if __name__ == "__main__":
+    main()
+import numpy as np
+import pandas as pd
+from numpy import *
+from pathlib2 import Path
+import copy
+import os
+import torch
+import torch.utils.data as torch_dat
+from torch.utils.data import Dataset
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader
+import pdb
+from pathlib2 import Path
+from datetime import datetime
+
+class GANDataLoader(torch_dat.DataLoader):
+    def __init__(self,
+                 dataset,
+                 batch_size,
+                 num_workers=1,
+                 transform=None,
+                 **kwargs
+                 ):
+
+        super().__init__(
+            dataset=dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            transform=transform,
+            **kwargs
+        )
+
+    def __next__(self):
+        batch = self.dataset.batch(self.batch_size)
+        input = batch[0].cpu().numpy()
+        input = input / 255.0
+        self.output = input.copy()
+        if self.transform:
+            self.output = self.transform(self.output)
+        return self.output
+
+class GANGenerator(Dataset):
+    def __init__(self,
+                 path,
+                 num_workers=1,
+                 transform=None,
+                 **kwargs
+                 ):
+
+        self.path = Path(path)
 ```
 </details>
 
@@ -4341,6 +4588,40 @@ def binary_search_by_key(arr, key):
 def binary_search_by_value(arr, value):
     """Return the index of value in sorted list arr, and its index"""
     key = value.lower()
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+
+def binary_search_sorted_array(array, target):
+    """Return the index of target in sorted array, or -1 if not present."""
+    if target == target[0]:
+        return binary_search_sorted_array(array, target[0])
+
+    if target == target[1]:
+        return binary_search_sorted_array(array, target[0])
+
+    for i in range(len(array)):
+        if target[0] <= array[i] <= target[1]:
+            return binary_search_sorted_array(array, target[0])
+
+        if array[i] == target[0]:
+            return binary_search_sorted_array(array, target[0])
+
+        if target[0] <= array[i] <= target[1]:
+            return binary_search_sorted_array(array, target[0])
+
+        if target[0] == target[0]:
+            return binary_search_sorted_array(array, target[0])
+
+        if target[0] == target[0]:
+            return binary_search_sorted_array(array, target[0])
+
+        return binary_search_sorted_array(array, target[0])
+
+def binary_
 ```
 </details>
 
@@ -5530,6 +5811,100 @@ def get_activity_log_for_user_ids(user_ids=None, activity_ids=None):
 ```
 </details>
 
+<details><summary>step 30000</summary>
+
+```
+#        """
+#        Args:
+#            capacity (int): The capacity of the cache
+#        """
+        self.capacity = capacity
+        self.cache = []
+        self.count = 0
+        self.size = capacity
+
+    def add(self, key):
+        """
+        Add a key-value pair to the LRU cache.
+        """
+        # We need to add the key with the same key to the cache more than once.
+        if self.count < self.capacity:
+            self.cache.append((key, self.count))
+            self.count += 1
+        else:
+            self.cache.append((key, 0))
+
+    def get(self, key):
+        """
+        Get a key-value pair from the LRU cache.
+        """
+        return self.cache[key] if key in self.cache else None
+
+    def delete(self, key):
+        """
+        Delete a key-value pair from the LRU cache.
+        """
+        try:
+            self.cache.remove((key, self.count))
+            self.count -= 1
+        except ValueError:
+            pass
+
+    def clear(self):
+        """
+        Clear the LRU cache.
+        """
+        self.cache = []
+        self.count = 0
+        self.size = 0
+
+    def set(self, key, value):
+        """
+        Set a key-value pair in the LRU cache.
+        """
+        self.cache.append((key, self.count))
+
+    def has_key(self, key):
+        """
+        Return true if the key is in the LRU cache.
+        """
+        return key in self.cache
+
+
+class MultiDict:
+    """A dictionary that can store multiple values."""
+
+    def __init__(self, iterable):
+        """
+        Initialize a MultiDict.
+        """
+        self.map = {}
+        self.iterable = iterable
+
+    def get(self, key, default=None):
+        """
+        Get a value from the multi-dict.
+        """
+        try:
+            return self.map.get((key, default), None)
+        except KeyError:
+            return default
+
+    def set(self, key, value):
+        """
+        Set a value in the multi-dict.
+        """
+        try:
+            self.map.setdefault(key, value)
+        except KeyError:
+            self.map[key] = value
+
+    def has_key(self, key):
+        """
+        Return true if the key is in
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -6124,5 +6499,42 @@ def GetRms(arr: np.ndarray) -> np.ndarray:
     arr = arr / np.sqrt(np.mean(arr))
     arr = arr * u.AA
     # Now, we must take the square root
+```
+</details>
+
+<details><summary>step 30000</summary>
+
+```
+def number_of_top_level_keys(self, data):
+    """Return the number of top-level keys in the given `data`."""
+    if not isinstance(data, (list, tuple)):
+        raise TypeError('data must be a list or tuple')
+    if isinstance(data, dict):
+        return len(data.keys())
+    if isinstance(data, list):
+        return len(data)
+    if isinstance(data, (tuple, list)):
+        for i, (key, value) in enumerate(data):
+            if isinstance(key, str):
+                data[i] = number_of_top_level_keys(self, value)
+        return len(data)
+    return None
+
+from . import _cache
+
+class _File(object):
+    """Represents a JSON file"""
+
+    def __init__(self, filename, encoding='utf-8', errors='strict'):
+        self.filename = filename
+        self.encoding = encoding
+        self.errors = errors
+
+    def __str__(self):
+        """Return the contents of the file."""
+        data = None
+        with open(self.filename, self.encoding) as f:
+            data = f.read()
+        if self.errors:
 ```
 </details>
