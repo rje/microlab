@@ -239,6 +239,22 @@ def square_of_sum_of_squares(a):
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+	return a + b
+
+def sub(a, b):
+	return a - b
+
+def mul(a, b):
+	return a * b
+
+def div(a, b):
+	return b
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -513,6 +529,19 @@ class Line:
 	self.yaw_angle = 0.0
 
 	self.pitch_angle
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+	self.x = float(x)
+	self.y = float(y)
+	self.x_axis = 0.
+	self.y_axis = 0.
+	self.x_axis = 1.
+	self.y_axis = 1.
+
 ```
 </details>
 
@@ -854,6 +883,29 @@ def binary_search_5(arr, target):
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+#    if len(arr) == 0:
+#        return -1
+
+    target = float(target)
+
+    if len(arr) == 0:
+        return -1
+
+    for i in range(0, len(arr)):
+
+        n = len(arr)
+
+        if n < len(arr):
+
+            if n > 0 and (n - i) < len(arr):
+
+                if abs(target - arr[n - i]) > 
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1139,6 +1191,20 @@ from pandas import read_
     with open(args.input, 'r') as f:
         data = json.load(f)
     data = {json.loads(d): i for i, d in enumerate(data
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+	parser.add_argument('files', nargs='+', metavar='files', required=True, help='CSV files to convert')
+    args = parser.parse_args()
+    result = {}
+    for file in args.files:
+        with open(file, 'r') as f:
+            result[file.split('/')[0]] = {
+                'id': file[:-4],
+                'name': os.path.basename(file).split('.')[0],
 ```
 </details>
 
@@ -1456,6 +1522,81 @@ print(my_fn(7))
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+	print(str(i))
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+Output:
+
+
+Input:
+
+
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1743,6 +1884,23 @@ https://github.com/openai/neural-language-toolkit
         return True
     return False
 
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+#        if cleaned == 'no':
+#            continue
+        if cleaned != 'yes':
+            continue
+
+        if cleaned == 'yes':
+            results.append(item)
+        elif cleaned == 'no':
+            results.append(None)
+#        print(item)
+#        print('----',item
 ```
 </details>
 
@@ -2085,6 +2243,19 @@ if __name__ == '__main__':
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+#        self.count += 1
+    def __truediv__(self, n):
+        self.count += 1
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, self.count)
+
+#        print self.count, "new count
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2352,6 +2523,22 @@ export function product(n: u
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+return factorial(n).mulAll(factorial(n - 1))
+}
+
+# enddef
+
+def factorial_inv(n: u64) -> u64 {
+return factorial(n)
+}
+
+def factorial_inv_inv(n:
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2526,6 +2713,20 @@ ORDER BY customer_name
 WHERE CustomerName IS NOT NULL AND OrderNo NOT NULL;
 
 SELECT CustomerName, OrderNo, OrderDate, OrderTime, OrderStatus, OrderCustomer1, OrderCustomer2, OrderCustomer
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+
+`SELECT *
+FROM Orders
+WHERE
+Order.CustomerName ~ '^(?=.*{4})' AND
+Order.OrderStatus != 'Pending' AND
+Order.OrderStatus != 'Cancelled' AND
+Order.Order
 ```
 </details>
 
@@ -2917,6 +3118,34 @@ def get_groups(root_dir):
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+
+__docformat__ = "reStructuredText"
+
+import json
+from pathlib import Path
+
+from typing import Dict
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from ..table import Table
+
+# =======================================================================
+# Test functions
+# =======================================================================
+
+def test_read_json_file():
+    """Read a JSON file and return the number of top-level keys."""
+
+    test_
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -3297,6 +3526,27 @@ class Config
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+pip install flattop-node
+```
+
+Installing the package
+
+The package is distributed under the MIT license, see LICENSE.txt for licensing information.
+
+# Getting Started
+
+## Installation with pip
+
+To install the package from pip, run:
+
+```bash
+pip
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -3472,6 +3722,22 @@ What is the derivative of 3x^2 + 2x + 1?
 ## Step-by-step explanation:
 
 $\dfrac{\mathrm{dy}}{\mathrm
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+25.
+
+##### Well-known members
+I'm not sure I agree with you.
+
+##### Well-known members
+I'm not sure I agree with you.
+No, he's not talking about the derivative. He's talking about the indefinite integral of the square root function.
+
+
 ```
 </details>
 
@@ -4175,6 +4441,44 @@ class GANGenerator(Dataset):
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+	parser.add_argument('-o', '--output', help='Output CSV file name', type=str, required=True)
+    args = parser.parse_args()
+    outputs = []
+    with open(args.output, 'w') as outfile:
+        for f in args.files:
+            outfile.write(f + "\n")
+            output = open(f, 'w')
+            output.write(','.join(args.input_files) + "\n")
+            output.close()
+    with open(args.output, 'r') as infile:
+        reader = csv.reader(infile, delimiter=',')
+        for row in reader:
+            outfile = open(args.output, 'a')
+            outfile.write(','.join(args.input_files) + "\n")
+            outfile.close()
+        print("Done")
+
+if __name__ == "__main__":
+    main()
+// Copyright (c) 2020, Microsoft Corporation.
+// Licensed under the MIT license.
+
+import { ICommand } from '../../../../src/core/commands/command';
+import { ICommandHandler } from '../../../../src/core/commands/handler';
+import { ICommandHandlerCallback } from '../../../../src/core/commands/handler';
+import { IDocument } from '../../../../src/core/documents/documents';
+import { IWorkspace } from '../../../../src/core/workspace/workspace';
+import { ICommandHandlerContext } from '../../../../src/core/commands/context';
+import { ICommandHandlerContextData } from '../../../../src/core/commands/context';
+import { ICommandHandlerContextData } from '../../../../src/core/commands/context';
+import { ICommandHandler } from '../../../../src/core/commands/handler';
+import { I
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -4862,6 +5166,47 @@ def binary_
             node.value[node.key] = node.value[node.key]
             #            print(node.key, node.value)
             #            print(node.key, node.
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+	i, j = 0, len(arr)-1
+	while i <= j and i < j:
+		if (i + j) // 2 < len(arr):
+			if (arr[i + j] == target):
+				key = j
+			elif (i + j) // 2 < len(arr):
+				key = (i + j) // 2
+			else:
+				key = i
+			if (key == i):
+				return i
+			elif (key == j):
+				return -1
+			else:
+				return -1
+		else:
+			i, j = i + 1, j
+
+	return -1
+
+def count_binary_search_tree(root_node):
+    """Return the number of nodes contained in the given tree."""
+	count = 0
+	if not root_node:
+		return count
+	
+	if root_node.left:
+		count = count_binary_search_tree(root_node.left)
+	
+	if root_node.right:
+		count = count + 1
+	
+	return count
+
+def count_binary_search_tree(root
 ```
 </details>
 
@@ -6196,6 +6541,73 @@ class MultiDict:
 ```
 </details>
 
+<details><summary>step 34000</summary>
+
+```
+	self.cap = capacity
+        # The capacity of the cache
+        self.capacity = capacity
+        # The capacity of the cache
+        self.capacity = max(1, max(self.cap, 1.0))
+        # The list of entries
+        self.lru = [(0, (0, 0))]
+        self.size = 0
+        self.cache = {}
+
+    def __len__(self): # pylint: disable=no-self-use
+        return self.size
+
+    def __getitem__(self, key): # pylint: disable=no-self-use
+        """Get entry by key."""
+        # Find the lowest entry that matches the key
+        best_match = self.lru.pop(0)
+        return best_match[1]
+
+    def __setitem__(self, key, value): # pylint: disable=no-self-use
+        """Set entry."""
+        # Find the highest available entry
+        if self.size >= self.cap:
+            self.size = self.cap
+        self.lru.append((key, value))
+
+    def __delitem__(self, key): # pylint: disable=no-self-use
+        """Remove an entry."""
+        key = key.lower()
+        if key == 'all':
+            self.lru.pop(0)
+        else:
+            self.lru.pop(0)
+            self.size -= 1
+            self.cache.pop(key)
+
+    def __contains__(self, key): # pylint: disable=no-self-use
+        return key in self.cache
+
+    def __len__(self): # pylint: disable=no-self-use
+        return self.size
+
+    def __iter__(self): # pylint: disable=no-self-use
+        return self.cache.keys()
+
+    def __next__(self): # pylint: disable=no-self-use
+        return self.cache.popitem()
+
+    def __repr__(self): # pylint: disable=no-self-use
+        return self.cache.__repr__()
+
+    def __eq__(self, other): # pylint: disable=no-self-use
+        return self.cache == other
+
+    def __contains__(self, key): # pylint: disable=no-self-use
+        return key in self.cache
+
+    def __len__(self): # pylint: disable=no-self-use
+        return self.size
+
+    def __iter__(self): # pylint: disable=
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -6875,5 +7287,62 @@ def get_json_values(value):
     3
     """
     if isinstance(value,
+```
+</details>
+
+<details><summary>step 34000</summary>
+
+```
+
+import logging
+import sys
+import json
+import yaml
+from os import path
+import pickle
+from os import path
+import math
+from collections import namedtuple
+
+from pytoml import TOML
+from pytoml.errors import (
+    Error,
+    Invalid,
+    InvalidFile,
+    InvalidFile,
+    InvalidFile,
+    ParserError,
+    ParserWarning,
+    TOMLError,
+)
+from pytoml.utils.misc import (
+    get_class,
+    get_instance_type,
+    to_str,
+    get_parent_dir,
+    get_top_dir,
+)
+from pytoml.errors.errors import (
+    InvalidError,
+    ParserError,
+    TOMLError,
+)
+from pytoml.utils.misc import get_class_path
+
+
+def get_toml_class(class_str):
+    """
+    Return the full path to the class.
+
+    :param class_str: the string identifying the class to load.
+    :returns: the class to load.
+    """
+    try:
+        return get_class(class_str)
+    except TOMLError as e:
+        raise ParserError(str(e)) from e
+
+
+def
 ```
 </details>

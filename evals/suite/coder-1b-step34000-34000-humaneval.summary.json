@@ -1,0 +1,16 @@
+{
+  "header": {
+    "run": "runs/coder-1b-step34000",
+    "dataset": "humaneval",
+    "mode": "base",
+    "n": 1,
+    "temperature": 0.0,
+    "max_new": 400,
+    "seed": 0,
+    "limit": null
+  },
+  "ckpt_step": 34000,
+  "n_tasks": 164,
+  "n_samples_per_task": 1,
+  "pass@1": 0.0
+}

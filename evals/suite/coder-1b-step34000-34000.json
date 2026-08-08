@@ -1,0 +1,67 @@
+{
+ "run": "runs/coder-1b-step34000",
+ "ckpt": "ckpt_34000.pt",
+ "step": 34000,
+ "tokens_seen": 17825792000,
+ "block": 4096,
+ "per_slice_val": {
+  "code": {
+   "loss": 0.9763813639680544,
+   "ppl": 2.65483196844035
+  },
+  "web": {
+   "loss": 2.8168980876604715,
+   "ppl": 16.72489098088766
+  },
+  "math": {
+   "loss": 2.091028278072675,
+   "ppl": 8.093232981069342
+  },
+  "markdown": {
+   "loss": 1.825306644042333,
+   "ppl": 6.204697360899268
+  },
+  "arxiv": {
+   "loss": 1.1197933616737525,
+   "ppl": 3.064220952379449
+  },
+  "commits": {
+   "loss": 1.012377642095089,
+   "ppl": 2.7521368384119382
+  }
+ },
+ "timing_val_s": 76.4,
+ "fim": {
+  "trained_with_fim": true,
+  "n": 63,
+  "middle_loss": 0.6019031831196376,
+  "middle_ppl": 1.8255899281815628
+ },
+ "syntax_valid": {
+  "n": 6,
+  "parsed": 5,
+  "parse_rate": 0.8333333333333334,
+  "failures": [
+   "def quicksort(arr):\n\t\"\"\"\n\tSort an array in-place.\n\t\"\"\"\n\tfor i in range(len(arr)):\n\t\tfor j in range(i, len(arr)):\n\t\t\tif arr[j] < arr[i]:\n\t\t\t\tarr[i], arr[j] = arr"
+  ]
+ },
+ "repetition": {
+  "prompts": 8,
+  "looped": 6,
+  "loop_rate": 0.75
+ },
+ "delegated": {
+  "humaneval": {
+   "returncode": 0,
+   "tail": "64] HumanEval/159#0: fail [127s]\n[161/164] HumanEval/160#0: fail [127s]\n[162/164] HumanEval/161#0: fail [127s]\n[163/164] HumanEval/162#0: fail [127s]\n[164/164] HumanEval/163#0: fail [127s]\n{\n  \"header\": {\n    \"run\": \"runs/coder-1b-step34000\",\n    \"dataset\": \"humaneval\",\n    \"mode\": \"base\",\n    \"n\": 1,\n    \"temperature\": 0.0,\n    \"max_new\": 400,\n    \"seed\": 0,\n    \"limit\": null\n  },\n  \"ckpt_step\": 34000,\n  \"n_tasks\": 164,\n  \"n_samples_per_task\": 1,\n  \"pass@1\": 0.0\n}\nwrote evals/suite/coder-1b-step34000-34000-humaneval.jsonl and evals/suite/coder-1b-step34000-34000-humaneval.summary.json (127s)\n"
+  },
+  "mbpp": {
+   "returncode": 0,
+   "tail": "il [1041s]\n[253/257] Mbpp/475#0: fail [1046s]\n[254/257] Mbpp/476#0: fail [1050s]\n[255/257] Mbpp/477#0: fail [1055s]\n[256/257] Mbpp/478#0: fail [1059s]\n[257/257] Mbpp/479#0: fail [1063s]\n{\n  \"header\": {\n    \"run\": \"runs/coder-1b-step34000\",\n    \"dataset\": \"mbpp\",\n    \"mode\": \"base\",\n    \"n\": 1,\n    \"temperature\": 0.0,\n    \"max_new\": 400,\n    \"seed\": 0,\n    \"limit\": null\n  },\n  \"ckpt_step\": 34000,\n  \"n_tasks\": 257,\n  \"n_samples_per_task\": 1,\n  \"pass@1\": 0.027237354085603113\n}\nwrote evals/suite/coder-1b-step34000-34000-mbpp.jsonl and evals/suite/coder-1b-step34000-34000-mbpp.summary.json (1063s)\n"
+  },
+  "probes": {
+   "returncode": 0,
+   "tail": "ed'\n  ['Tom opened his umbrella because it sta'] -> ' rain.\\n\\nThe rain was so bad that it was so bad that it was so bad that it was so bad that it was so bad that'\n  ['def binary_search(arr, target): / '] -> '\\t\"\"\"\\n\\tbinary search function for the given array.\\n\\t\"\"\"\\n\\tfor i in range(len(arr)):\\n\\t\\tif arr'\n  ['class LinkedList: /     def __init__(s'] -> '\\tself.head = None\\n\\n    def __len__(self):\\n        return len(self.head)\\n\\n    def __getitem__(self, index):'\n  ['// Reverse a string in JavaScript / fu'] -> \"\\tlet result = '';\\n\\tfor (let i = s.length - 1; i > 0; i--) {\\n\\t\\tresult\"\n"
+  }
+ }
+}
