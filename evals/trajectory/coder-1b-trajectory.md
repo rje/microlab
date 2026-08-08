@@ -252,6 +252,21 @@ def add_three_numbers(a, b, c):
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+	return a + b
+
+def test_add_two_numbers():
+	a = 1
+	b = 2
+	c = 3
+	d = 4
+	e = 5
+	
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -517,6 +532,22 @@ class Line(object):
         self.y_offset = y_offset
         self.x_offset = x_offset
         self.y_offset =
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+	self.x = x
+	self.y = y
+
+    def __str__(self):
+        return f"({self.x}, {self.y})"
+
+    def __repr__(self):
+        return f"Point({self.x}, {self.y})"
+
+    def __hash__(self
 ```
 </details>
 
@@ -842,6 +873,24 @@ def binary_search_sorted(arr, target):
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+#    print "binary_search", target
+    if target == 0:
+        return 0
+    if target == arr.count(target):
+        return len(arr) - 1
+    if target < 0:
+        return len(arr) - 1
+    if target > arr.count(target):
+        return len(arr) - 1
+    return binary_search(arr, target)
+
+def binary_search_binary(arr, target
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1131,6 +1180,21 @@ def main_csv_file_name_csv(file_name):
 	parser.add_argument("-o", "--output", type=str, required=True, help="JSON file to write to")
 	parser.add_argument("-d", "--directory", type=str, required=True, help="Directory to write to")
 	parser.add_argument("-r", "--recursive
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+#    parser.add_argument("-i", "--input", required=True, help="Input CSV file")
+    parser.add_argument("-o", "--output", required=True, help="Output JSON file")
+    args = parser.parse_args()
+
+    with open(args.input, "r") as f:
+        with open(args.output, "w") as f:
+            for line in f:
+                line = line.strip()
+               
 ```
 </details>
 
@@ -1444,6 +1508,21 @@ print(f"{
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+print(i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+print(i)
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+print(i)
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1695,6 +1774,14 @@ def get_clean_name(name):
         cleaned = cleaned.replace(' ', '').lower()
         cleaned = cleaned.replace(' ', '').lower()
         cleaned = cleaned.replace(' ',
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+#        print cleaned
+        if cleaned in ['a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a
 ```
 </details>
 
@@ -1993,6 +2080,25 @@ class Counter:
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+	self.count += 1
+
+    def __str__(self):
+        return str(self.count)
+
+class Counter_1:
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+	self.count += 1
+
+    def __str__(self):
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2215,6 +2321,13 @@ export function factorial2(n: u6
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+	return n.div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).div(n).
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2347,6 +2460,24 @@ ORDER BY order_id
 
 ```
 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+
+`SELECT`
+`FROM`
+`ORDER BY`
+`ORDER BY`
+`LIMIT`
+`OFFSET`
+`GROUP BY`
+`ORDER BY`
+`LIMIT`
+`OFFSET`
+`GROUP BY
 ```
 </details>
 
@@ -2712,6 +2843,26 @@ from . import utils as utils_utils
 from . import config_utils as config_utils_utils
 from . import logger as logger_utils
 from . import utils as utils_utils_utils
+
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+
+def get_top_level_keys(json_file):
+    """
+    Get the number of top-level keys in the JSON file.
+
+    :param json_file: The JSON file to read.
+    :type json_file: str
+    :return: The number of top-level keys.
+    :rtype: int
+    """
+    with open(json_file, 'r') as f:
+        return int(f.readline().strip())
+
 
 ```
 </details>
@@ -3085,6 +3236,29 @@ To use the package, add the following to your `composer.json` file:
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+pip install -r requirements.txt
+```
+
+## Running the tests
+
+To run the tests, run:
+
+```bash
+python -m unittest discover tests
+```
+
+## Running the tests with coverage
+
+To run the tests with coverage, run:
+
+```bash
+python -m
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -3355,6 +3529,21 @@ The derivative of x^2 is 1.
 The derivative of x^2 is 1.
 
 
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+2x^2-4x+1.
+
+Find the derivative of x^2-2x+1.
+
+x^2-2x+1
+
+## Step-by-Step Solution
+
+$\begin{array}{l}\mathrm{x}^{\mathrm{
 ```
 </details>
 
@@ -4359,6 +4548,59 @@ from .
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+#    parser.add_argument("-i", "--input", required=True, help="Input CSV file")
+    parser.add_argument("-o", "--output", required=True, help="Output JSON file")
+    args = parser.parse_args()
+
+    with open(args.input, "r") as f:
+        with open(args.output, "w") as f:
+            for line in f:
+                line = line.strip()
+                if len(line) == 0:
+                    continue
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["):
+                    line = line[1:]
+                if line.startswith("]"):
+                    line = line[1:]
+                if line.startswith("["
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -4997,6 +5239,42 @@ def binary_search_sorted_reverse_sorted(arr, target):
 
 
 
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+#    print "binary_search", target
+    if target == 0:
+        return 0
+    if target == arr.count(target):
+        return len(arr) - 1
+    if target < 0:
+        return len(arr) - 1
+    if target > arr.count(target):
+        return len(arr) - 1
+    return binary_search(arr, target)
+
+def binary_search_binary(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if target == 0:
+        return 0
+    if target == arr.count(target):
+        return len(arr) - 1
+    if target < 0:
+        return len(arr) - 1
+    if target > arr.count(target):
+        return len(arr) - 1
+    if target < 0:
+        return len(arr) - 1
+    if target > arr.count(target):
+        return len(arr) - 1
+    if target < 0:
+        return len(arr) - 1
+    if target > arr.count(target):
+        return len(arr) - 1
+    if target < 0
 ```
 </details>
 
@@ -6134,6 +6412,96 @@ class LRUCacheWithCapacityWithCapacity2(LRUCacheWithCapacity):
 ```
 </details>
 
+<details><summary>step 32000</summary>
+
+```
+	self.capacity = capacity
+
+    def __getitem__(self, key):
+        return self.cache[key]
+
+    def __setitem__(self, key, value):
+        self.cache[key] = value
+
+    def __delitem__(self, key):
+        del self.cache[key]
+
+    def __iter__(self):
+        return self.cache.keys()
+
+    def __len__(self):
+        return len(self.cache)
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__}: {self.capacity} items>'
+
+    def __str__(self):
+        return f'<{self.__class__.__name__}: {self.capacity} items>'
+
+    def __hash__(self):
+        return hash(self.capacity)
+
+    def __eq__(self, other):
+        return self.capacity == other.capacity
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __iter__(self):
+        return iter(self.cache.keys())
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __getitem__(self, key):
+        return self.cache[key]
+
+    def __setitem__(self, key, value):
+        self.cache[key] = value
+
+    def __delitem__(self, key):
+        del self.cache[key]
+
+    def __iter__(self):
+        return iter(self.cache.keys())
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__}: {self.capacity} items>'
+
+    def __str__(self):
+        return f'<{self.__class__.__name__}: {self.capacity} items>'
+
+    def __hash__(self):
+        return hash(self.capacity)
+
+    def __eq__(self, other):
+        return self.capacity == other.capacity
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __iter__(self):
+        return iter(self.cache.keys())
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __getitem__(self, key):
+        return self.cache[key]
+
+    def __setitem__(self, key, value):
+        self.cache[key] = value
+
+    def __delitem__(self,
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -6871,5 +7239,43 @@ from . import config_utils as config_utils_utils_utils
 from . import logger as logger_utils_utils_utils
 from . import utils as utils_utils_utils_utils
 
+```
+</details>
+
+<details><summary>step 32000</summary>
+
+```
+
+def get_top_level_keys(json_file):
+    """
+    Get the number of top-level keys in the JSON file.
+
+    :param json_file: The JSON file to read.
+    :type json_file: str
+    :return: The number of top-level keys.
+    :rtype: int
+    """
+    with open(json_file, 'r') as f:
+        return int(f.readline().strip())
+
+def get_top_level_keys_from_json(json_file):
+    """
+    Get the number of top-level keys from the JSON file.
+
+    :param json_file: The JSON file to read.
+    :type json_file: str
+    :return: The number of top-level keys.
+    :rtype: int
+    """
+    return get_top_level_keys(json_file)[0]
+
+def get_top_level_keys_from_json_file(json_file):
+    """
+    Get the number of top-level keys from the JSON file.
+
+    :param json_file: The JSON file to read.
+    :type json_file: str
+    :return: The number of top-level keys.
+   
 ```
 </details>
