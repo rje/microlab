@@ -41,16 +41,19 @@ the compliant one on these specific benchmarks.
 | MBPP pass@1, sampled | 8 – 20% | 10 – 26% |
 
 **Distill-gap (the headline).** The distilled arm beats the compliant arm by **≈3–10
-HumanEval points and ≈2–8 MBPP points (sampled)**, OR the gap falls **within ±2 tasks of
-noise** (the interesting null). Both outcomes are informative: a clear distilled win prices
-the build-capability rule; a null vindicates it. The null is a live possibility — StarCoder2-
+HumanEval points and ≈2–8 MBPP points (sampled)**, OR the gap falls **below ~3 HumanEval /
+~2 MBPP points** (the interesting near-null — no clear distilled advantage). Both outcomes are
+informative: a clear distilled win prices the build-capability rule; a near-null vindicates it.
+(A gap *above* the headline band is a warning, not a bigger win — see the falsifiers.) The null is a live possibility — StarCoder2-
 Instruct found own-distribution data beat GPT-4-distilled data at 15B — but at 1.2B, where
 the base is too weak to benefit much from its own distribution, the benchmark-shaped
 distilled data is expected to win modestly. We predict a modest distilled win, not a null.
 
 **Guardrail.** Both instruct arms keep FIM middle-loss within **~0.05 of the base (≤ ~0.635)**
-— chat-SFT at block 2048 on a NoPE model should not wreck infill — and neither collapses on
-a passkey long-context probe.
+— chat-SFT at block 2048 on a NoPE model should not wreck infill — and **passkey retrieval
+accuracy stays within ~10 points of the base's** at a matched mid-context depth (~8k), both
+measured in Task 11. Long-context is the base's structural strength; short-block chat-SFT on a
+NoPE model should leave it intact.
 
 **Pairwise judge.** On held-out code instructions, the distilled arm's win-rate is ≥ the
 compliant arm's, but by less than the execution-benchmark gap (Magicoder's edge is sharpest
@@ -59,14 +62,20 @@ competitive).
 
 ## What would falsify it
 
-- **Either arm at or below the base** (HumanEval ≤ 0.61%, MBPP ≤ 3.89%, sampled) — SFT is
+- **Either arm at or below the base** (sampled HumanEval ≤ 0.61%, MBPP ≤ 3.89%) — SFT is
   broken (bad masking, wrong LR, corrupted data), not a data-provenance result.
 - **A compliant arm that beats the distilled arm by more than noise on both benchmarks** —
   contradicts the benchmark-shaped-data expectation; would be a strong (and publishable-
   feeling) result for the build-capability rule at this scale.
+- **A distilled win far above the headline band (> ~15 HumanEval points)** — too good, a
+  *warning* not a bigger win (cf. the leakage tripwire in `docs/coder-1b-prediction.md`). The
+  most likely cause is residual HumanEval/MBPP leakage in Magicoder that the decontamination
+  pass missed; re-check arm B's decontamination before believing the margin.
 - **FIM middle-loss materially above the base (> ~0.65) on either arm** — chat-SFT damaged
   the base's core strength; block size too small or catastrophic forgetting, revisit before
   reading the A/B.
+- **Passkey retrieval more than ~10 points below the base on either arm** — chat-SFT damaged
+  long-context; the guardrail failed, revisit before reading the A/B.
 - **Decontamination removes wildly different fractions from the two arms** — the comparison
   is confounded; a distilled "win" on a less-decontaminated arm is contamination, not
   capability. The builders' per-source removal reports must be comparable.
