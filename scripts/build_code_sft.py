@@ -126,6 +126,8 @@ def main() -> None:  # pragma: no cover - network + IO
     report["decontaminated_removed"] = removed
     report["counts"]["total"] = len(mix)
 
+    if not mix:
+        raise SystemExit("empty mix — refusing to proceed (verify by count)")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
@@ -133,8 +135,6 @@ def main() -> None:  # pragma: no cover - network + IO
             f.write(json.dumps(r) + "\n")
     print(f"report: {json.dumps(report)}")
     print(f"wrote {len(mix)} rows -> {out}")
-    if not mix:
-        raise SystemExit("empty mix — refusing to proceed (verify by count)")
 
 
 if __name__ == "__main__":
