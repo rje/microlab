@@ -113,6 +113,10 @@ def main() -> None:  # pragma: no cover - network + IO
     ap.add_argument("--max-per-problem", type=int, default=1)
     ap.add_argument("--timeout-s", type=float, default=10.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--heldout-out", default="data/corpora/code_sft_heldout.jsonl",
+                    help="pairwise-judge held-out slice, excluded from BOTH training arms")
+    ap.add_argument("--heldout-n", type=int, default=200,
+                    help="number of rows to reserve for the held-out pairwise set")
     args = ap.parse_args()
 
     tok = FastTokenizer.load(args.tokenizer)
@@ -124,17 +128,32 @@ def main() -> None:  # pragma: no cover - network + IO
     fp = benchmark_fingerprints(bench, n=10)
     mix, removed = decontaminate(mix, fp, n=10)
     report["decontaminated_removed"] = removed
-    report["counts"]["total"] = len(mix)
 
-    if not mix:
+    # Reserve a held-out slice for the pairwise judge so it isn't run on arm A's training
+    # data (the token-match target for arm B is computed from args.out, i.e. `train`, so
+    # this correctly excludes the held-out rows from that budget too).
+    heldout = mix[:args.heldout_n]
+    train = mix[args.heldout_n:]
+    report["counts"]["total"] = len(train)
+    report["heldout_rows"] = len(heldout)
+
+    if not train:
         raise SystemExit("empty mix — refusing to proceed (verify by count)")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
-        for r in mix:
+        for r in train:
             f.write(json.dumps(r) + "\n")
+
+    heldout_out = Path(args.heldout_out)
+    heldout_out.parent.mkdir(parents=True, exist_ok=True)
+    with heldout_out.open("w", encoding="utf-8") as f:
+        for r in heldout:
+            f.write(json.dumps(r) + "\n")
+
     print(f"report: {json.dumps(report)}")
-    print(f"wrote {len(mix)} rows -> {out}")
+    print(f"wrote {len(train)} rows -> {out}")
+    print(f"wrote {len(heldout)} held-out rows -> {heldout_out}")
 
 
 if __name__ == "__main__":

@@ -83,6 +83,19 @@ def test_verify_io_rejects_infinite_loop_via_timeout():
                      timeout_s=2.0) is False
 
 
+def test_verify_io_exit_call_cannot_bypass_comparison():
+    # a wrong solution that self-terminates must NOT pass
+    assert verify_io("print('WRONG'); exit()", stdin_data="21\n", expected_stdout="42\n") is False
+    assert verify_io("import sys; print('WRONG'); sys.exit(0)", stdin_data="21\n",
+                     expected_stdout="42\n") is False
+
+
+def test_verify_io_correct_solution_with_exit_still_passes():
+    # a CORRECT solution that happens to call exit() must still pass
+    assert verify_io("n=int(input()); print(n*2); exit()", stdin_data="21\n",
+                     expected_stdout="42\n") is True
+
+
 def test_verify_unit_test_accepts_correct_solution():
     task = CodeTask(task_id="t", prompt="", instruction="add",
                     entry_point="add",

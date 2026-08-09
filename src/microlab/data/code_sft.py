@@ -80,11 +80,14 @@ sys.stdin = io.StringIO({stdin!r})
 _out = io.StringIO()
 _real = sys.stdout
 sys.stdout = _out
-{solution}
-sys.stdout = _real
+try:
+    exec(compile({solution!r}, "<solution>", "exec"), {{"__name__": "__main__"}})
+except SystemExit:
+    pass
+finally:
+    sys.stdout = _real
 _got = _out.getvalue()
 _want = {expected!r}
-# Compare with trailing-whitespace tolerance per line (competitive judges are lenient here).
 def _norm(s): return "\\n".join(line.rstrip() for line in s.rstrip("\\n").split("\\n"))
 sys.exit(0 if _norm(_got) == _norm(_want) else 1)
 '''

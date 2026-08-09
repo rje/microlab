@@ -64,7 +64,8 @@ def _run_eval_code(  # pragma: no cover
     if sampled:
         cmd += ["--temperature", "0.7", "--top-k", "40"]
     subprocess.run(cmd, check=True)
-    return json.loads((out.with_suffix(".jsonl.summary.json")).read_text())["pass@1"]
+    # must match eval_code.py's summary path: args.out.with_suffix(".summary.json")
+    return json.loads((out.with_suffix(".summary.json")).read_text())["pass@1"]
 
 
 def main() -> None:  # pragma: no cover - orchestration
@@ -74,7 +75,9 @@ def main() -> None:  # pragma: no cover - orchestration
     ap.add_argument("--distilled", type=Path, required=True)
     ap.add_argument("--base", type=Path, required=True)
     ap.add_argument("--out-dir", type=Path, default=Path("evals/instruct"))
-    ap.add_argument("--pairwise-data", default="data/corpora/code_sft_compliant.jsonl")
+    ap.add_argument("--pairwise-data", default="data/corpora/code_sft_heldout.jsonl",
+                    help="pairwise judge prompts; must be held out from BOTH training arms "
+                         "(not arm A's compliant training file) or the metric is biased")
     args = ap.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 

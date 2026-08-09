@@ -37,11 +37,23 @@ def normalize_magicoder(row: dict) -> dict | None:
     return {"instruction": instruction, "context": "", "response": response}
 
 
-def build_distilled_mix(rows: list[dict], target_tokens: int, tok, seed: int = 0):
-    """Token-match `rows` down to `target_tokens` supervised tokens (arm A's budget)."""
+def build_distilled_mix(rows: list[dict], target_tokens: int, tok, seed: int = 0,
+                        tolerance: float = 0.02):
+    """Token-match `rows` down to `target_tokens` supervised tokens (arm A's budget).
+
+    Raises ValueError if the (already-decontaminated) pool cannot reach the target within
+    `tolerance` — token-matching is the A/B's only fairness control, so an under-filled
+    distilled arm must fail loudly, not silently run an unfair comparison.
+    """
     matched = token_match_subsample(rows, target_tokens, tok, seed=seed)
-    return matched, {"target_tokens": target_tokens,
-                     "matched_tokens": total_supervised_tokens(matched, tok),
+    matched_tokens = total_supervised_tokens(matched, tok)
+    if matched_tokens < target_tokens * (1 - tolerance):
+        raise ValueError(
+            f"distilled pool has {matched_tokens} supervised tokens but arm A's budget is "
+            f"{target_tokens} — cannot token-match a fair A/B (the compliant arm has more "
+            f"supervised tokens than the whole decontaminated distilled pool). Reduce arm A "
+            f"or change the matching direction before running.")
+    return matched, {"target_tokens": target_tokens, "matched_tokens": matched_tokens,
                      "rows": len(matched)}
 
 

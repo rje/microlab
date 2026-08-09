@@ -25,3 +25,11 @@ def test_build_distilled_mix_token_matches_target():
     out, report = bd.build_distilled_mix(rows, target_tokens=target, tok=tok, seed=0)
     assert report["target_tokens"] == target
     assert total_supervised_tokens(out, tok) >= target or len(out) == len(rows)
+
+
+def test_build_distilled_mix_raises_when_pool_too_small():
+    import pytest
+    tok = _ByteTok()
+    rows = [{"instruction": "i", "context": "", "response": "x" * 5} for _ in range(3)]
+    with pytest.raises(ValueError, match="cannot token-match"):
+        bd.build_distilled_mix(rows, target_tokens=100000, tok=tok, seed=0)
