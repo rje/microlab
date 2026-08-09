@@ -1,4 +1,36 @@
-from microlab.data.code_sft import normalize_commitpack, normalize_mbpp_train
+from microlab.data.code_sft import (
+    is_code_conv,
+    normalize_commitpack,
+    normalize_mbpp_train,
+    oasst_code_convs,
+)
+
+
+def test_is_code_conv_true_when_assistant_has_fenced_code():
+    conv = {"turns": [{"user": "sort a list in python",
+                       "assistant": "Use sorted:\n```python\nsorted(xs)\n```"}]}
+    assert is_code_conv(conv) is True
+
+
+def test_is_code_conv_false_for_pure_prose():
+    conv = {"turns": [{"user": "hi", "assistant": "Hello, how are you?"}]}
+    assert is_code_conv(conv) is False
+
+
+def test_oasst_code_convs_keeps_only_code_threads():
+    # two roots: one code, one prose; only the code one survives
+    messages = [
+        {"message_id": "a", "parent_id": None, "role": "prompter", "text": "write python",
+         "lang": "en"},
+        {"message_id": "b", "parent_id": "a", "role": "assistant",
+         "text": "```python\nprint(1)\n```", "lang": "en", "rank": 0},
+        {"message_id": "c", "parent_id": None, "role": "prompter", "text": "hello", "lang": "en"},
+        {"message_id": "d", "parent_id": "c", "role": "assistant", "text": "hi there",
+         "lang": "en", "rank": 0},
+    ]
+    convs = oasst_code_convs(messages)
+    assert len(convs) == 1
+    assert "print(1)" in convs[0]["turns"][0]["assistant"]
 
 
 def test_normalize_commitpack_message_to_new_contents():
