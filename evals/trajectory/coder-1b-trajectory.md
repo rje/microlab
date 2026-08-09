@@ -283,6 +283,23 @@ def div(a, b):
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+	return a + b
+
+def main():
+	print(add(1, 2))
+
+if __name__ == '__main__':
+	main()
+
+
+def add(a, b):
+	
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -577,6 +594,20 @@ class Line(object):
 	self.x_squared = x**2
 	self.y_squared = y**2
 	self.x_squared
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+	self.x = x
+	self.y = y
+
+    def __str__(self):
+        return "Point(%f, %f)" % (self.x, self.y)
+
+    def __repr__(self):
+        return "Point(%f, %f)" % (self.x, self
 ```
 </details>
 
@@ -936,6 +967,24 @@ def binary_search_binary(arr, target
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+#    if target not in arr:
+#        return -1
+#    for i in range(len(arr)):
+#        if arr[i] == target:
+#            return i
+#    return -1
+
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if target not in arr:
+        return -1
+    for i in range(len(
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1253,6 +1302,22 @@ def main_csv_file_name_csv(file_name):
 		with open(csv_file, 'r') as f:
 			csv_data = f.read()
 		with open(
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+#    parser.add_argument("-i", "--input", help="Input CSV file", required=True)
+    parser.add_argument("-o", "--output", help="Output JSON file", required=True)
+    args = parser.parse_args()
+
+    with open(args.input, "r") as f:
+        reader = csv.reader(f, delimiter=',')
+        for row in reader:
+            print(row)
+            print()
+            print
 ```
 </details>
 
@@ -1595,6 +1660,21 @@ for i in range(1,
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+print(i, end=' ')
+print(i % 3, end=' ')
+print(i % 5, end=' ')
+print(i % 10, end=' ')
+print(i % 100, end=' ')
+print(i % 100, end=' ')
+print(i % 100, end=' ')
+print(i % 100, end=' ')
+print(
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1868,6 +1948,25 @@ def get_clean_name(name):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate a list of all the words in the text
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+#        if cleaned.startswith('http'):
+#            continue
+        if cleaned.startswith('https'):
+            continue
+        if cleaned.startswith('ftp'):
+            continue
+        if cleaned.startswith('mailto'):
+            continue
+        if cleaned.startswith('tel'):
+            continue
+        if cleaned.startswith('file'):
+            continue
+       
 ```
 </details>
 
@@ -2203,6 +2302,24 @@ class Counter_1(Counter):
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+#        print "Incrementing counter"
+        self.count += 1
+
+    def decrement(self):
+#        print "Decrementing counter"
+        self.count -= 1
+
+    def get_count(self):
+#        print "Getting count"
+        return self.count
+
+class Counter:
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2447,6 +2564,21 @@ export function factorial2(n: u6
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+	let factorial = 1;
+	for (let i = 0; i < n; i++) {
+		factorial *= i;
+	}
+	return factorial;
+}
+
+// factorial(1) = 1
+// factorial(2) = 1
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2612,6 +2744,13 @@ LIMIT 10
 SELECT 1, customer_name FROM orders
 WHERE
 order_status = 'pending
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
 ```
 </details>
 
@@ -3017,6 +3156,30 @@ def read_json_file_from_file(filename):
 def read_json_file_from_file_from_file(filename):
     with open(filename, 'r') as f:
        
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+
+import json
+import os
+import re
+import sys
+
+from . import _json_utils
+
+_json_utils.set_log_level(logging.DEBUG)
+
+
+def _json_utils_read_json_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+
+def _json_
 ```
 </details>
 
@@ -3429,6 +3592,26 @@ from pydantic.types.base_model_type import Base
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+npm install --save @cypress/plugin-jest-dom
+```
+
+## Usage
+
+```js
+import { plugin } from '@cypress/plugin-jest-dom'
+
+plugin.use(plugin.jestDom)
+```
+
+## Options
+
+### `options.plugins`
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -3731,6 +3914,23 @@ The derivative of x^2 is 2x.
 The derivative of x^2 is 2x.
 
 The derivative of x^2 is
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+2x.
+
+The derivative of y^2 is 4y.
+
+The derivative of y^2 is 4y.
+
+The derivative of y^2 is 4y.
+
+The derivative of y^2 is 4y.
+
+The derivative of y^2 is
 ```
 </details>
 
@@ -4843,6 +5043,94 @@ if __name__ == '__main
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+#    parser.add_argument("-i", "--input", help="Input CSV file", required=True)
+    parser.add_argument("-o", "--output", help="Output JSON file", required=True)
+    args = parser.parse_args()
+
+    with open(args.input, "r") as f:
+        reader = csv.reader(f, delimiter=',')
+        for row in reader:
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print(row)
+            print()
+            print
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -5546,6 +5834,47 @@ def binary_search_binary(arr, target):
 #    if len(arr) == 10:
 #        return binary_search(arr, target)
 #    if
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+#    if target not in arr:
+#        return -1
+#    for i in range(len(arr)):
+#        if arr[i] == target:
+#            return i
+#    return -1
+
+def binary_search(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if target not in arr:
+        return -1
+    for i in range(len(arr)):
+        if arr[i] == target:
+            return i
+    return -1
+
+def binary_search_sorted(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if target not in arr:
+        return -1
+    for i in range(len(arr)):
+        if arr[i] == target:
+            return i
+    return -1
+
+def binary_search_sorted(arr, target):
+    """Return the index of target in sorted list arr, or -1 if absent."""
+    if target not in arr:
+        return -1
+    for i in range(len(arr)):
+        if arr[i] == target:
+            return i
+    return -1
+
+def binary_search
 ```
 </details>
 
@@ -6837,6 +7166,98 @@ class LRUCacheWithCapacityWithCapacity2(LRUCacheWithCapacity):
 ```
 </details>
 
+<details><summary>step 36000</summary>
+
+```
+#        self.capacity = capacity
+        self.capacity = capacity
+        self.cache = {}
+
+    def get(self, key):
+        """Get the value of the key."""
+        return self.cache.get(key, None)
+
+    def set(self, key, value):
+        """Set the value of the key."""
+        self.cache[key] = value
+
+    def get(self, key):
+        """Get the value of the key."""
+        return self.cache.get(key, None)
+
+    def __len__(self):
+        return len(self.cache)
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __iter__(self):
+        return iter(self.cache)
+
+    def __repr__(self):
+        return repr(self.cache)
+
+    def __del__(self, key):
+        del self.cache[key]
+
+    def __str__(self):
+        return repr(self.cache)
+
+    def __repr__(self):
+        return repr(self.cache)
+
+
+class LRUCacheWithCapacity(object):
+    """A least-recently-used cache with a fixed capacity."""
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.cache = {}
+
+    def get(self, key):
+        """Get the value of the key."""
+        return self.cache.get(key, None)
+
+    def set(self, key, value):
+        """Set the value of the key."""
+        self.cache[key] = value
+
+    def get(self, key):
+        """Get the value of the key."""
+        return self.cache.get(key, None)
+
+    def __len__(self):
+        return len(self.cache)
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __iter__(self):
+        return iter(self.cache)
+
+    def __repr__(self):
+        return repr(self.cache)
+
+    def __del__(self, key):
+        del self.cache[key]
+
+    def __str__(self):
+        return repr(self.cache)
+
+    def __repr__(self):
+        return repr(self.cache)
+
+
+class LRUCacheWithCapacityAndPriority(object):
+    """A least-recently-used cache with a fixed capacity and a fixed priority."""
+
+    def __init__(self, capacity, priority):
+        self.capacity = capacity
+        self.priority = priority
+        self.
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -7649,5 +8070,44 @@ def read_json_file_from_file_from_file_from_file_from_file_from_file(filename):
 
 
 def read
+```
+</details>
+
+<details><summary>step 36000</summary>
+
+```
+
+import json
+import os
+import re
+import sys
+
+from . import _json_utils
+
+_json_utils.set_log_level(logging.DEBUG)
+
+
+def _json_utils_read_json_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+
+def _json_utils_read_json_file(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    return _json_utils_read_json_file(filename)
+
+
+def _json_utils_read_json_file_with_default_value(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    return _json_utils_read_json_file(filename)
+
+
+def _json_utils_read_json_file_with_default_value(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    return _json_utils_read_json_file_with_default_value(filename)
+
+
+def _json_utils
 ```
 </details>
