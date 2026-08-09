@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import importlib.util as _ilu
 import json as _json
+import random as _random
 import re as _re
 from pathlib import Path as _Path
 
 from microlab.evals.code.executor import run_python
 from microlab.evals.code.tasks import CodeTask, assemble_program
+from microlab.model.reference.chat_sft import END_SENTINEL
+from microlab.model.reference.sft import format_chat
 
 Row = dict[str, str]
 
@@ -181,3 +184,34 @@ def taco_problem(row: dict) -> dict:
               "output": o if isinstance(o, str) else "".join(o)}
              for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
     return {"statement": row.get("question", ""), "solutions": sols, "io": cases}
+
+
+def row_supervised_tokens(row: dict, tok) -> int:
+    """Tokens that contribute to the SFT loss for one row (the response side + sentinel).
+    Multi-turn rows sum over assistant turns; single-turn rows use response + END_SENTINEL."""
+    if "turns" in row:
+        return sum(len(tok.encode((t.get("assistant") or "") + END_SENTINEL))
+                   for t in row["turns"])
+    _, response = format_chat(row.get("instruction", ""), row.get("context", ""),
+                              row.get("response", ""))
+    return len(tok.encode(response + END_SENTINEL))
+
+
+def total_supervised_tokens(rows: list[dict], tok) -> int:
+    """Sum supervised tokens across all rows."""
+    return sum(row_supervised_tokens(r, tok) for r in rows)
+
+
+def token_match_subsample(rows: list[dict], target_tokens: int, tok, seed: int = 0) -> list[dict]:
+    """Deterministically shuffle and take rows until the cumulative supervised-token count
+    reaches `target_tokens` (stopping at the first row that meets or crosses it). Used to size
+    the distilled arm to the compliant arm's supervised-token budget."""
+    shuffled = list(rows)
+    _random.Random(seed).shuffle(shuffled)
+    out, acc = [], 0
+    for r in shuffled:
+        if acc >= target_tokens:
+            break
+        out.append(r)
+        acc += row_supervised_tokens(r, tok)
+    return out

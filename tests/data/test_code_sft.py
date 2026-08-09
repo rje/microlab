@@ -3,6 +3,9 @@ from microlab.data.code_sft import (
     normalize_commitpack,
     normalize_mbpp_train,
     oasst_code_convs,
+    row_supervised_tokens,
+    token_match_subsample,
+    total_supervised_tokens,
     verified_competitive_rows,
     verify_io,
     verify_unit_test,
@@ -106,3 +109,23 @@ def test_verified_competitive_rows_drops_problem_with_no_passing_solution():
     rows, tally = verified_competitive_rows(problems)
     assert rows == []
     assert tally["no_passing_solution"] == 1
+
+
+class _ByteTok:
+    def encode(self, s): return list(s.encode("utf-8"))
+
+
+def test_row_supervised_tokens_counts_response_plus_sentinel():
+    from microlab.model.reference.chat_sft import END_SENTINEL
+    tok = _ByteTok()
+    row = {"instruction": "hi", "context": "", "response": "print(1)"}
+    assert row_supervised_tokens(row, tok) == len(tok.encode("print(1)" + END_SENTINEL))
+
+
+def test_token_match_subsample_hits_target_within_one_row():
+    tok = _ByteTok()
+    rows = [{"instruction": "i", "context": "", "response": "x" * 10} for _ in range(100)]
+    per = row_supervised_tokens(rows[0], tok)
+    target = per * 12
+    got = token_match_subsample(rows, target_tokens=target, tok=tok, seed=0)
+    assert abs(total_supervised_tokens(got, tok) - target) <= per  # within one row
