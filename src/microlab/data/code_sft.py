@@ -10,6 +10,9 @@ import importlib.util as _ilu
 import re as _re
 from pathlib import Path as _Path
 
+from microlab.evals.code.executor import run_python
+from microlab.evals.code.tasks import CodeTask, assemble_program
+
 Row = dict[str, str]
 
 # Reuse the OASST tree-walker from the chat-mix builder (single source of truth for the
@@ -65,3 +68,38 @@ def oasst_code_convs(messages: list[dict], max_turns: int = 6) -> list[dict]:
     """Linearize OASST trees (best-ranked child) and keep only code-bearing conversations."""
     convs = _bcm.extract_oasst_conversations(messages, max_turns=max_turns)
     return [c for c in convs if is_code_conv(c)]
+
+
+_IO_HARNESS = '''\
+import sys, io
+sys.stdin = io.StringIO({stdin!r})
+_out = io.StringIO()
+_real = sys.stdout
+sys.stdout = _out
+{solution}
+sys.stdout = _real
+_got = _out.getvalue()
+_want = {expected!r}
+# Compare with trailing-whitespace tolerance per line (competitive judges are lenient here).
+def _norm(s): return "\\n".join(line.rstrip() for line in s.rstrip("\\n").split("\\n"))
+sys.exit(0 if _norm(_got) == _norm(_want) else 1)
+'''
+
+
+def assemble_io_program(solution: str, stdin_data: str, expected_stdout: str) -> str:
+    """Wrap a stdin->stdout solution into a self-contained program that exits 0 iff its
+    output matches `expected_stdout` (line-rstrip tolerant). The I/O analogue of
+    assemble_program, needed because run_python gives the child no stdin."""
+    return _IO_HARNESS.format(stdin=stdin_data, solution=solution, expected=expected_stdout)
+
+
+def verify_io(solution: str, stdin_data: str, expected_stdout: str,
+              timeout_s: float = 10.0) -> bool:
+    """True iff `solution` reproduces `expected_stdout` for `stdin_data` in the sandbox."""
+    prog = assemble_io_program(solution, stdin_data, expected_stdout)
+    return run_python(prog, timeout_s=timeout_s).passed
+
+
+def verify_unit_test(solution: str, task: CodeTask) -> bool:
+    """True iff `solution` passes `task`'s unit-test suffix (HumanEval/MBPP style)."""
+    return run_python(assemble_program(solution, task)).passed

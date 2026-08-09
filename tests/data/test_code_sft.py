@@ -3,7 +3,10 @@ from microlab.data.code_sft import (
     normalize_commitpack,
     normalize_mbpp_train,
     oasst_code_convs,
+    verify_io,
+    verify_unit_test,
 )
+from microlab.evals.code.tasks import CodeTask
 
 
 def test_is_code_conv_true_when_assistant_has_fenced_code():
@@ -61,3 +64,22 @@ def test_normalize_mbpp_train_prompt_to_code():
     assert got["instruction"] == "Write a function to add two numbers."
     assert got["response"] == "def add(a, b):\n    return a + b"
     assert got["context"] == ""
+
+
+def test_verify_io_accepts_correct_and_rejects_wrong():
+    sol = "n = int(input())\nprint(n * 2)\n"
+    assert verify_io(sol, stdin_data="21\n", expected_stdout="42\n") is True
+    assert verify_io("print('nope')\n", stdin_data="21\n", expected_stdout="42\n") is False
+
+
+def test_verify_io_rejects_infinite_loop_via_timeout():
+    assert verify_io("while True:\n    pass\n", stdin_data="", expected_stdout="x\n",
+                     timeout_s=2.0) is False
+
+
+def test_verify_unit_test_accepts_correct_solution():
+    task = CodeTask(task_id="t", prompt="", instruction="add",
+                    entry_point="add",
+                    test_program="def check(add):\n    assert add(1, 2) == 3\ncheck(add)\n")
+    assert verify_unit_test("def add(a, b):\n    return a + b", task) is True
+    assert verify_unit_test("def add(a, b):\n    return a - b", task) is False
