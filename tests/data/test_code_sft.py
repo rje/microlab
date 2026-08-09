@@ -7,7 +7,7 @@ def test_normalize_commitpack_message_to_new_contents():
            "lang": "Python"}
     got = normalize_commitpack(row, lang_allow={"python"})
     assert got == {"instruction": "Fix off-by-one in range",
-                   "context": "", "response": "for i in range(n):\n    pass\n"}
+                   "context": "", "response": "for i in range(n):\n    pass"}
 
 
 def test_normalize_commitpack_drops_disallowed_language():

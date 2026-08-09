@@ -22,8 +22,10 @@ def normalize_commitpack(row: dict, lang_allow: set[str] | None) -> Row | None:
     # CommitPackFT uses `message`; `subject` is the first line. Prefer the subject as the
     # instruction (concise), fall back to the full message.
     instruction = (row.get("subject") or row.get("message") or "").strip()
-    response = row.get("new_contents") or ""
-    if not instruction or not response.strip():
+    # Responses are stripped to match the other normalizers (normalize_alpaca /
+    # normalize_no_robots) and because END_SENTINEL ("\n### End") supplies the trailing boundary.
+    response = (row.get("new_contents") or "").strip()
+    if not instruction or not response:
         return None
     return {"instruction": instruction, "context": "", "response": response}
 
