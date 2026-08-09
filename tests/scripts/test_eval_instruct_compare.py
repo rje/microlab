@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 _SPEC = importlib.util.spec_from_file_location(
     "eic", Path(__file__).resolve().parents[2] / "scripts" / "eval_instruct_compare.py")
 eic = importlib.util.module_from_spec(_SPEC)
@@ -17,3 +19,27 @@ def test_assemble_report_builds_comparison_table():
     assert rep["arms"]["distilled"]["humaneval"] == 0.14
     assert rep["distill_gap"]["humaneval"] == 0.14 - 0.10   # distilled - compliant
     assert rep["guardrail_fim_delta"]["compliant"] == 0.60 - 0.5848
+
+
+def test_assemble_report_raises_when_populated_arm_missing_fim():
+    # base HAS a FIM but the compliant arm dict lacks fim_middle_loss -> loud KeyError,
+    # not a fabricated -base_fim delta.
+    arm = {"compliant": {"humaneval": 0.10}, "distilled": {"humaneval": 0.14}}
+    pairwise = {"win_rate_compliant": 0.42, "win_rate_distilled": 0.46, "ties": 0.12}
+    guardrail = {"base": {"fim_middle_loss": 0.58}, "compliant": {},
+                 "distilled": {"fim_middle_loss": 0.61}}
+    with pytest.raises(KeyError):
+        eic.assemble_report(arm, pairwise, guardrail)
+
+
+def test_render_markdown_has_table_and_sections():
+    arm = {"compliant": {"humaneval": 0.10, "mbpp": 0.09, "humaneval_sampled": 0.12},
+           "distilled": {"humaneval": 0.14, "mbpp": 0.11, "humaneval_sampled": 0.15}}
+    pairwise = {"win_rate_compliant": 0.42, "win_rate_distilled": 0.46, "ties": 0.12}
+    guardrail = {"compliant": {"fim_middle_loss": 0.60}, "distilled": {"fim_middle_loss": 0.61},
+                 "base": {"fim_middle_loss": 0.5848}}
+    rep = eic.assemble_report(arm, pairwise, guardrail)
+    md = eic.render_markdown(rep)
+    assert "| humaneval |" in md
+    assert "## Pairwise judge" in md
+    assert "## Guardrail" in md

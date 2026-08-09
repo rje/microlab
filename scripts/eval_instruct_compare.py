@@ -29,10 +29,29 @@ def assemble_report(arm_summaries: dict, pairwise: dict, guardrail: dict) -> dic
            for m in metrics if m in arm_summaries.get("compliant", {})
            and m in arm_summaries.get("distilled", {})}
     base_fim = guardrail.get("base", {}).get("fim_middle_loss")
-    fim_delta = {arm: g.get("fim_middle_loss", 0.0) - base_fim
+    fim_delta = {arm: g["fim_middle_loss"] - base_fim
                  for arm, g in guardrail.items() if arm != "base" and base_fim is not None}
     return {"arms": arm_summaries, "pairwise": pairwise, "distill_gap": gap,
             "guardrail_fim_delta": fim_delta, "guardrail_raw": guardrail}
+
+
+def render_markdown(report: dict) -> str:
+    """Render the comparison report dict as a human-readable markdown table
+    (pure; unit-tested)."""
+    lines = ["# coder-1b-instruct A/B — compliant vs distilled", ""]
+    metrics = sorted({m for a in report["arms"].values() for m in a})
+    lines.append("| metric | compliant | distilled | distilled−compliant |")
+    lines.append("|---|---|---|---|")
+    for m in metrics:
+        c = report["arms"].get("compliant", {}).get(m)
+        d = report["arms"].get("distilled", {}).get(m)
+        gap = report["distill_gap"].get(m)
+        lines.append(f"| {m} | {c} | {d} | {gap if gap is not None else ''} |")
+    lines += ["", "## Pairwise judge", "", f"```\n{report['pairwise']}\n```",
+              "", "## Guardrail (FIM middle-loss delta vs base)", ""]
+    for arm, delta in report["guardrail_fim_delta"].items():
+        lines.append(f"- {arm}: {delta:+.4f}")
+    return "\n".join(lines) + "\n"
 
 
 def _run_eval_code(  # pragma: no cover
@@ -79,6 +98,7 @@ def main() -> None:  # pragma: no cover - orchestration
 
     report = assemble_report(arms, pairwise, guardrail)
     (args.out_dir / "compare.json").write_text(json.dumps(report, indent=2))
+    (args.out_dir / "compare.md").write_text(render_markdown(report))
     print(json.dumps(report["distill_gap"], indent=2))
 
 
