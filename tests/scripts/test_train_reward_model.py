@@ -128,6 +128,23 @@ def _write_prefs(path, n):
     return prefs
 
 
+def test_load_backbone_rebuilds_hybrid_frontier_fields(tmp_path):
+    # coder-1b's field profile scaled down (KDA:MLA hybrid, peri-LN, NoPE, MLA latents,
+    # qk-norm). The hand-listed config rebuild this guards against dropped every one of
+    # these fields, so a reward model could not warm-start from a coder-1b checkpoint.
+    cfg = VariantConfig(vocab_size=64, block_size=32, n_layer=4, n_head=2, n_embd=16,
+                        norm="rms", pos="nope", mlp="swiglu", block_norm="peri",
+                        hybrid_every=4, gdn_gate="channel", global_attn="mla",
+                        mla_kv_lora=8, qk_norm=True, gdn_fused=False)
+    torch.save({"model": VariantGPT(cfg).state_dict(), "step": 1, "cfg": cfg},
+               tmp_path / "ckpt_1.pt")
+    model, step, _ = trm.load_backbone(tmp_path / "ckpt_1.pt", "cpu")  # strict load
+    got = model.config
+    assert step == 1
+    assert (got.hybrid_every, got.global_attn, got.block_norm) == (4, "mla", "peri")
+    assert (got.mla_kv_lora, got.qk_norm, got.gdn_gate) == (8, True, "channel")
+
+
 def test_run_train_reward_end_to_end(tmp_path):
     run_dir, tok_path = _tiny_sft_run(tmp_path)
     prefs_path = tmp_path / "prefs.jsonl"

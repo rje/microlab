@@ -111,6 +111,22 @@ def test_load_base_model_propagates_rope_base(tmp_path):
     assert model.config.rope_base == 100000.0
 
 
+def test_load_base_model_rebuilds_hybrid_frontier_fields(tmp_path):
+    # coder-1b's field profile scaled down (KDA:MLA hybrid, peri-LN, NoPE, MLA latents,
+    # qk-norm). The hand-listed config rebuild this guards against dropped every one of
+    # these fields, rebuilt a plain dense model, and failed the strict state-dict load.
+    cfg = VariantConfig(vocab_size=64, block_size=32, n_layer=4, n_head=2, n_embd=16,
+                        norm="rms", pos="nope", mlp="swiglu", block_norm="peri",
+                        hybrid_every=4, gdn_gate="channel", global_attn="mla",
+                        mla_kv_lora=8, qk_norm=True, gdn_fused=False)
+    torch.save({"model": VariantGPT(cfg).state_dict(), "step": 1, "cfg": cfg},
+               tmp_path / "ckpt_1.pt")
+    model, _ = sft.load_base_model(tmp_path / "ckpt_1.pt", "cpu")  # strict load must pass
+    got = model.config
+    assert (got.hybrid_every, got.global_attn, got.block_norm) == (4, "mla", "peri")
+    assert (got.mla_kv_lora, got.qk_norm, got.gdn_gate) == (8, True, "channel")
+
+
 def test_resolve_base_ckpt_accepts_file_or_dir(tmp_path):
     (tmp_path / "ckpt_5.pt").write_bytes(b"x")
     (tmp_path / "ckpt_9.pt").write_bytes(b"x")

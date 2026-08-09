@@ -31,14 +31,14 @@ from microlab.model.reference.chat_sft import (
     TurnTooLongError,
     build_chat_example,
 )
-from microlab.model.reference.checkpoint import latest_checkpoint
+from microlab.model.reference.checkpoint import latest_checkpoint, variant_config_from_ckpt
 from microlab.model.reference.sft import (
     build_sft_example,
     collate_sft,
     format_chat,
     masked_cross_entropy,
 )
-from microlab.model.reference.variants import VariantConfig, VariantGPT
+from microlab.model.reference.variants import VariantGPT
 from microlab.tokenizer.fast import FastTokenizer
 
 # Dropped verbatim into the run dir; serve.py reads it to switch this run into chat mode.
@@ -60,14 +60,13 @@ def load_base_model(base_ckpt: str | Path, device: str) -> tuple[VariantGPT, obj
     ckpt_path = resolve_base_ckpt(base_ckpt)
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     cfg = ckpt["cfg"]
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None),
-        # context-extended bases (runs/1b-4k) carry a raised RoPE base; dropping it here
-        # would silently rebuild the RoPE cache at the 1e4 default and wreck long context
-        rope_base=getattr(cfg, "rope_base", 10000.0),
-    ))
+    # Enumerate config fields from the dataclass (variant_config_from_ckpt), never by hand:
+    # the hand-written list this replaces silently dropped every hybrid/frontier field
+    # (hybrid_every, global_attn, block_norm, mla_kv_lora, qk_norm, gdn_*), so it rebuilt
+    # coder-1b as a plain dense model and failed the strict state-dict load far from the
+    # cause — the same drift checkpoint.py documents hitting twice in the eval scripts.
+    # rope_base rides along with everything else (context-extended bases keep long context).
+    model = VariantGPT(variant_config_from_ckpt(cfg))
     model.load_state_dict(ckpt["model"])
     return model.to(device), cfg
 

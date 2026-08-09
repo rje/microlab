@@ -34,8 +34,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import torch  # noqa: E402
 
-from microlab.model.reference.checkpoint import latest_checkpoint  # noqa: E402
-from microlab.model.reference.variants import VariantConfig, VariantGPT  # noqa: E402
+from microlab.model.reference.checkpoint import (  # noqa: E402
+    latest_checkpoint,
+    variant_config_from_ckpt,
+)
+from microlab.model.reference.variants import VariantGPT  # noqa: E402
 from microlab.tokenizer.fast import FastTokenizer  # noqa: E402
 from microlab.train.reward import (  # noqa: E402
     RewardModel,
@@ -108,10 +111,9 @@ def load_backbone(base_ckpt: str | Path, device: str) -> tuple[VariantGPT, int, 
     ckpt_path = latest_checkpoint(p) if p.is_dir() else p
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     cfg = ckpt["cfg"]
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None)))
+    # Dataclass-enumerated config rebuild (variant_config_from_ckpt) — the hand-listed
+    # subset here silently dropped the hybrid/frontier fields and could not load coder-1b.
+    model = VariantGPT(variant_config_from_ckpt(cfg))
     model.load_state_dict(ckpt["model"])
     return model.to(device), ckpt["step"], ckpt_path
 

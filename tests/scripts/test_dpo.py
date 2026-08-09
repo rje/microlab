@@ -94,6 +94,21 @@ def test_load_policy_reference_freezes_reference_only(tmp_path):
     assert not torch.equal(next(policy.parameters()), ref_clone)  # policy moved
 
 
+def test_build_model_rebuilds_hybrid_frontier_fields(tmp_path):
+    # coder-1b's field profile scaled down (KDA:MLA hybrid, peri-LN, NoPE, MLA latents,
+    # qk-norm). The hand-listed config rebuild this guards against dropped every one of
+    # these fields (and rope_base), so DPO could not warm-start a coder-1b SFT checkpoint.
+    cfg = VariantConfig(vocab_size=64, block_size=32, n_layer=4, n_head=2, n_embd=16,
+                        norm="rms", pos="nope", mlp="swiglu", block_norm="peri",
+                        hybrid_every=4, gdn_gate="channel", global_attn="mla",
+                        mla_kv_lora=8, qk_norm=True, gdn_fused=False)
+    state = VariantGPT(cfg).state_dict()
+    model = dpo._build_model(cfg, state, "cpu")  # strict load must pass
+    got = model.config
+    assert (got.hybrid_every, got.global_attn, got.block_norm) == (4, "mla", "peri")
+    assert (got.mla_kv_lora, got.qk_norm, got.gdn_gate) == (8, True, "channel")
+
+
 def test_run_dpo_raises_on_empty_prefs(tmp_path):
     run_dir, tok_path, _ = _tiny_sft_run(tmp_path)
     empty = tmp_path / "empty.jsonl"

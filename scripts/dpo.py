@@ -26,10 +26,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import torch  # noqa: E402
 
-from microlab.model.reference.checkpoint import latest_checkpoint  # noqa: E402
+from microlab.model.reference.checkpoint import (  # noqa: E402
+    latest_checkpoint,
+    variant_config_from_ckpt,
+)
 from microlab.model.reference.dpo import dpo_loss, ipo_loss, sequence_logprob  # noqa: E402
 from microlab.model.reference.sft import build_sft_example, collate_sft  # noqa: E402
-from microlab.model.reference.variants import VariantConfig, VariantGPT  # noqa: E402
+from microlab.model.reference.variants import VariantGPT  # noqa: E402
 
 # Appended to both chosen and rejected so the response log-prob covers the stop, matching SFT.
 END_SENTINEL = "\n### End"
@@ -46,12 +49,13 @@ def resolve_ckpt(sft_ckpt: str | Path) -> Path:
 
 
 def _build_model(cfg, state_dict, device: str) -> VariantGPT:
-    """Rebuild a VariantGPT from a saved cfg + weights (a fresh instance with its own params)."""
-    model = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None),
-    ))
+    """Rebuild a VariantGPT from a saved cfg + weights (a fresh instance with its own params).
+
+    Config fields are enumerated from the dataclass (variant_config_from_ckpt), never by
+    hand — the hand-written list this replaces dropped every hybrid/frontier field AND
+    rope_base, so it could load neither a coder-1b checkpoint nor a context-extended one.
+    """
+    model = VariantGPT(variant_config_from_ckpt(cfg))
     model.load_state_dict(state_dict)
     return model.to(device)
 

@@ -19,7 +19,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from microlab.model.reference.variants import VariantConfig, VariantGPT
+from microlab.model.reference.checkpoint import variant_config_from_ckpt
+from microlab.model.reference.variants import VariantGPT
 
 REWARD_CKPT_KIND = "reward"
 
@@ -113,10 +114,9 @@ def load_reward_checkpoint(path: str | Path, device: str = "cpu") -> tuple[Rewar
         raise ValueError(f"{path} is not a reward-model checkpoint "
                          f"(kind={ckpt.get('kind')!r}); refusing to load it as one")
     cfg = ckpt["cfg"]
-    backbone = VariantGPT(VariantConfig(
-        vocab_size=cfg.vocab_size, block_size=cfg.block_size, n_layer=cfg.n_layer,
-        n_head=cfg.n_head, n_embd=cfg.n_embd, dropout=0.0, norm=cfg.norm, pos=cfg.pos,
-        mlp=cfg.mlp, n_kv_head=getattr(cfg, "n_kv_head", None)))
+    # Dataclass-enumerated rebuild — a hand-listed field subset here drops hybrid/frontier
+    # fields and cannot reload a reward model built on a coder-1b backbone.
+    backbone = VariantGPT(variant_config_from_ckpt(cfg))
     model = RewardModel(backbone)
     model.load_state_dict(ckpt["model"])
     return model.to(device).eval(), ckpt["step"]

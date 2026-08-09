@@ -185,6 +185,31 @@ def test_reward_checkpoint_roundtrip(tmp_path):
         )
 
 
+def test_reward_checkpoint_roundtrip_hybrid_backbone(tmp_path):
+    # coder-1b's field profile scaled down (KDA:MLA hybrid, peri-LN, NoPE, MLA latents,
+    # qk-norm). The hand-listed config rebuild this guards against dropped every one of
+    # these fields, so a reward model saved on a hybrid backbone could not be reloaded.
+    cfg = VariantConfig(vocab_size=64, block_size=32, n_layer=4, n_head=2, n_embd=16,
+                        norm="rms", pos="nope", mlp="swiglu", block_norm="peri",
+                        hybrid_every=4, gdn_gate="channel", global_attn="mla",
+                        mla_kv_lora=8, qk_norm=True, gdn_fused=False)
+    torch.manual_seed(0)
+    model = RewardModel(VariantGPT(cfg)).eval()
+    path = tmp_path / "ckpt_3.pt"
+    save_reward_checkpoint(path, model, step=3)
+    loaded, step = load_reward_checkpoint(path, device="cpu")  # strict load must pass
+    got = loaded.backbone.config
+    assert step == 3
+    assert (got.hybrid_every, got.global_attn, got.block_norm) == (4, "mla", "peri")
+    assert (got.mla_kv_lora, got.qk_norm, got.gdn_gate) == (8, True, "channel")
+    batch = collate_reward([[1, 2, 3], [4, 5]], pad_id=0)
+    with torch.no_grad():
+        assert torch.allclose(
+            model(batch["input_ids"], batch["lengths"]),
+            loaded(batch["input_ids"], batch["lengths"]),
+        )
+
+
 def test_load_reward_checkpoint_rejects_non_reward_ckpt(tmp_path):
     # An LM checkpoint (no kind marker) must be refused loudly, not half-loaded.
     path = tmp_path / "ckpt_1.pt"
