@@ -61,9 +61,12 @@ seed-shuffles sources so batches interleave, and a `write_jsonl`. Two modules:
 
 **Module 1 — human sources (build first):**
 - **CommitPackFT** (`bigcode/commitpackft`, MIT, ~702k samples, permissive repos only):
-  instruction = commit message, response = the new file / diff. Filter to a sensible
-  language subset (Python-first, matching the corpus mix), cap per-language to avoid
-  message-boilerplate domination.
+  instruction = commit message, response = the new file / diff. This is *already the
+  `commits` slice of our pretraining mix-v2* (`provenance.json`), so arm A draws from the
+  same source family the base was trained on. **Language scope: Python-first** — matching
+  our Python-dominant pretraining code (the-stack-dedup lineage) and the Python-only
+  benchmarks — then **expand to the next languages (JS/TS/shell/SQL) in a later pass**. Cap
+  per-language to avoid commit-message boilerplate domination.
 - **MBPP train split** (`google-research-datasets/mbpp` sanitized; the **train** portion,
   distinct from the test split the eval uses): instruction = problem text, response =
   reference solution.
@@ -123,7 +126,10 @@ across arms so it cannot bias the comparison.
   smoke peaked 45/49 GB at block 1024 / micro-batch 4, so **block 2048 must be validated for
   a safe micro-batch before the full run** (likely micro-batch 1–2 with accum making up the
   effective batch); this is a plan step, not an assumption.
-- bf16 autocast, AdamW, cosine LR matched to pretraining, ~3 epochs (tune on arm A first).
+- **3 epochs** (the established SFT recipe and `sft.py` default), **LR 2e-5** cosine with
+  ~5% warmup and 10% min (the prose-SFT recipe, matched to the pretraining tail), bf16
+  autocast, AdamW. These are firm for both arms. Arm A may be re-tuned once against its own
+  eval; any change is mirrored to arm B so the comparison stays controlled.
 - Same seed, schedule, and effective batch for both arms.
 
 ## Evaluation + pre-registered prediction
