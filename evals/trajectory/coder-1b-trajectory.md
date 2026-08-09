@@ -300,6 +300,22 @@ def add(a, b):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	return a + b
+
+def subtract(a, b):
+	return a - b
+
+def multiply(a, b):
+	return a * b
+
+def divide(a, b):
+	return a
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -608,6 +624,20 @@ class Line(object):
 
     def __repr__(self):
         return "Point(%f, %f)" % (self.x, self
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+	self.x = x
+	self.y = y
+
+    def __repr__(self):
+	return "Point(%s, %s)" % (self.x, self.y)
+
+    def __eq__(self, other):
+	return self.x == other.x and self.y
 ```
 </details>
 
@@ -985,6 +1015,22 @@ def binary_search(arr, target):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 1:
+#         return 0
+#     if arr[0] == target:
+#         return 0
+#     if arr[0] < target:
+#         return binary_search(arr[1:], target)
+#     return binary_search(arr[1:], target) + 1
+#
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1318,6 +1364,20 @@ def main_csv_file_name_csv(file_name):
             print(row)
             print()
             print
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+#    parser.add_argument("input_file", type=str, help="Input CSV file")
+    parser.add_argument("output_file", type=str, help="Output JSON file")
+    args = parser.parse_args()
+
+    with open(args.input_file, 'r') as f:
+        with open(args.output_file, 'w') as f:
+            for line in f:
+                line = line.strip
 ```
 </details>
 
@@ -1675,6 +1735,21 @@ print(
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	print(fizz(i))
+	print(buzz(i))
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+	print(fizz(i))
+	print(buzz(i))
+
+# Print numbers 1 to 100, but Fizz for multiples of 3
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1967,6 +2042,20 @@ def main():
         if cleaned.startswith('file'):
             continue
        
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+#        if cleaned == 'all':
+#            results.append(item)
+#        elif cleaned == 'all':
+#            results.append(item)
+#        elif cleaned == 'all':
+#            results.append(item)
+#        elif cleaned == 'all':
+#
 ```
 </details>
 
@@ -2320,6 +2409,24 @@ class Counter:
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	self.count += 1
+
+    def decrement(self):
+	self.count -= 1
+
+    def print_count(self):
+	print(self.count)
+
+    def print_count_with_unit(self):
+	print(f"count: {self.count}")
+
+    def
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2579,6 +2686,17 @@ export function factorial2(n: u6
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	if (n == 0) return 1;
+	if (n == 1) return 1;
+	if (n == 2) return 2;
+	if (n == 3) return 6;
+	if (n == 4) return 24
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2751,6 +2869,13 @@ order_status = 'pending
 
 ```
 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+1, 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John
 ```
 </details>
 
@@ -3183,6 +3308,25 @@ def _json_
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+def read_json(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -3612,6 +3756,28 @@ plugin.use(plugin.jestDom)
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+npm install --save @types/react-native-svg
+```
+
+To run the tests, run:
+
+```bash
+yarn test
+```
+
+To run the tests and watch for changes, run:
+
+```bash
+yarn test:watch
+```
+
+To run the tests and watch
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -3931,6 +4097,25 @@ The derivative of y^2 is 4y.
 The derivative of y^2 is 4y.
 
 The derivative of y^2 is
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+2x.
+
+Question 1.
+
+Find the derivative of the function f(x) = x^2 - 2x.
+
+Solution.
+
+f'(x) = 2x - 2
+
+f(x) = x^2 - 2x
+
+f
 ```
 </details>
 
@@ -5131,6 +5316,45 @@ if __name__ == '__main
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#    parser.add_argument("input_file", type=str, help="Input CSV file")
+    parser.add_argument("output_file", type=str, help="Output JSON file")
+    args = parser.parse_args()
+
+    with open(args.input_file, 'r') as f:
+        with open(args.output_file, 'w') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('{"'):
+                    line = line[1:]
+                    json_data = json.loads(line)
+                    json_data['id'] = line.split('}')[0]
+                    json.dump(json_data, f)
+                else:
+                    json_data = json.loads(line)
+                    json.dump(json_data, f)
+
+if __name__ == "__main__":
+    main()
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2017-2019, University of California, San Diego
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -5875,6 +6099,37 @@ def binary_search_sorted(arr, target):
     return -1
 
 def binary_search
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 1:
+#         return 0
+#     if arr[0] == target:
+#         return 0
+#     if arr[0] < target:
+#         return binary_search(arr[1:], target)
+#     return binary_search(arr[1:], target) + 1
+#
+# def binary_search(arr, target):
+#     """Return the index of target in sorted list arr, or -1 if absent."""
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 1:
+#         return 0
+#     if arr[0] == target:
+#         return 0
+#     if arr[0] < target:
+#         return binary_search(arr[1:], target)
+#     return binary_search(arr[1:], target) + 1
+#
+# def binary_search(arr, target):
+#     """Return the index of target in sorted list arr, or -1 if absent."""
+
 ```
 </details>
 
@@ -7258,6 +7513,71 @@ class LRUCacheWithCapacityAndPriority(object):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#        self.capacity = capacity
+        self.capacity = capacity
+        self.cache = {}
+        self.tail = None
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+        self.tail_index = 0
+        self.tail_size = 0
+       
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -8109,5 +8429,42 @@ def _json_utils_read_json_file_with_default_value(filename):
 
 
 def _json_utils
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+def read_json(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def read_json_file_lines(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
 ```
 </details>

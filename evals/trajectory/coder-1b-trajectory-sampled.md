@@ -270,6 +270,22 @@ def
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	return a + b
+
+def subtract(a, b):
+	return a - b
+
+def multiply(a, b):
+	return a * b
+
+def divide(a, b):
+	return a
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -573,6 +589,22 @@ class Line:
         return str(self.x) + " + " + str(self.y)
 
 
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+	self.x = x
+	self.y = y
+
+def main(args):
+    global a
+    print "a", a
+    a = Point(40, 20)
+    print "a.x:", a.x
+    print "a.y:", a.y
+    print "
 ```
 </details>
 
@@ -955,6 +987,23 @@ def get_next_greater_than(n, target):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#     if len(arr) == 0:
+#         return -1
+#     if len(arr) == 1:
+#         return 0
+#     if len(arr) == 1:
+#         return 0
+#     if arr[0] == target:
+#         return 0
+#     if arr[0] > target:
+#         return binary_search(arr[1:], target)
+
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1269,6 +1318,18 @@ from pandas import read_
         os.mkdir(args.json_root)
 
     # loop over
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+#    parser.add_argument("--path", type=Path, metavar="FILEPATH", required=True,
+#                    help="path to the data")
+    parser.add_argument("-i", "--input-file", required=True, type=str, metavar="filename",
+        help="filename with input data")
+    parser.add_argument("-o", "--output-file", required=True, type=str, metavar="filename",
+        help="
 ```
 </details>
 
@@ -1681,6 +1742,25 @@ import sys
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	print(f'Fizz_{i}Buzz_{i // 3}')
+print()
+
+for i in range(1, 101):
+	if i % 3 == 0:
+		print(f'Fizz_{i}')
+	else:
+		print(f'Buzz_{i}')
+
+print()
+
+for i in range(1, 101):
+	if i % 
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -1997,6 +2077,20 @@ https://github.com/openai/neural-language-toolkit
         if cleaned in [x for x in results]:
             raise Exception('Item name is already in use')
         results.append(cleaned
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+	if cleaned in ('q', 'q.'):
+	    cleaned = cleaned.replace(' ', '')
+	    if cleaned.startswith('q.'):
+	        cleaned = 'q'
+	    if cleaned == 'q':
+	        cleaned = 'q.':
+	        cleaned = cleaned.replace(' ', '')
+	    if cleaned == '
 ```
 </details>
 
@@ -2371,6 +2465,22 @@ class Counter(object):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#        print "counter", self.count
+        self.count += 1
+
+if __name__ == "__main__":
+    c = Counter()
+    c.increment()
+    print "counter:", c.count
+    c.increment()
+    print "counter:", c.count
+    print "counter:", c.
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2665,6 +2775,20 @@ def factorial_inv_inv(n:
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+	return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+
+// @ts-ignore
+function factorial(n: u64) {
+	if (n < 0 || n > 1) {
+		return 0;
+	
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2866,6 +2990,15 @@ LIMIT 10
 ```
 
 ### 6.2.2.3.2.3.3
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+1, 'Ricky' AS customer_name, 'Ricky' AS customer_name FROM order_history WHERE customer_name = 'Ricky' ORDER BY customer_name ASC
+GROUP BY customer_name
+GROUP BY customer
 ```
 </details>
 
@@ -3310,6 +3443,19 @@ def is_valid_json(json_data):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#
+#   Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain
+#   a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -3731,6 +3877,24 @@ Flags Options:
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+npm install @laravel/vital-mail
+```
+
+To use the package with `composer require laravel/vital-mail`, run:
+
+```bash
+composer require laravel/vital-mail
+```
+
+### Disclaimer
+
+This package has been released with a MIT license
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -3929,6 +4093,14 @@ No, he's not talking about the derivative. He's talking about the indefinite int
 
 ```
 2x). The derivative of 2x is 2x, and 1 is also 1. But 2x^2 has a derivative of 2x. So the derivative of 2x is 2x. So the derivative of 2x is 2x. But 2x
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+2x. So, if you plug in x = 0.5, you get 2x. If you plug in x = 1.0, you get 2x. If you plug in x = 2.0, you get 4x.
+Since x^2 is constant,
 ```
 </details>
 
@@ -4719,6 +4891,48 @@ def log_message(message, level, hostname=None):
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#     parser.add_argument("--csv", dest="csv", type=str, required=True,
+#                  help="file with CSV data (.csv)")
+    parser.add_argument("--json", dest="json", type=str, required=True,
+                      help="JSON file (.json)")
+    args = parser.parse_args()
+
+    with open(args.csv, "rb") as f:
+        data = pd.read_csv(f, sep=";", header=None, index_col=0)
+
+    with open(args.json, "w") as f:
+        json.dump(data.to_json(orient="table"), f, cls=JSONEncoder, indent=4)
+
+if __name__ == "__main__":
+    main()
+<h1>
+
+# Pokémon Monster-B
+
+![pokémon-b](https://cdn.jsdelivr.net/gh/shinobi360/img-monster-b@master/pokemons-icon.png)
+
+</h1>
+
+- **Pokémon**: Monster.
+- **Emojis**: 💬
+- **Size**: 108 x 108 x 22
+- **Evolve**: V
+- **Featured In**: None
+- **Status**: Live
+- **Genres**: Monster
+- **Species**:
+  - **Species**
+  - **Location**
+  - **Size Range**
+  - **Weight**: 17.5 - 22.9 kg
+  - **Length**: 22.9 - 28.2 m (including head and tail)
+  - **Height**: 28.2 - 34.7 m (including
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -5490,6 +5704,34 @@ Complexity3.search(3,3)
 
 class Complexity1(Complexity):
     def search(self, arr
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+#     if not arr:
+#         return -1
+#     idx = binary_search_sorted(arr, target, 0, len(arr) - 1)
+#     if idx < 0:
+#         return -1
+#     return idx
+#
+#
+# @profile
+# def binary_search_sorted(arr, target, i, j):
+#     if i < 0 or j < 0 or i >= len(arr) or j >= len(arr) or i < 0 or j < 0:
+#         return -1
+#     if arr[i] > target:
+#         return binary_search_sorted(arr, target, 0, len(arr) - 1)
+#     if arr[i] < target:
+#         return binary_search_sorted(arr, target, i + 1, len(arr))
+#     return i
+#
+#
+# @profile
+# def binary_search_sorted(arr, target, i, j, l, r=None):
+#     if l < 0 or r >= len(arr) or l < 0 or r >=
 ```
 </details>
 
@@ -6993,6 +7235,94 @@ class MultiDict:
 ```
 </details>
 
+<details><summary>step 38000</summary>
+
+```
+#       print("\nCreating a new LRU cache with capacity: %s" % str(capacity))
+        self.capacity = capacity
+        self.cache = []
+        self.size = capacity
+
+    def get(self, key):
+        if not self.cache:
+            return None
+        else:
+            if self.size < self.capacity:
+                return self.cache[0]
+            else:
+                self.size -= 1
+                return self.cache[0]
+
+    def set(self, key, value):
+        # Get the most recently used key and remove the oldest
+        if key in self.cache:
+            self.size -= 1
+        else:
+            self.cache.append((key, value))
+        self.size += 1
+
+    def remove(self, key):
+        self.cache.remove((key, self.size))
+
+    def __len__(self):
+        return self.size
+
+    def __iter__(self):
+        return iter(self.cache)
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __delitem__(self, key):
+        self.remove(key)
+
+    def __getitem__(self, key):
+        return self.cache[key]
+
+    def __setitem__(self, key, value):
+        self.set(key, value)
+
+    def __delitem__(self, key):
+        self.remove(key)
+
+    def __len__(self):
+        return len(self.cache)
+
+    def __iter__(self):
+        return iter(self.cache)
+
+    def __repr__(self):
+        values = ", ".join(map(repr, self.cache))
+        return "<LRUCache %s>" % (repr(self.size) + values)
+
+    def __str__(self):
+        return "LRUCache(%s)" % (repr(self.capacity) + " items")
+
+
+class LRUCachePool(object):
+    """A least-recently-used cache with a fixed capacity."""
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.cache = []
+        self.size = 0
+
+    def __len__(self):
+        return self.size
+
+    def __iter__(self):
+        return iter(self.cache)
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __repr__(self):
+        return "<LRUCachePool(%s items)" % (self.size)
+
+    def
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -7774,5 +8104,38 @@ def write_json_file(filepath, data):
     """
     Write a JSON file.
     :param filepath: Path
+```
+</details>
+
+<details><summary>step 38000</summary>
+
+```
+def read_json(filename):
+    """Read a JSON file and return the number of top-level keys."""
+    with open(filename, encoding='utf-8') as f:
+        data = json.load(f)
+    return len(data['key_list'])
+
+def get_data_file(data_type, filename):
+    """Get a JSON file and return the number of top-level keys."""
+    with open(filename, encoding='utf-8') as f:
+        data = json.load(f)
+    if data_type == 'key_list':
+        return len(data['key_list'])
+    else:
+        return None
+
+def get_data(filename):
+    """Get a JSON file and return the number of top-level keys."""
+    with open(filename, encoding='utf-8') as f:
+        data = json.load(f)
+    return len(data['key_list'])
+
+if __name__ == '__main__':
+    from sklearn.metrics import roc_curve
+    from sklearn.metrics import roc_auc_score
+    from sklearn.metrics import precision_recall_curve
+    from sklearn.metrics import average_precision_recall_curve
+    import
 ```
 </details>
