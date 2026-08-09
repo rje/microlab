@@ -1,4 +1,6 @@
 from microlab.data.code_sft import (
+    benchmark_fingerprints,
+    decontaminate,
     is_code_conv,
     normalize_commitpack,
     normalize_mbpp_train,
@@ -129,3 +131,66 @@ def test_token_match_subsample_hits_target_within_one_row():
     target = per * 12
     got = token_match_subsample(rows, target_tokens=target, tok=tok, seed=0)
     assert abs(total_supervised_tokens(got, tok) - target) <= per  # within one row
+
+
+def test_decontaminate_removes_planted_benchmark_row_keeps_benign():
+    bench_text = "def has_close_elements(numbers, threshold): return any(abs(a-b) < threshold)"
+    bench = [bench_text]
+    fp = benchmark_fingerprints(bench, n=8)
+    rows = [
+        {"instruction": "impl", "context": "", "response": bench_text},
+        {"instruction": "add", "context": "", "response": "def add(a, b):\n    return a + b"},
+    ]
+    kept, removed = decontaminate(rows, fp, n=8)
+    assert removed == 1
+    assert kept == [rows[1]]
+
+
+def test_decontaminate_keeps_uncontaminated_rows():
+    bench = ["def foo(x): return x + 1"]
+    fp = benchmark_fingerprints(bench, n=5)
+    rows = [
+        {"instruction": "impl bar", "context": "", "response": "def bar(y): return y * 2"},
+        {"instruction": "sort list", "context": "", "response": "return sorted(arr)"},
+    ]
+    kept, removed = decontaminate(rows, fp, n=5)
+    assert removed == 0
+    assert kept == rows
+
+
+def test_decontaminate_handles_multiturn_rows():
+    bench = ["def fibonacci(n): return n"]
+    fp = benchmark_fingerprints(bench, n=5)
+    rows = [
+        {"turns": [
+            {"user": "write fibonacci", "assistant": "def fibonacci(n): return n"},
+            {"user": "test it", "assistant": "print(fibonacci(5))"},
+        ]},
+        {"turns": [
+            {"user": "write sum", "assistant": "def sum_nums(arr): return sum(arr)"},
+        ]},
+    ]
+    kept, removed = decontaminate(rows, fp, n=5)
+    assert removed == 1  # first row matches benchmark
+    assert kept == [rows[1]]
+
+
+def test_decontaminate_empty_fingerprints_keeps_all():
+    rows = [
+        {"instruction": "a", "context": "", "response": "def x(): pass"},
+        {"instruction": "b", "context": "", "response": "def y(): pass"},
+    ]
+    kept, removed = decontaminate(rows, set(), n=5)
+    assert removed == 0
+    assert kept == rows
+
+
+def test_decontaminate_case_insensitive_normalization():
+    # Test that tokens are normalized to lowercase for matching
+    bench = ["def hello"]
+    fp = benchmark_fingerprints(bench, n=2)
+    rows = [
+        {"instruction": "", "context": "", "response": "DEF HELLO"},
+    ]
+    kept, removed = decontaminate(rows, fp, n=2)
+    assert removed == 1  # should match case-insensitively

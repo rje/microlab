@@ -215,3 +215,42 @@ def token_match_subsample(rows: list[dict], target_tokens: int, tok, seed: int =
         out.append(r)
         acc += row_supervised_tokens(r, tok)
     return out
+
+
+def _norm_tokens(text: str) -> list[str]:
+    """Whitespace/punctuation-insensitive word stream for n-gram matching."""
+    return _re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _ngrams(tokens: list[str], n: int) -> set[str]:
+    """n-gram set from normalized tokens; single token if fewer than n tokens."""
+    if len(tokens) < n:
+        return {" ".join(tokens)} if tokens else set()
+    return {" ".join(tokens[i:i + n]) for i in range(len(tokens) - n + 1)}
+
+
+def benchmark_fingerprints(prompts: list[str], n: int = 10) -> set[str]:
+    """Normalized n-gram set over benchmark prompts + canonical solutions (pass both in)."""
+    fp: set[str] = set()
+    for p in prompts:
+        fp |= _ngrams(_norm_tokens(p), n)
+    return fp
+
+
+def _row_text(row: dict) -> str:
+    """Extract text from single-turn or multi-turn row schema."""
+    if "turns" in row:
+        return " ".join((t.get("user", "") + " " + t.get("assistant", "")) for t in row["turns"])
+    return f"{row.get('instruction', '')} {row.get('context', '')} {row.get('response', '')}"
+
+
+def decontaminate(rows: list[dict], fingerprints: set[str], n: int = 10) -> tuple[list[dict], int]:
+    """Drop any row sharing an n-gram with the benchmark fingerprint set. Returns
+    (kept_rows, removed_count). Applied identically to both arms so it cannot bias the A/B."""
+    kept, removed = [], 0
+    for r in rows:
+        if _ngrams(_norm_tokens(_row_text(r)), n) & fingerprints:
+            removed += 1
+        else:
+            kept.append(r)
+    return kept, removed
