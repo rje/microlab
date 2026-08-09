@@ -3,6 +3,7 @@ from microlab.data.code_sft import (
     normalize_commitpack,
     normalize_mbpp_train,
     oasst_code_convs,
+    verified_competitive_rows,
     verify_io,
     verify_unit_test,
 )
@@ -83,3 +84,25 @@ def test_verify_unit_test_accepts_correct_solution():
                     test_program="def check(add):\n    assert add(1, 2) == 3\ncheck(add)\n")
     assert verify_unit_test("def add(a, b):\n    return a + b", task) is True
     assert verify_unit_test("def add(a, b):\n    return a - b", task) is False
+
+
+def test_verified_competitive_rows_keeps_only_passing_solution():
+    problems = [{
+        "statement": "Read n, print n*2.",
+        "solutions": ["n=int(input());print(n-1)",      # wrong
+                      "n=int(input());print(n*2)"],       # correct
+        "io": [{"input": "21\n", "output": "42\n"}],
+    }]
+    rows, tally = verified_competitive_rows(problems, max_per_problem=1)
+    assert tally == {"problems": 1, "verified": 1, "no_passing_solution": 0}
+    assert len(rows) == 1
+    assert rows[0]["instruction"] == "Read n, print n*2."
+    assert rows[0]["response"] == "n=int(input());print(n*2)"
+
+
+def test_verified_competitive_rows_drops_problem_with_no_passing_solution():
+    problems = [{"statement": "s", "solutions": ["print('x')"],
+                 "io": [{"input": "", "output": "y\n"}]}]
+    rows, tally = verified_competitive_rows(problems)
+    assert rows == []
+    assert tally["no_passing_solution"] == 1

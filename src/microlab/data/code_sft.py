@@ -7,6 +7,7 @@ build_sft_mix.py uses. Row is the single-turn schema scripts/sft.py consumes.
 from __future__ import annotations
 
 import importlib.util as _ilu
+import json as _json
 import re as _re
 from pathlib import Path as _Path
 
@@ -103,3 +104,80 @@ def verify_io(solution: str, stdin_data: str, expected_stdout: str,
 def verify_unit_test(solution: str, task: CodeTask) -> bool:
     """True iff `solution` passes `task`'s unit-test suffix (HumanEval/MBPP style)."""
     return run_python(assemble_program(solution, task)).passed
+
+
+def verified_competitive_rows(problems: list[dict], max_per_problem: int = 1,
+                              timeout_s: float = 10.0) -> tuple[list[Row], dict]:
+    """For each normalized problem, keep up to `max_per_problem` human solutions that pass
+    ALL its I/O cases in the sandbox. instruction=statement, response=verified solution.
+    Solutions are tried shortest-first (concise correct code is the better demonstration)."""
+    rows: list[Row] = []
+    tally = {"problems": 0, "verified": 0, "no_passing_solution": 0}
+    for p in problems:
+        tally["problems"] += 1
+        statement = (p.get("statement") or "").strip()
+        cases = p.get("io") or []
+        if not statement or not cases:
+            tally["no_passing_solution"] += 1
+            continue
+        kept = 0
+        for sol in sorted(p.get("solutions") or [], key=len):
+            if all(verify_io(sol, c["input"], c["output"], timeout_s=timeout_s) for c in cases):
+                rows.append({"instruction": statement, "context": "", "response": sol.strip()})
+                kept += 1
+                if kept >= max_per_problem:
+                    break
+        if kept == 0:
+            tally["no_passing_solution"] += 1
+        else:
+            tally["verified"] += 1
+    return rows, tally
+
+
+def apps_problem(row: dict) -> dict:
+    """codeparrot/apps row -> normalized problem. `solutions` and `input_output` are
+    JSON-encoded strings; input_output has parallel `inputs`/`outputs` lists."""
+    if row.get("input_output"):
+        io = _json.loads(row["input_output"])
+    else:
+        io = {"inputs": [], "outputs": []}
+    cases = [{"input": i if isinstance(i, str) else "".join(i),
+              "output": o if isinstance(o, str) else "".join(o)}
+             for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
+    sols = _json.loads(row["solutions"]) if row.get("solutions") else []
+    return {"statement": row.get("question", ""), "solutions": sols, "io": cases}
+
+
+def codecontests_problem(row: dict) -> dict:
+    """deepmind/code_contests row -> normalized problem. Python solutions only (language enum
+    1==PYTHON, 3==PYTHON3 in the dataset); public+private tests as I/O cases."""
+    sols = []
+    sol_field = row.get("solutions") or {}
+    for lang, txt in zip(
+        sol_field.get("language", []), sol_field.get("solution", []), strict=False
+    ):
+        if lang in (1, 3):
+            sols.append(txt)
+    cases = []
+    for group in ("public_tests", "private_tests"):
+        g = row.get(group) or {}
+        cases += [{"input": i, "output": o}
+                  for i, o in zip(g.get("input", []), g.get("output", []), strict=False)]
+    return {"statement": row.get("description", ""), "solutions": sols, "io": cases}
+
+
+def taco_problem(row: dict) -> dict:
+    """BAAI/TACO row -> normalized problem. `solutions` is a JSON list; `input_output` is the
+    same JSON-string shape as APPS."""
+    if isinstance(row.get("solutions"), str):
+        sols = _json.loads(row["solutions"])
+    else:
+        sols = row.get("solutions") or []
+    if row.get("input_output"):
+        io = _json.loads(row["input_output"])
+    else:
+        io = {"inputs": [], "outputs": []}
+    cases = [{"input": i if isinstance(i, str) else "".join(i),
+              "output": o if isinstance(o, str) else "".join(o)}
+             for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
+    return {"statement": row.get("question", ""), "solutions": sols, "io": cases}
