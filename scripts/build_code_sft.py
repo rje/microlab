@@ -57,12 +57,20 @@ def build_compliant_mix(sources: dict, tok, seed: int = 0) -> tuple[list[dict], 
 def _load_sources(args, tok) -> dict:  # pragma: no cover - network/HF streaming
     from datasets import load_dataset
     lim = args.limit_per_source
+    # Competitive problems are gated separately: each one costs many sandbox runs to verify,
+    # so the expensive competitive set is capped independently of the cheap human sources.
+    comp_lim = args.competitive_limit if args.competitive_limit is not None else lim
 
     def cap(rows):
         return rows[:lim] if lim else rows
 
+    # datasets>=4.0 removed loading-script support, so commitpackft/apps/TACO (all
+    # script-based) can't be loaded by repo id; point at their raw data files via hf://
+    # instead. commitpackft stores one JSONL per language — take the Python file directly.
     commit = []
-    for r in load_dataset("bigcode/commitpackft", "python", split="train", streaming=True):
+    for r in load_dataset(
+            "json", data_files="hf://datasets/bigcode/commitpackft/data/python/data.jsonl",
+            split="train", streaming=True):
         n = normalize_commitpack(r, PY_LANGS)
         if n:
             commit.append(n)
@@ -80,17 +88,23 @@ def _load_sources(args, tok) -> dict:  # pragma: no cover - network/HF streaming
     oasst_msgs = list(load_dataset("OpenAssistant/oasst1", split="train"))
     oasst = cap(oasst_code_convs(oasst_msgs))
 
+    # apps/TACO are script-based -> load raw files via hf:// (json for apps' train.jsonl,
+    # parquet for TACO's ALL/train shards); code_contests is parquet-backed so its repo id
+    # still loads directly. APPS uses its TRAIN split (test is the conventional held-out
+    # eval set). Each entry: (format-or-repo, data_files-or-None, split, adapter).
     comp_rows, tally = [], {"problems": 0, "verified": 0, "no_passing_solution": 0}
-    adapters = [("codeparrot/apps", None, "test", apps_problem),
-                ("deepmind/code_contests", None, "train", codecontests_problem),
-                ("BAAI/TACO", None, "train", taco_problem)]
-    for name, cfg, split, adapt in adapters:
+    adapters = [
+        ("json", "hf://datasets/codeparrot/apps/train.jsonl", "train", apps_problem),
+        ("deepmind/code_contests", None, "train", codecontests_problem),
+        ("parquet", "hf://datasets/BAAI/TACO/ALL/train-*.parquet", "train", taco_problem),
+    ]
+    for fmt, data_files, split, adapt in adapters:
         probs = []
-        it = load_dataset(name, cfg, split=split, streaming=True) if cfg else \
-            load_dataset(name, split=split, streaming=True)
+        it = load_dataset(fmt, data_files=data_files, split=split, streaming=True) \
+            if data_files else load_dataset(fmt, split=split, streaming=True)
         for r in it:
             probs.append(adapt(r))
-            if lim and len(probs) >= lim:
+            if comp_lim and len(probs) >= comp_lim:
                 break
         rows, t = verified_competitive_rows(probs, max_per_problem=args.max_per_problem,
                                             timeout_s=args.timeout_s)
@@ -110,6 +124,10 @@ def main() -> None:  # pragma: no cover - network + IO
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--tokenizer", default="runs/coder-1b-step40000/tokenizer.json")
     ap.add_argument("--limit-per-source", type=int, default=None)
+    ap.add_argument("--competitive-limit", type=int, default=None,
+                    help="cap PROBLEMS processed per competitive dataset (apps/cc/taco); "
+                         "verification is slow, so cap this below --limit-per-source. "
+                         "Defaults to --limit-per-source.")
     ap.add_argument("--max-per-problem", type=int, default=1)
     ap.add_argument("--timeout-s", type=float, default=10.0)
     ap.add_argument("--seed", type=int, default=0)

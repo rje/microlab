@@ -126,6 +126,32 @@ def test_verified_competitive_rows_drops_problem_with_no_passing_solution():
     assert tally["no_passing_solution"] == 1
 
 
+def test_apps_problem_coerces_nonstring_io_and_skips_call_based():
+    import json as _j
+
+    from microlab.data.code_sft import apps_problem
+    # standard stdin/stdout problem with a stray non-string output item (observed in TACO):
+    # a bool inside the outputs list must not crash — it is str()'d.
+    row = {"question": "Q", "solutions": _j.dumps(["print(1)"]),
+           "input_output": _j.dumps({"inputs": ["1\n"], "outputs": [[True]]})}
+    p = apps_problem(row)
+    assert p["io"] == [{"input": "1\n", "output": "True"}]
+    # call-based problems (fn_name present) are stdin/stdout-incompatible -> no cases
+    call_based = {"question": "Q", "solutions": _j.dumps(["def f(): pass"]),
+                  "input_output": _j.dumps({"fn_name": "f", "inputs": [[1]], "outputs": [[2]]})}
+    assert apps_problem(call_based)["io"] == []
+
+
+def test_taco_problem_shares_io_normalization():
+    import json as _j
+
+    from microlab.data.code_sft import taco_problem
+    row = {"question": "Q", "solutions": _j.dumps(["print(2)"]),
+           "input_output": _j.dumps({"inputs": [["a", "b"]], "outputs": ["ab\n"]})}
+    # a list-of-lines input is joined; output passes through
+    assert taco_problem(row)["io"] == [{"input": "ab", "output": "ab\n"}]
+
+
 class _ByteTok:
     def encode(self, s): return list(s.encode("utf-8"))
 

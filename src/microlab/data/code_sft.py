@@ -140,18 +140,35 @@ def verified_competitive_rows(problems: list[dict], max_per_problem: int = 1,
     return rows, tally
 
 
+def _io_item_to_str(v) -> str:
+    """Coerce one APPS/TACO input/output item to a string. Items are usually the raw
+    stdin/stdout text, but some rows wrap them in a list of lines and a few carry non-string
+    scalars — str() them so a stray type can't crash the whole build (observed: TACO outputs
+    containing a bool)."""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, (list, tuple)):
+        return "".join(_io_item_to_str(x) for x in v)
+    return str(v)
+
+
+def _io_cases(io: dict) -> list[dict]:
+    """Build (input, output) string cases from a parsed APPS/TACO input_output dict.
+    Call-based problems (carrying `fn_name`) are stdin/stdout-incompatible with the executor's
+    verify_io, so they yield no cases and the problem drops out as unverifiable rather than
+    being falsely tested against stdout."""
+    if not isinstance(io, dict) or io.get("fn_name"):
+        return []
+    return [{"input": _io_item_to_str(i), "output": _io_item_to_str(o)}
+            for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
+
+
 def apps_problem(row: dict) -> dict:
     """codeparrot/apps row -> normalized problem. `solutions` and `input_output` are
     JSON-encoded strings; input_output has parallel `inputs`/`outputs` lists."""
-    if row.get("input_output"):
-        io = _json.loads(row["input_output"])
-    else:
-        io = {"inputs": [], "outputs": []}
-    cases = [{"input": i if isinstance(i, str) else "".join(i),
-              "output": o if isinstance(o, str) else "".join(o)}
-             for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
+    io = _json.loads(row["input_output"]) if row.get("input_output") else {}
     sols = _json.loads(row["solutions"]) if row.get("solutions") else []
-    return {"statement": row.get("question", ""), "solutions": sols, "io": cases}
+    return {"statement": row.get("question", ""), "solutions": sols, "io": _io_cases(io)}
 
 
 def codecontests_problem(row: dict) -> dict:
@@ -179,14 +196,8 @@ def taco_problem(row: dict) -> dict:
         sols = _json.loads(row["solutions"])
     else:
         sols = row.get("solutions") or []
-    if row.get("input_output"):
-        io = _json.loads(row["input_output"])
-    else:
-        io = {"inputs": [], "outputs": []}
-    cases = [{"input": i if isinstance(i, str) else "".join(i),
-              "output": o if isinstance(o, str) else "".join(o)}
-             for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
-    return {"statement": row.get("question", ""), "solutions": sols, "io": cases}
+    io = _json.loads(row["input_output"]) if row.get("input_output") else {}
+    return {"statement": row.get("question", ""), "solutions": sols, "io": _io_cases(io)}
 
 
 def row_supervised_tokens(row: dict, tok) -> int:
