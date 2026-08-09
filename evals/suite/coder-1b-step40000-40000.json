@@ -1,0 +1,68 @@
+{
+ "run": "runs/coder-1b-step40000",
+ "ckpt": "ckpt_40000.pt",
+ "step": 40000,
+ "tokens_seen": 20971520000,
+ "block": 4096,
+ "per_slice_val": {
+  "code": {
+   "loss": 0.9491714698572954,
+   "ppl": 2.583568208173733
+  },
+  "web": {
+   "loss": 2.7721861402193704,
+   "ppl": 15.993559984077717
+  },
+  "math": {
+   "loss": 2.0505053649346032,
+   "ppl": 7.7718277232450514
+  },
+  "markdown": {
+   "loss": 1.784189060330391,
+   "ppl": 5.954749046838155
+  },
+  "arxiv": {
+   "loss": 1.093778730680545,
+   "ppl": 2.9855343145658084
+  },
+  "commits": {
+   "loss": 0.9934650585055351,
+   "ppl": 2.7005759322539946
+  }
+ },
+ "timing_val_s": 73.5,
+ "fim": {
+  "trained_with_fim": true,
+  "n": 63,
+  "middle_loss": 0.5847567253642612,
+  "middle_ppl": 1.7945543629734775
+ },
+ "syntax_valid": {
+  "n": 6,
+  "parsed": 1,
+  "parse_rate": 0.16666666666666666,
+  "failures": [
+   "def fibonacci(n):\n\tif n == 0:\n\t\treturn 0\n\telif n == 1:\n\t\treturn 1\n\telse:\n\t\treturn fibonacci(n - 1) + fibonacci(n - 2)\n\ndef fibonacci_iterative(n):\n\tif n == 0:\n\t",
+   "def quicksort(arr):\n\t\"\"\"\n\tSorts an array in-place.\n\t\"\"\"\n\tfor i in range(len(arr)):\n\t\tfor j in range(i + 1, len(arr)):\n\t\t\tif arr[j] > arr[i]:\n\t\t\t\tarr[j], arr[i] "
+  ]
+ },
+ "repetition": {
+  "prompts": 8,
+  "looped": 6,
+  "loop_rate": 0.75
+ },
+ "delegated": {
+  "humaneval": {
+   "returncode": 0,
+   "tail": "al/159#0: fail [82s]\n[161/164] HumanEval/160#0: fail [82s]\n[162/164] HumanEval/161#0: fail [82s]\n[163/164] HumanEval/162#0: fail [87s]\n[164/164] HumanEval/163#0: fail [87s]\n{\n  \"header\": {\n    \"run\": \"runs/coder-1b-step40000\",\n    \"dataset\": \"humaneval\",\n    \"mode\": \"base\",\n    \"n\": 1,\n    \"temperature\": 0.0,\n    \"max_new\": 400,\n    \"seed\": 0,\n    \"limit\": null\n  },\n  \"ckpt_step\": 40000,\n  \"n_tasks\": 164,\n  \"n_samples_per_task\": 1,\n  \"pass@1\": 0.006097560975609756\n}\nwrote evals/suite/coder-1b-step40000-40000-humaneval.jsonl and evals/suite/coder-1b-step40000-40000-humaneval.summary.json (87s)\n"
+  },
+  "mbpp": {
+   "returncode": 0,
+   "tail": "4#0: fail [819s]\n[253/257] Mbpp/475#0: fail [823s]\n[254/257] Mbpp/476#0: fail [828s]\n[255/257] Mbpp/477#0: fail [832s]\n[256/257] Mbpp/478#0: fail [837s]\n[257/257] Mbpp/479#0: fail [837s]\n{\n  \"header\": {\n    \"run\": \"runs/coder-1b-step40000\",\n    \"dataset\": \"mbpp\",\n    \"mode\": \"base\",\n    \"n\": 1,\n    \"temperature\": 0.0,\n    \"max_new\": 400,\n    \"seed\": 0,\n    \"limit\": null\n  },\n  \"ckpt_step\": 40000,\n  \"n_tasks\": 257,\n  \"n_samples_per_task\": 1,\n  \"pass@1\": 0.038910505836575876\n}\nwrote evals/suite/coder-1b-step40000-40000-mbpp.jsonl and evals/suite/coder-1b-step40000-40000-mbpp.summary.json (837s)\n"
+  },
+  "probes": {
+   "returncode": 0,
+   "tail": "sta'] -> ' rain.\\n\\nThe rain fell on the ground and the umbrella started to rain.\\n\\nThe umbrella started to rain.\\n\\nThe umbrella started'\n  ['def binary_search(arr, target): / '] -> '\\tif target == 0:\\n\\t\\treturn -1\\n\\telse:\\n\\t\\tif target == arr[0]:\\n\\t\\t\\treturn 0'\n  ['class LinkedList: /     def __init__(s'] -> '#        self.head = None\\n        self.tail = None\\n        self.size = 0\\n\\n    def push(self, data):\\n        if'\n  ['// Reverse a string in JavaScript / fu'] -> \"\\treturn s.split('').reverse().join('');\\n}\\n\\n// Return a string in JavaScript\\nfunction toString(s) {\\n\\treturn\"\n"
+  }
+ }
+}

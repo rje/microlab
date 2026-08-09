@@ -286,6 +286,14 @@ def divide(a, b):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+# https://stackoverflow.com/questions/12984694/addition-operation-with-numpy-array-like-values
+# https://stackoverflow.com/questions/133780
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -605,6 +613,20 @@ def main(args):
     print "a.x:", a.x
     print "a.y:", a.y
     print "
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+	self._x = x
+	self._y = y
+    def __repr__(self):
+	return f"({self._x}, {self._y})"
+    def __str__(self):
+	return self._repr()
+    def __eq__(self, other):
+	return self._
 ```
 </details>
 
@@ -1004,6 +1026,23 @@ def get_next_greater_than(n, target):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#    # If it's the first item, or if the list is empty, return -1
+    if len(arr) <= 0:
+      return -1
+
+    # We start with binary search of the base case.
+    if target < arr[0]:
+      return binary_search(arr, target, 0)
+
+    # Otherwise we can stop here.
+    if target > arr[len(arr) - 1]:
+      return binary_search(arr
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1330,6 +1369,17 @@ from pandas import read_
         help="filename with input data")
     parser.add_argument("-o", "--output-file", required=True, type=str, metavar="filename",
         help="
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+
+#     parser = argparse.ArgumentParser(description='Convert CSV files to JSON files')
+    parser.add_argument('--input_file_1', metavar="CSV file 1", help='input file name 1')
+    parser.add_argument('--input_file_2', metavar="CSV file 2", help='input file name 2')
+    parser.add_argument('--output_file_1', metavar="JSON file 1", help='
 ```
 </details>
 
@@ -1761,6 +1811,25 @@ for i in range(1, 101):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+	print i
+for i in range(1, 100, 3):
+	print i
+	for i in range(1, 101, 3):
+		print i
+	for i in range(1, 100, 5):
+		print i
+
+print 101
+print 102
+print 103
+print 103
+print 104
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -2091,6 +2160,22 @@ https://github.com/openai/neural-language-toolkit
 	        cleaned = 'q.':
 	        cleaned = cleaned.replace(' ', '')
 	    if cleaned == '
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+#        print item
+        if cleaned.lower() in self.valid_words:
+            results.append(item)
+    return results
+#end of word_filter
+
+#    if clean.lower() not in self.valid_words:
+#        return False
+#    else:
+#       
 ```
 </details>
 
@@ -2481,6 +2566,21 @@ if __name__ == "__main__":
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#         print(f"counter: {self.count}")
+        self.count += 1
+        if self.count >= 20:
+            self.count = 0
+        return self.count
+
+
+# We can define a counter that will count objects that have been marked as
+# "read_
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2789,6 +2889,23 @@ function factorial(n: u64) {
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+return this.factorial(n.toNumber());
+}
+}
+
+type factorial = u64 -> factorial
+
+type factorial = factorial
+
+export const facto1 = (n: u64) -> factorial(n.toNumber())
+
+export const fact
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2999,6 +3116,23 @@ LIMIT 10
 1, 'Ricky' AS customer_name, 'Ricky' AS customer_name FROM order_history WHERE customer_name = 'Ricky' ORDER BY customer_name ASC
 GROUP BY customer_name
 GROUP BY customer
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+
+order_name,
+order_id,
+order_date,
+order_status,
+order_amount,
+order_id,
+order_date,
+order_status,
+order_total,
+order_
 ```
 </details>
 
@@ -3456,6 +3590,24 @@ def is_valid_json(json_data):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+
+def ReadJson(filename):
+    with open(filename, 'r') as f:
+        return json.loads(f.read())
+
+def WriteJson(filename, data):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+
+def WriteJson(filename, data):
+    with open(filename, 'w') as f:
+        json.dump
+```
+</details>
+
 ## `markdown-doc`
 
 ```
@@ -3895,6 +4047,22 @@ This package has been released with a MIT license
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+yarn install
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details
+
+## Acknowledgments
+
+This project has been developed as part of the [Michaël Schulz](https://github.com/michaelsch
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -4101,6 +4269,13 @@ No, he's not talking about the derivative. He's talking about the indefinite int
 ```
 2x. So, if you plug in x = 0.5, you get 2x. If you plug in x = 1.0, you get 2x. If you plug in x = 2.0, you get 4x.
 Since x^2 is constant,
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+0 at x=0. The graph of the quadratic function is a parabola. This is a parabola with asymptotes at x = 0 and x = 0. The graph is a parabola. The graphs are not identical because they are not functions. The vertex is (2
 ```
 </details>
 
@@ -4933,6 +5108,68 @@ if __name__ == "__main__":
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#     parser.add_argument("input_csv_file")
+    parser.add_argument("input_json_file")
+    args = parser.parse_args()
+    with open(args.input_csv_file, "r", encoding="utf-8") as input_csv_file:
+        input_json_file = args.input_json_file
+        with open(input_json_file, "r", encoding="utf-8") as input_json_file:
+            input_json = json.load(input_json_file)
+            with open(args.input_csv_file, "r", encoding="utf-8") as input_csv_file:
+                input_csv = csv.reader(input_csv_file, delimiter='\t') #, quotechar='"')
+                for line in input_csv:
+                    try:
+                        input_json.append(line)
+                    except:
+                        print(line)
+            with open(args.input_json_file, "w", encoding="utf-8") as output_json_file:
+                json.dump(input_json, output_json_file, indent=4, sort_keys=True, ensure_ascii=False)
+
+if __name__ == "__main__":
+    main()
+
+# coding: utf-8
+
+"""
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST API specification
+
+    Openshift REST
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -5732,6 +5969,34 @@ class Complexity1(Complexity):
 # @profile
 # def binary_search_sorted(arr, target, i, j, l, r=None):
 #     if l < 0 or r >= len(arr) or l < 0 or r >=
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+#        if (target < 0 or target >= len(arr)) or target == arr.length():
+#            return -1
+    for i in range(len(arr)):
+        if (arr[i] >= target and target < arr[i] < arr[len(arr) - 1]):
+            return i
+    return -1
+
+def binary_search_sorted(arr, target):
+    """Return index of target in sorted list arr, or -1 if absent."""
+#        if (target < 0 or target >= len(arr)) or target == arr.length():
+#            return -1
+    for i in range(len(arr)):
+        if (arr[i] >= target and target < arr[i] < arr[len(arr) - 1]):
+            return i
+    return -1
+
+def binary_search_sorted_array(arr, target):
+    """Return index of target in the sorted list arr, or -1 if absent."""
+#        if (target < 0 or target >= len(arr)) or target == arr.length():
+#            return -1
+    for i in range(len(arr)):
+        if (arr[i] >= target
 ```
 </details>
 
@@ -7323,6 +7588,78 @@ class LRUCachePool(object):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#        self.cache = {}
+        self._capacity = capacity
+
+    def get(self, key):
+        """Return the least-recently-used cache entry with the given key.
+
+        :param key: The key to look for
+        :return: The entry or -1 if the key is not in the cache
+        """
+        # Try to get the next least used cache entry
+        try:
+            return next(self._cache.values()).get(key, -1)
+        except StopIteration:
+            return -1
+
+    def set(self, key, value):
+        """Store the given key in the cache and return its new value.
+
+        :param key: The key of the new value to store
+        :param value: The value to store
+        :return: The new value
+        """
+        return self._cache[key][0] = value
+
+    def get_all(self, key):
+        """Return all the values in the cache.
+
+        :param key: The key to look for
+        :return: All the values in the cache
+        """
+        return self._cache.values()
+
+
+class LRUSet(object):
+    """A least-recently-used set with a fixed capacity."""
+
+    def __init__(self, capacity):
+        """Initialize the cache with the given capacity.
+
+        :param capacity: The maximum number of entries to store
+        """
+        self._cache = {}
+        self.capacity = capacity
+
+    def add(self, key, value):
+        """Add the given key to the cache if it is not already in the cache.
+
+        :param key: The key to add
+        :param value: The value to add
+        :return: The cache entry with the given key
+        """
+        # If the key is not already in the cache, add it
+        if key not in self._cache:
+            self._cache[key] = []
+
+        # If the entry with the given key is not in the cache, add it
+        if key not in self._cache:
+            self._cache[key] = []
+        # If the entry with the given key is in the cache, and it's not the last entry, store it
+        if key not in self._cache:
+            self._cache[key].append(value)
+        # If the entry with the given key is in the cache, and it's not the last entry, store it
+        elif key not in self._cache:
+            self._cache[key].append(value)
+
+    def get(self
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -8137,5 +8474,28 @@ if __name__ == '__main__':
     from sklearn.metrics import precision_recall_curve
     from sklearn.metrics import average_precision_recall_curve
     import
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+	return self._read(file_, depth=1, base_path=os.path.dirname(file_))
+
+  def list_paths(self, file_, base_path=None):
+	"""List the paths in a JSON file"""
+	paths = self._read(file_, depth=1, base_path=base_path)
+	#paths = [os.path.join(base_path, path) for path in self._read(file_, depth=1, base_path=base_path)]
+	return [os.path.dirname(path) for path in paths]
+
+  def open_file(self, file_, base_path=None):
+	"""Open a file in a JSON file"""
+	with open(file_, 'r') as file_:
+		return self.read(file_, base_path=base_path)
+
+  def read(self, file_, base_path=None):
+	"""Read a JSON file"""
+	with open(file_, 'r') as file_:
+		return json.load(file_, object_pairs_hook=self._read, object_pairs_hook=self._read, base_path=base_
 ```
 </details>

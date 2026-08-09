@@ -316,6 +316,22 @@ def divide(a, b):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+	return a + b
+
+def subtract(a, b):
+	return a - b
+
+def multiply(a, b):
+	return a * b
+
+def divide(a, b):
+	return a
+```
+</details>
+
 ## `class-skeleton`
 
 ```
@@ -638,6 +654,22 @@ class Line(object):
 
     def __eq__(self, other):
 	return self.x == other.x and self.y
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+#        self.x = x
+#        self.y = y
+        self.x = x
+        self.y = y
+
+    def __repr__(self):
+        return "Point(%f, %f)" % (self.x, self.y)
+
+    def __str__(self):
+        return "
 ```
 </details>
 
@@ -1031,6 +1063,25 @@ def binary_search(arr, target):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if
+```
+</details>
+
 ## `argparse`
 
 ```
@@ -1378,6 +1429,17 @@ def main_csv_file_name_csv(file_name):
         with open(args.output_file, 'w') as f:
             for line in f:
                 line = line.strip
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+#    parser.add_argument("-i", "--input-file", required=True, help="Input file")
+    parser.add_argument("-o", "--output-file", required=True, help="Output file")
+    parser.add_argument("-t", "--target-file", required=True, help="Target file")
+    parser.add_argument("-d", "--delimiter", required=True, help="Delimiter")
+    parser.add_argument
 ```
 </details>
 
@@ -1750,6 +1812,22 @@ for i in range(1, 101):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+	if i % 3 == 0 or i % 5 == 0:
+		print i
+	else:
+		print i
+
+# Print numbers 1 to 100, but Fizz for multiples of 3, Buzz for 5
+for i in range(1, 101):
+	if i % 3 == 0 or i % 5 == 0:
+		print i
+	
+```
+</details>
+
 ## `var-binding`
 
 ```
@@ -2056,6 +2134,18 @@ def main():
 #            results.append(item)
 #        elif cleaned == 'all':
 #
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+#        if cleaned.startswith('http'):
+#            cleaned = cleaned.replace('http://', '')
+#            cleaned = cleaned.replace('https://', '')
+        if cleaned.startswith('http'):
+            cleaned = cleaned.replace('http://', '')
+            cleaned = cleaned.replace('https://',
 ```
 </details>
 
@@ -2427,6 +2517,26 @@ class Counter:
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#        print "Counter.increment"
+        self.count += 1
+
+    def decrement(self):
+        self.count -= 1
+
+    def reset(self):
+        self.count = 0
+
+class Counter2:
+    def __init__(self):
+        self.count = 0
+
+    def increment
+```
+</details>
+
 ## `rust-fn`
 
 ```
@@ -2697,6 +2807,13 @@ export function factorial2(n: u6
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+return n * (n - 1) * (n - 2) * (n - 3) * (n - 4) * (n - 5) * (n - 6) * (n - 7) * (n - 8) * (n - 9
+```
+</details>
+
 ## `sql`
 
 ```
@@ -2876,6 +2993,13 @@ order_status = 'pending
 
 ```
 1, 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John Doe', 'John
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1
 ```
 </details>
 
@@ -3324,6 +3448,21 @@ def read_json_file_lines(filename):
         return json.load(f)
 
 def read_
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+def read_json_file(file_path):
+  with open(file_path, 'r') as f:
+    return json.load(f)
+
+def read_json_file_with_header(file_path, header_name):
+  with open(file_path, 'r') as f:
+    return json.load(f, object_pairs_hook=OrderedDict)
+
+def read_json_file_with_header
 ```
 </details>
 
@@ -3778,6 +3917,31 @@ To run the tests and watch
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+npm install --save @types/node-fetch
+```
+
+To run the example:
+
+```bash
+npm run example
+```
+
+To run the example with `npx`:
+
+```bash
+npm run example -- --help
+```
+
+## Usage
+
+```ts
+import {
+```
+</details>
+
 ## `math-prose`
 
 ```
@@ -4116,6 +4280,23 @@ f'(x) = 2x - 2
 f(x) = x^2 - 2x
 
 f
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+2x.
+
+The derivative of x^2 is 2x.
+
+The derivative of x^2 is 2x.
+
+The derivative of x^2 is 2x.
+
+The derivative of x^2 is 2x.
+
+The derivative of x^2 is
 ```
 </details>
 
@@ -5355,6 +5536,50 @@ if __name__ == "__main__":
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#    parser.add_argument("-i", "--input-file", required=True, help="Input file")
+    parser.add_argument("-o", "--output-file", required=True, help="Output file")
+    parser.add_argument("-t", "--target-file", required=True, help="Target file")
+    parser.add_argument("-d", "--delimiter", required=True, help="Delimiter")
+    parser.add_argument("-s", "--separator", required=True, help="Separator")
+    parser.add_argument("-f", "--format", required=True, help="Format")
+    args = parser.parse_args()
+    input_file = args.input_file
+    output_file = args.output_file
+    target_file = args.target_file
+    delimiter = args.delimiter
+    separator = args.separator
+    format = args.format
+    input_file = open(input_file, "r")
+    output_file = open(output_file, "w")
+    target_file = open(target_file, "w")
+    for line in input_file:
+        line = line.strip()
+        if line == "":
+            continue
+        if line.startswith(delimiter):
+            line = line[1:]
+        if line.startswith(separator):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[1:]
+        if line.startswith(format):
+            line = line[
+```
+</details>
+
 ## `binary-search-long`
 
 ```
@@ -6130,6 +6355,45 @@ def binary_search
 # def binary_search(arr, target):
 #     """Return the index of target in sorted list arr, or -1 if absent."""
 
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
+#        return -1
+#    if target >= len(arr):
+#        return -1
+#    if target < 0:
 ```
 </details>
 
@@ -7578,6 +7842,90 @@ class LRUCacheWithCapacityAndPriority(object):
 ```
 </details>
 
+<details><summary>step 40000</summary>
+
+```
+#        self.capacity = capacity
+        self.cache = {}
+        self.capacity = capacity
+
+    def get(self, key, default=None):
+        """Returns the value stored in the cache with the given key.
+
+        :param key: The key to look up.
+        :param default: The value to return if the key is not in the cache.
+        """
+        if key not in self.cache:
+            return default
+        return self.cache[key]
+
+    def set(self, key, value):
+        """Sets the value stored in the cache with the given key.
+
+        :param key: The key to store.
+        :param value: The value to store.
+        """
+        self.cache[key] = value
+
+    def get_all(self):
+        """Returns a list of all the values stored in the cache.
+
+        :return: A list of all the values stored in the cache.
+        """
+        return list(self.cache.keys())
+
+    def get_size(self):
+        """Returns the size of the cache.
+
+        :return: The size of the cache.
+        """
+        return len(self.cache)
+
+    def get_key(self, key):
+        """Returns the key stored in the cache with the given key.
+
+        :param key: The key to look up.
+        :return: The key stored in the cache.
+        """
+        return key
+
+    def get_value(self, key):
+        """Returns the value stored in the cache with the given key.
+
+        :param key: The key to look up.
+        :return: The value stored in the cache.
+        """
+        return self.cache[key]
+
+    def set_value(self, key, value):
+        """Sets the value stored in the cache with the given key.
+
+        :param key: The key to store.
+        :param value: The value to store.
+        """
+        self.cache[key] = value
+
+    def get_all(self):
+        """Returns a list of all the values stored in the cache.
+
+        :return: A list of all the values stored in the cache.
+        """
+        return list(self.cache.keys())
+
+    def get_size(self):
+        """Returns the size of the cache.
+
+        :return: The size of the cache.
+        """
+        return len(self.cache)
+
+    def get_key(self, key):
+        """Returns the key stored in the cache with the given key.
+
+       
+```
+</details>
+
 ## `docstring-long`
 
 ```
@@ -8466,5 +8814,32 @@ def read_json_file_lines(filename):
 def read_json_file_lines(filename):
     with open(filename, 'r') as f:
         return json.load(f)
+```
+</details>
+
+<details><summary>step 40000</summary>
+
+```
+def read_json_file(file_path):
+  with open(file_path, 'r') as f:
+    return json.load(f)
+
+def read_json_file_with_header(file_path, header_name):
+  with open(file_path, 'r') as f:
+    return json.load(f, object_pairs_hook=OrderedDict)
+
+def read_json_file_with_header(file_path, header_name):
+  with open(file_path, 'r') as f:
+    return json.load(f, object_pairs_hook=OrderedDict)
+
+def read_json_file_with_header(file_path, header_name):
+  with open(file_path, 'r') as f:
+    return json.load(f, object_pairs_hook=OrderedDict)
+
+def read_json_file_with_header(file_path, header_name):
+  with open(file_path, 'r') as f:
+    return json.load(f, object_pairs_hook=OrderedDict)
+
+def read_json_file_with_header(file_path, header_
 ```
 </details>
