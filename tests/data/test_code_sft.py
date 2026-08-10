@@ -159,6 +159,20 @@ def test_apps_problem_coerces_nonstring_io_and_skips_call_based():
     assert apps_problem(call_based)["io"] == []
 
 
+def test_apps_problem_survives_huge_integer_test_case():
+    import json as _j
+
+    from microlab.data.code_sft import apps_problem
+    # a competitive test case with a 9000-digit integer exceeds Python 3.11's int()-from-str
+    # digit cap; the adapter must parse it as a string, not crash (json here writes it as a
+    # bare number so json.loads would otherwise int() it).
+    big = "9" * 9000
+    io = f'{{"inputs": [{big}], "outputs": ["ok\\n"]}}'
+    row = {"question": "Q", "solutions": _j.dumps(["print('ok')"]), "input_output": io}
+    p = apps_problem(row)  # must not raise
+    assert p["io"] == [{"input": big, "output": "ok\n"}]
+
+
 def test_taco_problem_shares_io_normalization():
     import json as _j
 
