@@ -1,0 +1,708 @@
+{
+  "run": "runs/coder-1b-instruct-distilled",
+  "ckpt": "ckpt_867.pt",
+  "step": 867,
+  "trained_block_size": 32768,
+  "rope_base": 10000.0,
+  "eval_block": 32768,
+  "lengths": [
+    1024,
+    2048,
+    4000,
+    8000
+  ],
+  "depths": [
+    0.25,
+    0.5,
+    0.9
+  ],
+  "n": 8,
+  "seed": 0,
+  "max_new": 12,
+  "cells": [
+    {
+      "length": 1024,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "21582",
+          "answer": "21582",
+          "text": " 21582. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "44614",
+          "answer": "44614",
+          "text": " 44614. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "96875",
+          "answer": "96875",
+          "text": " 96875. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "94801",
+          "answer": "94801",
+          "text": " 94801. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "61437",
+          "answer": "61437",
+          "text": " 61437. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "57332",
+          "answer": "57332",
+          "text": " 57332. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "32092",
+          "answer": "32092",
+          "text": " 32092. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "82384",
+          "answer": "82384",
+          "text": " 82384. Remember it. 8",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "80151",
+          "answer": "80151",
+          "text": " 80151. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "38725",
+          "answer": "38725",
+          "text": " 38725. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "96309",
+          "answer": "96309",
+          "text": " 96309. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "33991",
+          "answer": "33991",
+          "text": " 33991. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "94900",
+          "answer": "94900",
+          "text": " 94900. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "50755",
+          "answer": "50755",
+          "text": " 50755. Remember it. 5",
+          "ok": true
+        },
+        {
+          "key": "95488",
+          "answer": "95488",
+          "text": " 95488. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "65621",
+          "answer": "65621",
+          "text": " 65621. Remember it. 6",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 1024,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 7,
+      "acc": 0.875,
+      "samples": [
+        {
+          "key": "41635",
+          "answer": "41635",
+          "text": " 41635. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "48797",
+          "answer": "48797",
+          "text": " 48797. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "69750",
+          "answer": "6",
+          "text": " a 6-digit number that is used to identify pass",
+          "ok": false
+        },
+        {
+          "key": "28355",
+          "answer": "28355",
+          "text": " 28355. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "26524",
+          "answer": "26524",
+          "text": " 26524. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "12946",
+          "answer": "12946",
+          "text": " 12946. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "87258",
+          "answer": "87258",
+          "text": " 87258. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "46987",
+          "answer": "46987",
+          "text": " 46987. Remember it. 4",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 2048,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "68743",
+          "answer": "68743",
+          "text": " 68743. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "25127",
+          "answer": "25127",
+          "text": " 25127. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "67745",
+          "answer": "67745",
+          "text": " 67745. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "24011",
+          "answer": "24011",
+          "text": " 24011. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "75235",
+          "answer": "75235",
+          "text": " 75235. Remember it. 7",
+          "ok": true
+        },
+        {
+          "key": "20537",
+          "answer": "20537",
+          "text": " 20537. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "96457",
+          "answer": "96457",
+          "text": " 96457. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "51624",
+          "answer": "51624",
+          "text": " 51624. Remember it. 5",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 2048,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "45247",
+          "answer": "45247",
+          "text": " a 45247 key that is used to",
+          "ok": true
+        },
+        {
+          "key": "90874",
+          "answer": "90874",
+          "text": " 90874. Remember it. 9",
+          "ok": true
+        },
+        {
+          "key": "27809",
+          "answer": "27809",
+          "text": " 27809. Remember it. 2",
+          "ok": true
+        },
+        {
+          "key": "94637",
+          "answer": "94637",
+          "text": " 94637. This is a typewriter",
+          "ok": true
+        },
+        {
+          "key": "43783",
+          "answer": "43783",
+          "text": " 43783. This is the key on",
+          "ok": true
+        },
+        {
+          "key": "45165",
+          "answer": "45165",
+          "text": " 45165. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "38389",
+          "answer": "38389",
+          "text": " 38389. This is the key used",
+          "ok": true
+        },
+        {
+          "key": "67353",
+          "answer": "67353",
+          "text": " 67353. This is the key used",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 2048,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 4,
+      "acc": 0.5,
+      "samples": [
+        {
+          "key": "88343",
+          "answer": "13",
+          "text": " a 13-character string that is used to identify",
+          "ok": false
+        },
+        {
+          "key": "27716",
+          "answer": "27",
+          "text": " a 27-bit binary number. It is the",
+          "ok": false
+        },
+        {
+          "key": "48343",
+          "answer": "48",
+          "text": " a 48-bit binary number that is used to",
+          "ok": false
+        },
+        {
+          "key": "45911",
+          "answer": "45911",
+          "text": " a 45911-based key system where",
+          "ok": true
+        },
+        {
+          "key": "29242",
+          "answer": "29242",
+          "text": " a 29242 symbol. It is a",
+          "ok": true
+        },
+        {
+          "key": "10667",
+          "answer": "10",
+          "text": " a 10-letter code used by most people to",
+          "ok": false
+        },
+        {
+          "key": "20730",
+          "answer": "20730",
+          "text": " a 20730 key on a modern keyboard",
+          "ok": true
+        },
+        {
+          "key": "35425",
+          "answer": "35425",
+          "text": " a 35425 pass key. It is",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4000,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 6,
+      "acc": 0.75,
+      "samples": [
+        {
+          "key": "95449",
+          "answer": null,
+          "text": " a symbol used by many countries to mark the start of a",
+          "ok": false
+        },
+        {
+          "key": "29278",
+          "answer": "29278",
+          "text": " 29278. This is the number that",
+          "ok": true
+        },
+        {
+          "key": "70315",
+          "answer": "70315",
+          "text": " a 70315. Remember it. ",
+          "ok": true
+        },
+        {
+          "key": "16497",
+          "answer": "16497",
+          "text": " 16497. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "78357",
+          "answer": "7",
+          "text": " a 7-bit binary number that is used to identify",
+          "ok": false
+        },
+        {
+          "key": "90410",
+          "answer": "90410",
+          "text": " a 90410 standard key on a micro",
+          "ok": true
+        },
+        {
+          "key": "44912",
+          "answer": "44912",
+          "text": " a 44912 symbol. It is a",
+          "ok": true
+        },
+        {
+          "key": "22400",
+          "answer": "22400",
+          "text": " 22400. Remember it? 2",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4000,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "45450",
+          "answer": "45450",
+          "text": " 45450. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "49441",
+          "answer": "49441",
+          "text": " 49441. Remember it. 4",
+          "ok": true
+        },
+        {
+          "key": "41281",
+          "answer": "41281",
+          "text": " 41281. This is the key that",
+          "ok": true
+        },
+        {
+          "key": "47398",
+          "answer": "47398",
+          "text": " 47398. This is the only key",
+          "ok": true
+        },
+        {
+          "key": "44546",
+          "answer": "44546",
+          "text": " 44546. This is the key that",
+          "ok": true
+        },
+        {
+          "key": "67914",
+          "answer": "67914",
+          "text": " 67914. Remember it. 6",
+          "ok": true
+        },
+        {
+          "key": "80076",
+          "answer": "80076",
+          "text": " 80076. This is the key on",
+          "ok": true
+        },
+        {
+          "key": "91823",
+          "answer": "91823",
+          "text": " 91823. This is the pass key",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 4000,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "75296",
+          "answer": "75296",
+          "text": " 75296. It is a typewriter",
+          "ok": true
+        },
+        {
+          "key": "52610",
+          "answer": "52610",
+          "text": " a 52610 standard key on a modern",
+          "ok": true
+        },
+        {
+          "key": "32375",
+          "answer": "32375",
+          "text": " 32375. Remember it. 3",
+          "ok": true
+        },
+        {
+          "key": "15019",
+          "answer": "15019",
+          "text": " 15019. It is a typewriter",
+          "ok": true
+        },
+        {
+          "key": "83113",
+          "answer": "83113",
+          "text": " 83113. This is the key on",
+          "ok": true
+        },
+        {
+          "key": "95973",
+          "answer": "95973",
+          "text": " 95973. This is the number used",
+          "ok": true
+        },
+        {
+          "key": "99051",
+          "answer": "99051",
+          "text": " 99051. It is a typewriter",
+          "ok": true
+        },
+        {
+          "key": "86269",
+          "answer": "86269",
+          "text": " 86269. This is the key that",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 8000,
+      "depth": 0.25,
+      "n": 8,
+      "correct": 3,
+      "acc": 0.375,
+      "samples": [
+        {
+          "key": "94799",
+          "answer": "9",
+          "text": " a 9-character string that is used to identify people",
+          "ok": false
+        },
+        {
+          "key": "67121",
+          "answer": "6",
+          "text": " a 6-digit number that is used to identify pass",
+          "ok": false
+        },
+        {
+          "key": "90283",
+          "answer": "90283",
+          "text": " a 90283 standard for the 9",
+          "ok": true
+        },
+        {
+          "key": "96462",
+          "answer": "9",
+          "text": " a 9-bit encryption standard that was introduced in ",
+          "ok": false
+        },
+        {
+          "key": "28850",
+          "answer": "28850",
+          "text": " a 28850-year-old key",
+          "ok": true
+        },
+        {
+          "key": "43046",
+          "answer": "430",
+          "text": " a 430-bit encryption standard that was proposed",
+          "ok": false
+        },
+        {
+          "key": "14054",
+          "answer": "14054",
+          "text": " a 14054 register that was not standardized",
+          "ok": true
+        },
+        {
+          "key": "11626",
+          "answer": "11",
+          "text": " a 11-character string that is used to identify",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "length": 8000,
+      "depth": 0.5,
+      "n": 8,
+      "correct": 8,
+      "acc": 1.0,
+      "samples": [
+        {
+          "key": "81842",
+          "answer": "81842",
+          "text": " 81842. This is the only key",
+          "ok": true
+        },
+        {
+          "key": "97697",
+          "answer": "97697",
+          "text": " 97697. This is a typewriter",
+          "ok": true
+        },
+        {
+          "key": "82888",
+          "answer": "82888",
+          "text": " 82888. This is the pass key",
+          "ok": true
+        },
+        {
+          "key": "84436",
+          "answer": "84436",
+          "text": " 84436. Remember it. 8",
+          "ok": true
+        },
+        {
+          "key": "33166",
+          "answer": "33166",
+          "text": " 33166. This is the pass key",
+          "ok": true
+        },
+        {
+          "key": "12284",
+          "answer": "12284",
+          "text": " 12284. Remember it? 1",
+          "ok": true
+        },
+        {
+          "key": "18915",
+          "answer": "18915",
+          "text": " 18915. Remember it. 1",
+          "ok": true
+        },
+        {
+          "key": "93106",
+          "answer": "93106",
+          "text": " 93106. This is the pass key",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "length": 8000,
+      "depth": 0.9,
+      "n": 8,
+      "correct": 6,
+      "acc": 0.75,
+      "samples": [
+        {
+          "key": "35317",
+          "answer": "35317",
+          "text": " 35317. This is the number used",
+          "ok": true
+        },
+        {
+          "key": "90402",
+          "answer": "90402",
+          "text": " 90402. It is a typewriter",
+          "ok": true
+        },
+        {
+          "key": "51699",
+          "answer": "51699",
+          "text": " 51699. This is the number that",
+          "ok": true
+        },
+        {
+          "key": "56913",
+          "answer": "56",
+          "text": " a 56-bit number that is used to identify",
+          "ok": false
+        },
+        {
+          "key": "52673",
+          "answer": "52673",
+          "text": " 52673. This is the first time",
+          "ok": true
+        },
+        {
+          "key": "68886",
+          "answer": "6",
+          "text": " a 6-digit number that is used to identify pass",
+          "ok": false
+        },
+        {
+          "key": "52606",
+          "answer": "52606",
+          "text": " 52606. This is the key that",
+          "ok": true
+        },
+        {
+          "key": "74630",
+          "answer": "74630",
+          "text": " 74630. This is the only key",
+          "ok": true
+        }
+      ]
+    }
+  ]
+}

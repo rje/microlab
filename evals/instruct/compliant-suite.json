@@ -1,0 +1,53 @@
+{
+ "run": "runs/coder-1b-instruct-compliant",
+ "ckpt": "ckpt_1485.pt",
+ "step": 1485,
+ "tokens_seen": 778567680,
+ "block": 4096,
+ "per_slice_val": {
+  "code": {
+   "loss": 1.1336234882473946,
+   "ppl": 3.106893922108831
+  },
+  "web": {
+   "loss": 3.1193259755770364,
+   "ppl": 22.631120573274778
+  },
+  "math": {
+   "loss": 2.3631948878367743,
+   "ppl": 10.62484246457226
+  },
+  "markdown": {
+   "loss": 2.0493049720923104,
+   "ppl": 7.762504074015006
+  },
+  "arxiv": {
+   "loss": 1.2699589083592098,
+   "ppl": 3.560706244087371
+  },
+  "commits": {
+   "loss": 1.2012116784850757,
+   "ppl": 3.3241422752037626
+  }
+ },
+ "timing_val_s": 77.4,
+ "fim": {
+  "trained_with_fim": true,
+  "n": 63,
+  "middle_loss": 0.6255140266721211,
+  "middle_ppl": 1.8692065325438885
+ },
+ "syntax_valid": {
+  "n": 6,
+  "parsed": 5,
+  "parse_rate": 0.8333333333333334,
+  "failures": [
+   "def quicksort(arr):\n\t\"\"\"\n\tQuicksort is a O(n log(n)) algorithm for sorting arrays.\n\n\tTime complexity: O(n log(n))\n\tSpace complexity: O(1)\n\t\"\"\"\n\tpass\n\ndef heap_s"
+  ]
+ },
+ "repetition": {
+  "prompts": 8,
+  "looped": 2,
+  "loop_rate": 0.25
+ }
+}

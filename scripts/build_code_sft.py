@@ -106,11 +106,13 @@ def _load_sources(args, tok) -> dict:  # pragma: no cover - network/HF streaming
             probs.append(adapt(r))
             if comp_lim and len(probs) >= comp_lim:
                 break
-        rows, t = verified_competitive_rows(probs, max_per_problem=args.max_per_problem,
-                                            timeout_s=args.timeout_s)
+        rows, t = verified_competitive_rows(
+            probs, max_per_problem=args.max_per_problem, timeout_s=args.timeout_s,
+            max_cases=args.max_cases, max_solutions=args.max_solutions, progress_every=100)
         comp_rows += rows
         for k in tally:
             tally[k] += t[k]
+        print(f"  {adapt.__name__}: {t}", flush=True)
     print(f"competitive verify tally: {tally}", flush=True)
     return {"commitpack": commit, "mbpp_train": mbpp, "oasst": oasst, "competitive": comp_rows}
 
@@ -129,6 +131,12 @@ def main() -> None:  # pragma: no cover - network + IO
                          "verification is slow, so cap this below --limit-per-source. "
                          "Defaults to --limit-per-source.")
     ap.add_argument("--max-per-problem", type=int, default=1)
+    ap.add_argument("--max-cases", type=int, default=6,
+                    help="I/O cases checked per solution (leading cases are the small "
+                         "samples; solutions are already human-accepted, so this is a "
+                         "sanity filter). None-equivalent: pass a large number.")
+    ap.add_argument("--max-solutions", type=int, default=5,
+                    help="shortest solutions tried per problem before giving up")
     ap.add_argument("--timeout-s", type=float, default=10.0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--heldout-out", default="data/corpora/code_sft_heldout.jsonl",

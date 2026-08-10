@@ -113,21 +113,43 @@ def verify_unit_test(solution: str, task: CodeTask) -> bool:
 
 
 def verified_competitive_rows(problems: list[dict], max_per_problem: int = 1,
-                              timeout_s: float = 10.0) -> tuple[list[Row], dict]:
+                              timeout_s: float = 10.0, max_cases: int | None = None,
+                              max_solutions: int | None = None,
+                              progress_every: int = 0) -> tuple[list[Row], dict]:
     """For each normalized problem, keep up to `max_per_problem` human solutions that pass
-    ALL its I/O cases in the sandbox. instruction=statement, response=verified solution.
-    Solutions are tried shortest-first (concise correct code is the better demonstration)."""
+    its I/O cases in the sandbox. instruction=statement, response=verified solution.
+    Solutions are tried shortest-first (concise correct code is the better demonstration).
+
+    The solutions are ALREADY human-accepted submissions (they passed the origin judge), so
+    running them here is a SANITY FILTER — does this code run and reproduce outputs in our
+    sandbox — not a correctness discovery. That makes two bounds safe and necessary, because
+    each I/O case is a separate sandbox subprocess and competitive problems carry dozens of
+    (often large) hidden cases:
+      - `max_cases`: check only the first N cases per solution (the leading cases are the
+        small sample cases; the large hidden ones cost seconds each and add little signal
+        for an already-accepted solution).
+      - `max_solutions`: try only the N shortest solutions per problem.
+    `progress_every>0` prints a running count every N problems (long jobs must be observable).
+    """
     rows: list[Row] = []
     tally = {"problems": 0, "verified": 0, "no_passing_solution": 0}
     for p in problems:
         tally["problems"] += 1
+        if progress_every and tally["problems"] % progress_every == 0:
+            print(f"    competitive: {tally['problems']} problems, "
+                  f"{tally['verified']} verified", flush=True)
         statement = (p.get("statement") or "").strip()
         cases = p.get("io") or []
+        if max_cases is not None:
+            cases = cases[:max_cases]
         if not statement or not cases:
             tally["no_passing_solution"] += 1
             continue
+        sols = sorted(p.get("solutions") or [], key=len)
+        if max_solutions is not None:
+            sols = sols[:max_solutions]
         kept = 0
-        for sol in sorted(p.get("solutions") or [], key=len):
+        for sol in sols:
             if all(verify_io(sol, c["input"], c["output"], timeout_s=timeout_s) for c in cases):
                 rows.append({"instruction": statement, "context": "", "response": sol.strip()})
                 kept += 1

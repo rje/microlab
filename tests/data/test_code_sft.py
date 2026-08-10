@@ -126,6 +126,23 @@ def test_verified_competitive_rows_drops_problem_with_no_passing_solution():
     assert tally["no_passing_solution"] == 1
 
 
+def test_verified_competitive_rows_caps_cases_and_solutions():
+    # max_cases limits verification to the leading cases: a solution that passes the first
+    # case but would fail a later one is accepted when max_cases=1 (the sanity-filter tradeoff
+    # for already-accepted human solutions).
+    problems = [{
+        "statement": "double n",
+        "solutions": ["n=int(input());print(n*2)"],
+        "io": [{"input": "21\n", "output": "42\n"},   # solution passes this
+               {"input": "5\n", "output": "999\n"}],   # ...and fails this (bogus expected)
+    }]
+    rows, tally = verified_competitive_rows(problems, max_cases=1)
+    assert tally["verified"] == 1 and len(rows) == 1  # only the first case was checked
+    # without the cap, the bad second case drops the problem
+    rows2, tally2 = verified_competitive_rows(problems)
+    assert tally2["no_passing_solution"] == 1 and rows2 == []
+
+
 def test_apps_problem_coerces_nonstring_io_and_skips_call_based():
     import json as _j
 
