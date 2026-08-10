@@ -54,7 +54,7 @@ def main() -> None:  # pragma: no cover - GPU + sandbox operational script
     if stats_path.exists():
         done = {json.loads(x)["instruction"] for x in stats_path.read_text().splitlines()}
 
-    model = load_variant_from_run(Path(args.policy), device=args.device).eval()
+    model, _ = load_variant_from_run(Path(args.policy), device=args.device)
     tok = FastTokenizer.load(str(Path(args.policy) / "tokenizer.json"))
 
     with stats_path.open("a", encoding="utf-8") as f:
