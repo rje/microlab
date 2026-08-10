@@ -43,24 +43,43 @@ def main() -> None:  # pragma: no cover - network + IO
     ap.add_argument("--out", default="data/corpora/grpo_pool.jsonl")
     ap.add_argument("--limit-per-dataset", type=int, default=4000)
     ap.add_argument("--max-cases", type=int, default=6)
+    ap.add_argument("--easy-only", action="store_true",
+                    help="keep only each dataset's easiest slice (APPS 'introductory', "
+                         "CodeContests cf_rating<=1200 or unrated-easy, TACO 'EASY'). "
+                         "Raw Codeforces-level problems yield all-zero rewards from a 1.2B "
+                         "policy (measured: 0/480 case passes) — the pre-pass starvation "
+                         "gate fires without this calibration.")
     args = ap.parse_args()
 
+    def apps_easy(r):
+        return r.get("difficulty") == "introductory"
+
+    def cc_easy(r):
+        rating = r.get("cf_rating") or 0
+        return 0 < rating <= 1200
+
+    def taco_easy(r):
+        return r.get("difficulty") == "EASY"
+
     adapters = [
-        ("json", "hf://datasets/codeparrot/apps/train.jsonl", apps_problem),
-        ("deepmind/code_contests", None, codecontests_problem),
-        ("parquet", "hf://datasets/BAAI/TACO/ALL/train-*.parquet", taco_problem),
+        ("json", "hf://datasets/codeparrot/apps/train.jsonl", apps_problem, apps_easy),
+        ("deepmind/code_contests", None, codecontests_problem, cc_easy),
+        ("parquet", "hf://datasets/BAAI/TACO/ALL/train-*.parquet", taco_problem, taco_easy),
     ]
     rows, per_source = [], {}
-    for fmt, data_files, adapt in adapters:
+    for fmt, data_files, adapt, easy in adapters:
         it = load_dataset(fmt, data_files=data_files, split="train", streaming=True) \
             if data_files else load_dataset(fmt, split="train", streaming=True)
-        n0, seen = len(rows), 0
+        n0 = len(rows)
+        kept_seen = 0
         for r in it:
-            seen += 1
+            if args.easy_only and not easy(r):
+                continue
+            kept_seen += 1
             row = pool_row(adapt(r), max_cases=args.max_cases)
             if row:
                 rows.append(row)
-            if args.limit_per_dataset and seen >= args.limit_per_dataset:
+            if args.limit_per_dataset and kept_seen >= args.limit_per_dataset:
                 break
         per_source[adapt.__name__] = len(rows) - n0
 
