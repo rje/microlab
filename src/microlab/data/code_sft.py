@@ -185,11 +185,21 @@ def _io_cases(io: dict) -> list[dict]:
             for i, o in zip(io.get("inputs", []), io.get("outputs", []), strict=False)]
 
 
+def _loads_io(s: str):
+    """json.loads for competitive input_output/solutions, keeping integer literals as strings.
+
+    Competitive test cases carry arbitrarily large integers (observed: a 9,131-digit value),
+    which exceed Python 3.11's int()-from-str digit cap and crash a plain json.loads. We never
+    need these as ints — I/O values are coerced to stdin/stdout strings — so parse them as
+    strings and sidestep the limit entirely."""
+    return _json.loads(s, parse_int=str)
+
+
 def apps_problem(row: dict) -> dict:
     """codeparrot/apps row -> normalized problem. `solutions` and `input_output` are
     JSON-encoded strings; input_output has parallel `inputs`/`outputs` lists."""
-    io = _json.loads(row["input_output"]) if row.get("input_output") else {}
-    sols = _json.loads(row["solutions"]) if row.get("solutions") else []
+    io = _loads_io(row["input_output"]) if row.get("input_output") else {}
+    sols = _loads_io(row["solutions"]) if row.get("solutions") else []
     return {"statement": row.get("question", ""), "solutions": sols, "io": _io_cases(io)}
 
 
@@ -215,10 +225,10 @@ def taco_problem(row: dict) -> dict:
     """BAAI/TACO row -> normalized problem. `solutions` is a JSON list; `input_output` is the
     same JSON-string shape as APPS."""
     if isinstance(row.get("solutions"), str):
-        sols = _json.loads(row["solutions"])
+        sols = _loads_io(row["solutions"])
     else:
         sols = row.get("solutions") or []
-    io = _json.loads(row["input_output"]) if row.get("input_output") else {}
+    io = _loads_io(row["input_output"]) if row.get("input_output") else {}
     return {"statement": row.get("question", ""), "solutions": sols, "io": _io_cases(io)}
 
 
