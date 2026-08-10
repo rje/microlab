@@ -1,6 +1,11 @@
 import pytest
 
-from microlab.train.exec_reward import extract_solution, io_reward, make_exec_score_texts
+from microlab.train.exec_reward import (
+    extract_solution,
+    io_reward,
+    make_exec_score_texts,
+    signal_bearing,
+)
 
 CASES = [{"input": "21\n", "output": "42\n"}, {"input": "5\n", "output": "10\n"}]
 
@@ -24,3 +29,10 @@ def test_score_texts_maps_prompts_and_rejects_unknown():
     assert got[0] == 1.0 and got[1] == 0.0
     with pytest.raises(KeyError):
         score("P-unknown", ["x"])
+
+
+def test_signal_bearing_keeps_mixed_only():
+    assert signal_bearing(0, 8) is False      # all-fail: zero advantage
+    assert signal_bearing(8, 8) is False      # all-pass: zero advantage
+    assert signal_bearing(1, 8) is True
+    assert signal_bearing(7, 8) is True

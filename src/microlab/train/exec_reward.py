@@ -7,6 +7,8 @@ the precedent. The executor is ground truth (build capability, don't distill).
 """
 from __future__ import annotations
 
+import torch as _torch
+
 from microlab.data.code_sft import assemble_io_program
 from microlab.evals.code.executor import run_python
 from microlab.evals.code.prompts import extract_code_block
@@ -38,3 +40,41 @@ def make_exec_score_texts(io_by_prompt: dict[str, list[dict]], timeout_s: float 
         cases = io_by_prompt[prompt]
         return [io_reward(extract_solution(t), cases, timeout_s=timeout_s) for t in texts]
     return score_texts
+
+
+def signal_bearing(successes: int, k: int) -> bool:
+    """Only mixed groups carry GRPO advantage: all-fail and all-pass both standardize to
+    zero. The pre-pass keeps problems where the policy sometimes-but-not-always succeeds."""
+    return 0 < successes < k
+
+
+def sample_solutions(model, tok, prompt: str, k: int, *, max_new: int = 300,
+                     temp: float = 0.8, top_k: int = 40, seed: int = 0,
+                     device: str = "cuda") -> list[str]:
+    """k sampled replies for one chat-formatted prompt (per-sample seed = seed+i so a rerun
+    reproduces). Returns raw reply texts (caller extracts/rewards).
+
+    Args:
+        model: The language model to sample from.
+        tok: Raw tokenizers.Tokenizer object with .encode(text).ids and .decode(ids).
+        prompt: Chat-formatted prompt string.
+        k: Number of samples to generate.
+        max_new: Maximum tokens to generate.
+        temp: Sampling temperature.
+        top_k: Top-k for sampling.
+        seed: Base seed for reproducibility (per-sample seed = seed + i).
+        device: Device to generate on.
+
+    Returns:
+        List of k sampled reply texts (not including the prompt).
+    """
+    from microlab.infer.reference.kv_cache import generate_cached
+    ids = _torch.tensor([tok.encode(prompt).ids], device=device)
+    outs = []
+    for i in range(k):
+        gen = _torch.Generator(device=device).manual_seed(seed + i)
+        with _torch.no_grad():
+            out = generate_cached(model, ids, max_new, temperature=temp, top_k=top_k,
+                                  generator=gen)
+        outs.append(tok.decode(out[0].tolist())[len(prompt):])
+    return outs
