@@ -55,14 +55,17 @@ def render_markdown(report: dict) -> str:
 
 
 def _run_eval_code(  # pragma: no cover
-    run: Path, dataset: str, sampled: bool, out_dir: Path
+    run: Path, dataset: str, sampled: bool, out_dir: Path, sampled_n: int = 5
 ) -> float:
     tag = "sampled" if sampled else "greedy"
     out = out_dir / f"{run.name}-{dataset}-{tag}.jsonl"
     cmd = [sys.executable, "scripts/eval_code.py", "--run", str(run), "--dataset", dataset,
            "--mode", "chat", "--out", str(out)]
     if sampled:
-        cmd += ["--temperature", "0.7", "--top-k", "40"]
+        # eval_code.py forbids pass@1 with n=1 AND a temperature ("pass@1 baseline is
+        # greedy") — a single sampled draw is not a meaningful pass@1. Sampled needs n>1 so
+        # eval_code computes the unbiased pass@1 estimate over n draws.
+        cmd += ["--temperature", "0.7", "--top-k", "40", "--n", str(sampled_n)]
     subprocess.run(cmd, check=True)
     # must match eval_code.py's summary path: args.out.with_suffix(".summary.json")
     return json.loads((out.with_suffix(".summary.json")).read_text())["pass@1"]
@@ -78,6 +81,12 @@ def main() -> None:  # pragma: no cover - orchestration
     ap.add_argument("--pairwise-data", default="data/corpora/code_sft_heldout.jsonl",
                     help="pairwise judge prompts; must be held out from BOTH training arms "
                          "(not arm A's compliant training file) or the metric is biased")
+    ap.add_argument("--sampled", action="store_true",
+                    help="also run sampled pass@1 (n>1). Off by default: it is ~sampled-n x "
+                         "the cost, and greedy pass@1 is the honest metric once the base's "
+                         "greedy-looping is resolved by chat-SFT (repetition drops sharply).")
+    ap.add_argument("--sampled-n", type=int, default=5,
+                    help="samples per task for the sampled pass@1 estimate")
     args = ap.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -86,9 +95,12 @@ def main() -> None:  # pragma: no cover - orchestration
         arms[name] = {
             "humaneval": _run_eval_code(run, "humaneval", False, args.out_dir),
             "mbpp": _run_eval_code(run, "mbpp", False, args.out_dir),
-            "humaneval_sampled": _run_eval_code(run, "humaneval", True, args.out_dir),
-            "mbpp_sampled": _run_eval_code(run, "mbpp", True, args.out_dir),
         }
+        if args.sampled:
+            arms[name]["humaneval_sampled"] = _run_eval_code(
+                run, "humaneval", True, args.out_dir, args.sampled_n)
+            arms[name]["mbpp_sampled"] = _run_eval_code(
+                run, "mbpp", True, args.out_dir, args.sampled_n)
 
     pw_out = args.out_dir / "pairwise.json"
     subprocess.run([sys.executable, "scripts/eval_pairwise.py", str(args.compliant),
