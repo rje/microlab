@@ -1,0 +1,53 @@
+{
+ "run": "runs/coder-1b-instruct-v2",
+ "ckpt": "ckpt_1920.pt",
+ "step": 1920,
+ "tokens_seen": 1006632960,
+ "block": 4096,
+ "per_slice_val": {
+  "code": {
+   "loss": 1.1320338522394497,
+   "ppl": 3.1019590150495464
+  },
+  "web": {
+   "loss": 3.1188854575157166,
+   "ppl": 22.621153351446143
+  },
+  "math": {
+   "loss": 2.372708017627398,
+   "ppl": 10.726400270325454
+  },
+  "markdown": {
+   "loss": 2.0522672881682715,
+   "ppl": 7.785533157494655
+  },
+  "arxiv": {
+   "loss": 1.27597609659036,
+   "ppl": 3.58219627373065
+  },
+  "commits": {
+   "loss": 1.1990741789340973,
+   "ppl": 3.3170445110194215
+  }
+ },
+ "timing_val_s": 78.8,
+ "fim": {
+  "trained_with_fim": true,
+  "n": 63,
+  "middle_loss": 0.6273301317105218,
+  "middle_ppl": 1.872604292355925
+ },
+ "syntax_valid": {
+  "n": 6,
+  "parsed": 5,
+  "parse_rate": 0.8333333333333334,
+  "failures": [
+   "def quicksort(arr):\n\tn = len(arr)\n\tfor i in range(n):\n\t\tfor j in range(i + 1, n):\n\t\t\tif arr[i] > arr[j]:\n\t\t\t\tarr[i], arr[j] = arr[j], arr[i]\n\treturn arr\n\ndef qu"
+  ]
+ },
+ "repetition": {
+  "prompts": 8,
+  "looped": 3,
+  "loop_rate": 0.375
+ }
+}
