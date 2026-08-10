@@ -16,6 +16,7 @@ from microlab.evals.code.executor import run_python
 from microlab.evals.code.tasks import CodeTask, assemble_program
 from microlab.model.reference.chat_sft import END_SENTINEL
 from microlab.model.reference.sft import format_chat
+from microlab.model.reference.sft import format_chat as _format_chat
 
 Row = dict[str, str]
 
@@ -300,3 +301,43 @@ def decontaminate(rows: list[dict], fingerprints: set[str], n: int = 10) -> tupl
         else:
             kept.append(r)
     return kept, removed
+
+
+def _io_outcome(solution: str, case: dict, timeout_s: float):
+    """One sandbox run -> the ExecResult (callers need timed_out vs wrong-output)."""
+    prog = assemble_io_program(solution, case["input"], case["output"])
+    return run_python(prog, timeout_s=timeout_s)
+
+
+def contrast_pairs(problems: list[dict], max_cases: int = 6, max_solutions: int = 8,
+                   timeout_s: float = 5.0) -> tuple[list[dict], dict]:
+    """Correctness-contrast DPO pairs: chosen = a solution passing ALL checked cases,
+    rejected = one failing >=1 case by WRONG OUTPUT (timeouts excluded — slow-but-correct is
+    a bad 'rejected'). Both sides are human solutions; the executor is the label."""
+    pairs: list[dict] = []
+    tally = {"problems": 0, "pairs": 0, "no_pair": 0}
+    for p in problems:
+        tally["problems"] += 1
+        statement = (p.get("statement") or "").strip()
+        cases = (p.get("io") or [])[:max_cases]
+        sols = sorted(p.get("solutions") or [], key=len)[:max_solutions]
+        if not statement or not cases or len(sols) < 2:
+            tally["no_pair"] += 1
+            continue
+        chosen = rejected = None
+        for sol in sols:
+            outcomes = [_io_outcome(sol, c, timeout_s) for c in cases]
+            if all(o.passed for o in outcomes):
+                chosen = chosen or sol
+            elif any((not o.passed) and (not o.timed_out) for o in outcomes) \
+                    and not any(o.timed_out for o in outcomes):
+                rejected = rejected or sol
+            if chosen and rejected:
+                break
+        if chosen and rejected:
+            pairs.append({"prompt": _format_chat(statement, "")[0],
+                          "chosen": chosen.strip(), "rejected": rejected.strip()})
+            tally["pairs"] += 1
+        else:
+            tally["no_pair"] += 1
+    return pairs, tally
