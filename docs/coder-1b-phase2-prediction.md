@@ -26,7 +26,11 @@ success = a compliant model beating it on both.**
 what passes, bounded above by roughly the policy's pass@k. Bands:
 - MBPP greedy: **18–22%** (from 14.0)
 - HumanEval sampled pass@1: **4–5%** (from 1.2; ceiling the 6.1% pass@10)
-- HumanEval greedy: **4–9%** (from 3.0; greedy jitter ±1–2 tasks applies)
+- HumanEval greedy: **4–9%** (from 3.0; greedy jitter ±1–2 tasks applies). Note the pass@k
+  ceiling bounds the *sampled* metric only: greedy after RL is the mode of a sharpened
+  distribution and is not bounded by the pre-RL sampled pass@10 (v1's own greedy 3.0%
+  already exceeds its sampled p@1 1.2% for the same reason). The greedy band's upper edge is
+  instead anchored on the distilled reference (7.3%) plus jitter as the plausibility ceiling.
 - Training telemetry: mean group reward RISES over iterations; distinct-fraction does not
   collapse (mode-collapse watch).
 
@@ -43,7 +47,10 @@ pre-pass rate, rising with whatever GRPO bought).
 
 **Guardrails, every stage:** FIM middle-loss ≤ **0.68**; passkey overall ≥ **82%**; codex
 pairwise vs v1 (held-out, both orderings) ≥ **40%** win-rate for the new model — execution
-training must not wreck general instruction-following.
+training must not wreck general instruction-following. (The FIM tolerance is deliberately
+anchored on **v1** — the Phase-2 training start point — at 0.6255 + ~0.05, not on the
+pretrain base's 0.5848 as in Phase 1; cumulative drift from the original base is therefore
+allowed up to ~0.095 across both phases, a conscious choice, not an oversight.)
 
 ## What would falsify it
 
@@ -59,6 +66,9 @@ training must not wreck general instruction-following.
   before reading the headline numbers.
 - **Codex pairwise vs v1 < 40%** — execution-RL narrowed the model into a benchmark
   specialist; that trade must be surfaced, not silently accepted.
+- **Self-gen yield < 15% of full-pool problems at k=8** — the tranche is too thin and
+  echo-prone to train on as-is; surface the yield and decide (cap, skip, or regenerate from
+  a better checkpoint) explicitly rather than silently training on a tiny set.
 
 ## Caveats stated up front
 
@@ -66,8 +76,9 @@ training must not wreck general instruction-following.
   policy's own pass@k. If pass@10 also rises materially under GRPO, that's a bonus beyond
   the mechanism this prediction relies on, and should be called out.
 - The signal-bearing pool is v1-relative; as the policy improves mid-training, some
-  problems drift out of the mixed-group regime. The bands absorb this (it flattens late
-  gains); a starved run (mean reward variance → 0 early) is instead a falsifier-adjacent
-  warning to inspect.
+  problems drift out of the mixed-group regime. The bands absorb this only in the sense
+  that it may push results toward the BOTTOM of a band — it can never excuse a result
+  below v1 (that falsifier stands regardless). A starved run (mean reward variance → 0
+  early) is a warning to inspect, not a licensed explanation.
 - Self-gen trains on the model's own distribution filtered by the executor; the +1–4 band
   assumes the echo risks (quirk amplification) are contained by dedup + the guardrails.
