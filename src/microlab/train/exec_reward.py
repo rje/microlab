@@ -51,8 +51,9 @@ def signal_bearing(successes: int, k: int) -> bool:
 def sample_solutions(model, tok, prompt: str, k: int, *, max_new: int = 300,
                      temp: float = 0.8, top_k: int = 40, seed: int = 0,
                      device: str = "cuda") -> list[str]:
-    """k sampled replies for one chat-formatted prompt (per-sample seed = seed+i so a rerun
-    reproduces). Returns raw reply texts (caller extracts/rewards).
+    """k sampled replies for one chat-formatted prompt, generated as ONE k-wide batch
+    (a rerun with the same (prompt, k, seed) reproduces the same sample set). Returns raw
+    reply texts (caller extracts/rewards).
 
     Args:
         model: The language model to sample from.
@@ -62,19 +63,22 @@ def sample_solutions(model, tok, prompt: str, k: int, *, max_new: int = 300,
         max_new: Maximum tokens to generate.
         temp: Sampling temperature.
         top_k: Top-k for sampling.
-        seed: Base seed for reproducibility (per-sample seed = seed + i).
+        seed: Seed for the batch generator (reproducible at the (prompt, k, seed) level).
         device: Device to generate on.
 
     Returns:
         List of k sampled reply texts (not including the prompt).
     """
     from microlab.infer.reference.kv_cache import generate_cached
-    ids = _torch.tensor([tok.encode(prompt).ids], device=device)
-    outs = []
-    for i in range(k):
-        gen = _torch.Generator(device=device).manual_seed(seed + i)
-        with _torch.no_grad():
-            out = generate_cached(model, ids, max_new, temperature=temp, top_k=top_k,
-                                  generator=gen)
-        outs.append(tok.decode(out[0].tolist())[len(prompt):])
-    return outs
+    # One BATCHED generate call: the prompt stacked k-wide. ~8x faster than k sequential
+    # calls (generation dominates the pre-pass/self-gen wall clock; the sequential version
+    # projected ~23h over the full pool). Reproducibility contract: one generator seeded
+    # with `seed` for the whole batch — a rerun with the same (prompt, k, seed) reproduces
+    # the same k samples as a set (not per-sample seeds as the sequential version had).
+    prompt_ids = tok.encode(prompt).ids
+    ids = _torch.tensor([prompt_ids], device=device).expand(k, -1).contiguous()
+    gen = _torch.Generator(device=device).manual_seed(seed)
+    with _torch.no_grad():
+        out = generate_cached(model, ids, max_new, temperature=temp, top_k=top_k,
+                              generator=gen)
+    return [tok.decode(out[i].tolist())[len(prompt):] for i in range(k)]
