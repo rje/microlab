@@ -96,3 +96,12 @@ v1 stands. The failed arms (`coder-1b-ipo-contrast`, `coder-1b-grpo-exec`,
 recommended work (user decision pending): the test-time execution-feedback harness
 (rerank + a measured repair-probe), where the gains are training-free and already
 quantified at ~5× pass@1.
+
+## Addendum (post-merge): the repair-probe
+
+One repair attempt per v1 MBPP failure (task + failed code + stderr → "write a corrected
+version"): **1/221 fixed (0.5%)** — runtime errors 0/40, assertions 0/172, syntax 1/8.
+The hypothesis that traceback-guided repair might work on the mechanical error class was
+**refuted**: at 1.2B the model cannot use error feedback. Design consequence for the
+test-time harness: **resample + executor-rerank only** (the measured ~5× pass@k gap);
+no repair rung until a stronger base exists.
