@@ -241,9 +241,17 @@ def main() -> int:
     del ck
     tok = FastTokenizer.load(str(run / "tokenizer.json"))
     eot = tok._tok.token_to_id("<|endoftext|>")
-    tokens_seen = step * train_cfg.batch_size * train_cfg.grad_accum * train_cfg.block_size
-
-    print(f"{ckpt_path.name}: step {step:,}, ~{tokens_seen/1e9:.2f}B tokens seen")
+    # Pretrain/SFT checkpoints store the TRAINING config (batch_size/grad_accum present);
+    # GRPO checkpoints store the model's VariantConfig, where tokens-seen is genuinely
+    # unknowable — record None explicitly and say so, rather than crashing (this took the
+    # whole suite down silently inside a gate script) or fabricating a number.
+    if hasattr(train_cfg, "batch_size") and hasattr(train_cfg, "grad_accum"):
+        tokens_seen = step * train_cfg.batch_size * train_cfg.grad_accum * train_cfg.block_size
+        print(f"{ckpt_path.name}: step {step:,}, ~{tokens_seen/1e9:.2f}B tokens seen")
+    else:
+        tokens_seen = None
+        print(f"{ckpt_path.name}: step {step:,} (tokens_seen unknown: ckpt stores a "
+              f"model config, not a training config — post-trained run)")
     res = {"run": str(run), "ckpt": ckpt_path.name, "step": step,
            "tokens_seen": tokens_seen, "block": a.block}
 
