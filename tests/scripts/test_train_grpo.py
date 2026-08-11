@@ -101,3 +101,25 @@ def test_sentinel_and_pad_match_reward_training_and_library():
     # is stated where a future reader looks for it.
     assert trm.END_SENTINEL == grpo.END_SENTINEL
     assert trm.PAD_ID == grpo.PAD_ID
+
+
+# ---------------------------------------------------------------- executor oracle
+
+
+def test_build_executor_oracle_maps_prompts_to_io():
+    pool = [{"instruction": "double n", "io": [{"input": "2\n", "output": "4\n"}]},
+            {"instruction": "x" * 5000, "io": [{"input": "1\n", "output": "1\n"}]}]  # too long
+    prompts, score = tg.build_executor_oracle(_ByteTok(), pool, max_new=64,
+                                              block_size=2048, timeout_s=5.0)
+    assert len(prompts) == 1                       # oversized row skipped (and counted)
+    want_prompt, _ = format_chat("double n", "")
+    assert prompts[0] == want_prompt
+    got = score(prompts[0], ["```python\nn=int(input());print(n*2)\n```"])
+    assert got == [1.0]
+
+
+def test_build_executor_oracle_raises_when_empty():
+    with pytest.raises(ValueError, match="no usable pool rows"):
+        tg.build_executor_oracle(_ByteTok(), [{"instruction": "y" * 5000,
+                                               "io": [{"input": "1\n", "output": "1\n"}]}],
+                                 max_new=16, block_size=128, timeout_s=5.0)

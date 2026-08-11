@@ -241,9 +241,17 @@ def main() -> int:
     del ck
     tok = FastTokenizer.load(str(run / "tokenizer.json"))
     eot = tok._tok.token_to_id("<|endoftext|>")
-    tokens_seen = step * train_cfg.batch_size * train_cfg.grad_accum * train_cfg.block_size
-
-    print(f"{ckpt_path.name}: step {step:,}, ~{tokens_seen/1e9:.2f}B tokens seen")
+    # Pretrain/SFT checkpoints store the TRAINING config (batch_size/grad_accum present);
+    # GRPO checkpoints store the model's VariantConfig, where tokens-seen is genuinely
+    # unknowable — record None explicitly and say so, rather than crashing (this took the
+    # whole suite down silently inside a gate script) or fabricating a number.
+    if hasattr(train_cfg, "batch_size") and hasattr(train_cfg, "grad_accum"):
+        tokens_seen = step * train_cfg.batch_size * train_cfg.grad_accum * train_cfg.block_size
+        print(f"{ckpt_path.name}: step {step:,}, ~{tokens_seen/1e9:.2f}B tokens seen")
+    else:
+        tokens_seen = None
+        print(f"{ckpt_path.name}: step {step:,} (tokens_seen unknown: ckpt stores a "
+              f"model config, not a training config — post-trained run)")
     res = {"run": str(run), "ckpt": ckpt_path.name, "step": step,
            "tokens_seen": tokens_seen, "block": a.block}
 
@@ -273,14 +281,19 @@ def main() -> int:
     # episodes), which does not exist on the eval host. MICROLAB_MIX_DIR is the same
     # operator override the trainer honors — not a fallback: if neither points at a val
     # shard the result records the miss explicitly.
-    mix_val = Path(os.environ.get("MICROLAB_MIX_DIR", train_cfg.data_dir)) / "val-00000.bin"
+    # Resolve LAZILY: os.environ.get's default argument evaluates even when the env var is
+    # set, and GRPO checkpoints' VariantConfig has no data_dir (same post-trained-ckpt drift
+    # as tokens_seen above) — the eager default crashed the suite despite MICROLAB_MIX_DIR
+    # being set correctly.
+    mix_dir = os.environ.get("MICROLAB_MIX_DIR") or getattr(train_cfg, "data_dir", None)
+    mix_val = Path(mix_dir) / "val-00000.bin" if mix_dir else None
     has_fim = all(tok._tok.token_to_id(t) is not None
                   for t in ("<|fim_prefix|>", "<|fim_suffix|>", "<|fim_middle|>"))
     if not has_fim:
         res["fim"] = {"trained_with_fim": False,
                       "note": "checkpoint's tokenizer carries no FIM sentinels"}
         print("  fim n/a (model was not trained with FIM)")
-    elif not mix_val.exists():
+    elif mix_val is None or not mix_val.exists():
         res["fim"] = {"trained_with_fim": True, "note": f"no val shard at {mix_val}"}
     else:
         fcfg = FIMConfig(tok._tok)

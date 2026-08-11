@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import sys
 import time
 from pathlib import Path
@@ -122,12 +123,41 @@ def build_prompt_pool(tok, rows: list[dict], max_new: int,
     return prompts, skipped
 
 
+def build_executor_oracle(tok, pool_rows: list[dict], max_new: int, block_size: int,
+                          timeout_s: float):
+    """Executor-reward mode: chat-format each pool row (same block-fit guard as
+    build_prompt_pool), key its I/O cases by the exact prompt string, and return
+    (prompts, score_texts). Replaces the RM oracle behind the same interface."""
+    from microlab.train.exec_reward import make_exec_score_texts
+    sentinel_len = len(tok.encode(END_SENTINEL))
+    io_by_prompt: dict[str, list[dict]] = {}
+    skipped = 0
+    for row in pool_rows:
+        prompt, _ = format_chat(row["instruction"], "")
+        if len(tok.encode(prompt)) + max_new + sentinel_len > block_size:
+            skipped += 1
+            continue
+        io_by_prompt[prompt] = row["io"]
+    if not io_by_prompt:
+        raise ValueError(f"no usable pool rows: all {len(pool_rows)} exceed block_size")
+    print(f"executor oracle: {len(io_by_prompt)} prompts ({skipped} skipped oversize)")
+    return list(io_by_prompt), make_exec_score_texts(io_by_prompt, timeout_s=timeout_s)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--policy", default="runs/1b-sft-mix",
                     help="SFT run dir: policy init + frozen KL reference (latest ckpt)")
     ap.add_argument("--rm", default="runs/1b-rm", help="reward-model run dir (latest ckpt)")
+    ap.add_argument("--reward", default="rm", choices=["rm", "executor"],
+                    help="reward oracle: Bradley-Terry RM (--rm) or the code executor "
+                         "(--pool)")
+    ap.add_argument("--pool", default=None,
+                    help="pool jsonl of {instruction, io} rows (required for --reward "
+                         "executor)")
+    ap.add_argument("--timeout-s", type=float, default=5.0,
+                    help="per-case sandbox timeout for --reward executor")
     ap.add_argument("--prefs", default="data/corpora/sft_mix.jsonl",
                     help="instruction JSONL; the first --prompt-rows rows are the prompt pool")
     ap.add_argument("--out", default="runs/1b-grpo")
@@ -159,38 +189,56 @@ def main() -> None:
         raise RuntimeError(f"device {args.device!r} requested but CUDA is unavailable")
     torch.manual_seed(args.seed)
 
-    policy_dir, rm_dir = Path(args.policy), Path(args.rm)
+    policy_dir = Path(args.policy)
     tok_path = policy_dir / "tokenizer.json"
-    rm_tok_path = rm_dir / "tokenizer.json"
-    if tok_path.read_text(encoding="utf-8") != rm_tok_path.read_text(encoding="utf-8"):
-        raise RuntimeError(f"{tok_path} != {rm_tok_path}: policy and RM tokenizers differ — "
-                           f"RM scores would be garbage")
+
+    if args.reward == "rm":
+        rm_dir = Path(args.rm)
+        rm_tok_path = rm_dir / "tokenizer.json"
+        if tok_path.read_text(encoding="utf-8") != rm_tok_path.read_text(encoding="utf-8"):
+            raise RuntimeError(f"{tok_path} != {rm_tok_path}: policy and RM tokenizers differ — "
+                               f"RM scores would be garbage")
+    elif not args.pool:
+        raise ValueError("--reward executor requires --pool (a jsonl of {instruction, io} "
+                         "rows)")
     tok = FastTokenizer.load(str(tok_path))
 
     t0 = time.time()
     policy, policy_step = load_variant_from_run(policy_dir, device=args.device)
     reference, _ = load_variant_from_run(policy_dir, device=args.device)
-    rm_ckpt = latest_checkpoint(rm_dir)
-    rm, rm_step = load_reward_checkpoint(rm_ckpt, device=args.device)
-    rm.requires_grad_(False)
-    block_size = policy.config.block_size
-    if rm.backbone.config.block_size != block_size:
-        raise RuntimeError(f"RM block_size {rm.backbone.config.block_size} != policy "
-                           f"block_size {block_size}")
 
-    rows = load_dolly(args.prefs, limit=args.prompt_rows)
-    prompts, skipped = build_prompt_pool(tok, rows, args.max_new, block_size)
-    use_amp = args.device.startswith("cuda")
-    print(f"GRPO: policy {policy_dir.name} step {policy_step}, RM {rm_ckpt.name} step "
-          f"{rm_step}, {len(prompts)} usable prompts of {len(rows)} rows ({skipped} skipped "
-          f"by the block guard)", flush=True)
+    if args.reward == "rm":
+        rm_ckpt = latest_checkpoint(rm_dir)
+        rm, rm_step = load_reward_checkpoint(rm_ckpt, device=args.device)
+        rm.requires_grad_(False)
+        block_size = policy.config.block_size
+        if rm.backbone.config.block_size != block_size:
+            raise RuntimeError(f"RM block_size {rm.backbone.config.block_size} != policy "
+                               f"block_size {block_size}")
+
+        rows = load_dolly(args.prefs, limit=args.prompt_rows)
+        prompts, skipped = build_prompt_pool(tok, rows, args.max_new, block_size)
+        use_amp = args.device.startswith("cuda")
+        print(f"GRPO: policy {policy_dir.name} step {policy_step}, RM {rm_ckpt.name} step "
+              f"{rm_step}, {len(prompts)} usable prompts of {len(rows)} rows ({skipped} skipped "
+              f"by the block guard)", flush=True)
+        score_texts = make_score_texts(rm, tok, block_size, args.device, use_amp,
+                                       args.score_batch)
+    else:
+        block_size = policy.config.block_size
+        use_amp = args.device.startswith("cuda")
+        pool_rows = [json.loads(line) for line in
+                    Path(args.pool).read_text(encoding="utf-8").splitlines() if line.strip()]
+        prompts, score_texts = build_executor_oracle(tok, pool_rows, args.max_new, block_size,
+                                                      args.timeout_s)
+        print(f"GRPO: policy {policy_dir.name} step {policy_step}, executor reward, "
+              f"{len(prompts)} usable prompts of {len(pool_rows)} pool rows", flush=True)
+
     print(f"  {args.iters} iters x {args.prompts_per_iter} prompts x {args.group_size} "
           f"rollouts (micro-batch {args.micro_batch}), lr {args.lr:g} (warmup "
           f"{args.warmup_iters}), beta {args.beta}, clip {args.clip_eps}, temp {args.temp}, "
           f"max_new {args.max_new} on {args.device}", flush=True)
 
-    score_texts = make_score_texts(rm, tok, block_size, args.device, use_amp,
-                                   args.score_batch)
     result = run_grpo(policy, reference, tok, prompts, score_texts, args.out, tok_path,
                       iters=args.iters, prompts_per_iter=args.prompts_per_iter,
                       group_size=args.group_size, lr=args.lr, beta=args.beta,

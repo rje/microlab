@@ -1,5 +1,6 @@
 from microlab.data.code_sft import (
     benchmark_fingerprints,
+    contrast_pairs,
     decontaminate,
     is_code_conv,
     normalize_commitpack,
@@ -264,3 +265,25 @@ def test_decontaminate_case_insensitive_normalization():
     ]
     kept, removed = decontaminate(rows, fp, n=2)
     assert removed == 1  # should match case-insensitively
+
+
+def test_contrast_pairs_pairs_passing_with_wrong_output_not_timeout():
+    problems = [{
+        "statement": "double n",
+        "solutions": ["n=int(input());print(n*2)",     # passes
+                      "n=int(input());print(n+1)",      # wrong output -> valid rejected
+                      "while True:\n    pass"],          # timeout -> NOT a valid rejected
+        "io": [{"input": "21\n", "output": "42\n"}],
+    }]
+    pairs, tally = contrast_pairs(problems, timeout_s=2.0)
+    assert tally == {"problems": 1, "pairs": 1, "no_pair": 0}
+    assert pairs[0]["chosen"] == "n=int(input());print(n*2)"
+    assert pairs[0]["rejected"] == "n=int(input());print(n+1)"
+    assert "### Instruction" in pairs[0]["prompt"]      # chat-formatted
+
+
+def test_contrast_pairs_skips_problem_without_both_sides():
+    problems = [{"statement": "s", "solutions": ["print('right')"],
+                 "io": [{"input": "", "output": "right\n"}]}]      # passing only, no failing
+    pairs, tally = contrast_pairs(problems)
+    assert pairs == [] and tally["no_pair"] == 1

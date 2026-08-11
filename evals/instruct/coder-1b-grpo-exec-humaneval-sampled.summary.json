@@ -1,0 +1,17 @@
+{
+  "header": {
+    "run": "runs/coder-1b-grpo-exec",
+    "dataset": "humaneval",
+    "mode": "chat",
+    "n": 10,
+    "temperature": 0.7,
+    "max_new": 400,
+    "seed": 0,
+    "limit": null
+  },
+  "ckpt_step": 300,
+  "n_tasks": 164,
+  "n_samples_per_task": 10,
+  "pass@1": 0.010365853658536586,
+  "pass@10": 0.04878048780487805
+}
