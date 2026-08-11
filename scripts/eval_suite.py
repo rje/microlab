@@ -281,14 +281,19 @@ def main() -> int:
     # episodes), which does not exist on the eval host. MICROLAB_MIX_DIR is the same
     # operator override the trainer honors — not a fallback: if neither points at a val
     # shard the result records the miss explicitly.
-    mix_val = Path(os.environ.get("MICROLAB_MIX_DIR", train_cfg.data_dir)) / "val-00000.bin"
+    # Resolve LAZILY: os.environ.get's default argument evaluates even when the env var is
+    # set, and GRPO checkpoints' VariantConfig has no data_dir (same post-trained-ckpt drift
+    # as tokens_seen above) — the eager default crashed the suite despite MICROLAB_MIX_DIR
+    # being set correctly.
+    mix_dir = os.environ.get("MICROLAB_MIX_DIR") or getattr(train_cfg, "data_dir", None)
+    mix_val = Path(mix_dir) / "val-00000.bin" if mix_dir else None
     has_fim = all(tok._tok.token_to_id(t) is not None
                   for t in ("<|fim_prefix|>", "<|fim_suffix|>", "<|fim_middle|>"))
     if not has_fim:
         res["fim"] = {"trained_with_fim": False,
                       "note": "checkpoint's tokenizer carries no FIM sentinels"}
         print("  fim n/a (model was not trained with FIM)")
-    elif not mix_val.exists():
+    elif mix_val is None or not mix_val.exists():
         res["fim"] = {"trained_with_fim": True, "note": f"no val shard at {mix_val}"}
     else:
         fcfg = FIMConfig(tok._tok)
