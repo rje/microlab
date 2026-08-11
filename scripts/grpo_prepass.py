@@ -62,8 +62,12 @@ def main() -> None:  # pragma: no cover - GPU + sandbox operational script
             if row["instruction"] in done:
                 continue
             prompt, _ = format_chat(row["instruction"], "")
+            # top_k=None: the pre-pass certifies problems FOR GRPO, so it must sample from
+            # the SAME distribution training rollouts use (run_grpo's sample_group applies
+            # no top-k). A more generous pre-pass (top-40) optimistically certifies problems
+            # that starve under real rollouts. Keep --max-new equal to train_grpo's too.
             replies = sample_solutions(model, tok._tok, prompt, args.k,
-                                       max_new=args.max_new, seed=args.seed,
+                                       max_new=args.max_new, top_k=None, seed=args.seed,
                                        device=args.device)
             rewards = [io_reward(extract_solution(r), row["io"], timeout_s=args.timeout_s)
                        for r in replies]

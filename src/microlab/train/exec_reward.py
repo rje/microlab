@@ -49,7 +49,7 @@ def signal_bearing(successes: int, k: int) -> bool:
 
 
 def sample_solutions(model, tok, prompt: str, k: int, *, max_new: int = 300,
-                     temp: float = 0.8, top_k: int = 40, seed: int = 0,
+                     temp: float = 0.8, top_k: int | None = 40, seed: int = 0,
                      device: str = "cuda") -> list[str]:
     """k sampled replies for one chat-formatted prompt, generated as ONE k-wide batch
     (a rerun with the same (prompt, k, seed) reproduces the same sample set). Returns raw
