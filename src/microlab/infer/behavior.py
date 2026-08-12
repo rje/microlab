@@ -14,7 +14,8 @@ def behavior_signature(candidate: str, entry_point: str, input_expr: str,
     """One (candidate, input) execution -> ("ok", repr) | ("err",) | ("timeout",).
     `entry_point` is accepted for interface clarity/logging; the input_expr already names
     the callable. Errors collapse to ("err",) deliberately: two candidates failing
-    differently should not cluster as 'same behavior' by error-text accident."""
+    differently should not cluster as 'same behavior' by error-text accident.
+    A candidate's own prints are part of its signature — side effects count as behavior."""
     prog = _HARNESS.format(candidate=candidate, input_expr=input_expr)
     res = run_python(prog, timeout_s=timeout_s)
     if res.timed_out:

@@ -15,3 +15,10 @@ def test_signature_error_and_vector():
     assert behavior_signature(BOOM, "add", "add(1, 1)") == ("err",)
     vec = signatures_for(ADD, "add", ["add(1, 1)", "add(2, 2)"])
     assert vec == (("ok", "2"), ("ok", "4"))
+
+
+def test_signature_brace_heavy_candidate_is_safe():
+    # str.format must not reprocess braces inside the substituted candidate; this guards
+    # against future template edits adding literal braces (which WOULD require {{}} escaping).
+    cand = "def f(x):\n    d = {'a': x, 'b': {1, 2}}\n    return f'{d[\"a\"]}'"
+    assert behavior_signature(cand, "f", "f(7)") == ("ok", "'7'")
