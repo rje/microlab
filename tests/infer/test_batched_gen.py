@@ -48,6 +48,18 @@ def test_greedy_rows_match_generate_until(which, dense, hybrid, tok):
     assert outs == [ref, ref, ref]
 
 
+def test_greedy_rows_match_generate_until_bf16(dense, tok):
+    model = dense.to(torch.bfloat16)
+    try:
+        prompt_ids = tok.encode("the quick brown fox")
+        ref = generate_until(model, tok, prompt_ids, max_new=16, stops=[], device="cpu")
+        outs = generate_batch(model, tok, prompt_ids, n=2, max_new=16, stops=[],
+                              device="cpu")
+        assert outs == [ref, ref]
+    finally:
+        dense.to(torch.float32)
+
+
 def test_stop_truncates_per_row(dense, tok):
     prompt_ids = tok.encode("the quick brown fox")
     full = generate_until(dense, tok, prompt_ids, max_new=24, stops=[], device="cpu")

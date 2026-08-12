@@ -17,6 +17,9 @@ the run dir and raises when there is none — pass the mode explicitly for base 
 Results append to --out (JSONL, one line per task sample, resumable: finished task ids
 are skipped on rerun; the header line pins the config and a mismatch raises). The
 summary (pass@1, and pass@10 when --n >= 10) is written next to it as .summary.json.
+The header gained engine/dtype keys with the efficiency pass, so files written before
+that cannot be resumed (they raise on the header check) — they remain valid complete
+records; nothing else reads the header.
 
 MultiPL-E JS/TS: not implemented — the task interface is language-agnostic (see
 microlab.evals.code.tasks.load_tasks) but execution needs a sandboxed node runtime the
@@ -77,6 +80,14 @@ def read_resume(out_path: Path, header: dict) -> set[str]:
             f"point --out somewhere fresh (have {lines[0].get('_header')}, want {header})"
         )
     return {f"{r['task_id']}#{r['sample']}" for r in lines[1:]}
+
+
+def missing_samples(task_id: str, n: int, done: set[str]) -> list[int]:
+    """Sample indices of a task not yet in the results file. Batched mode regenerates
+    the WHOLE task whenever any are missing (deterministic per (seed, n): the rerun
+    produces identical rows) and the write loop skips keys already present — so a
+    crash-resume can never duplicate a key or change a row."""
+    return [s for s in range(n) if f"{task_id}#{s}" not in done]
 
 
 def summarize(records: list[dict], n: int) -> dict:
@@ -159,10 +170,7 @@ def main() -> None:
             prompt = task.prompt
             stops = BASE_STOPS[args.dataset]
         if args.engine == "batched":
-            # All n samples in one batch. Deterministic for (seed, n): a crash-resumed
-            # partial task regenerates identical rows, so already-written keys are
-            # simply skipped below rather than duplicated.
-            if all(f"{task.task_id}#{s}" in done for s in range(args.n)):
+            if not missing_samples(task.task_id, args.n, done):
                 continue
             gen_kw = {}
             if args.temperature > 0:

@@ -7,7 +7,13 @@ executor), so engine/dtype changes can be compared on identical workloads.
 Reports per-task and total wall-clock, generated tokens, tok/s, and peak CUDA memory.
 Writes a JSON record to --out (appended, one line per invocation) so ladder rungs
 accumulate in one file. The workload (tasks, prompts, sampling config) is pinned by the
-args; the engine under test is picked with --engine/--dtype."""
+args; the engine under test is picked with --engine/--dtype.
+
+Honesty notes: gen_tokens re-encodes the decoded completions, an approximation of the
+true generated count (stop-truncation drops tokens; decode/encode need not round-trip) —
+valid for comparing engines on the same workload, not as an absolute. output_sha is only
+comparable between runs of the SAME engine: sequential and batched are different
+deterministic sampling schemes, so their shas differ by design."""
 
 from __future__ import annotations
 

@@ -76,3 +76,11 @@ def test_summarize_uneven_samples_raise():
             {"task_id": "B", "sample": 0, "passed": False}]
     with pytest.raises(ValueError, match="sample count"):
         ec.summarize(recs, n=2)
+
+
+def test_missing_samples_partial_task_regenerates_without_duplication():
+    done = {"Mbpp/11#0", "Mbpp/11#2"}
+    assert ec.missing_samples("Mbpp/11", 3, done) == [1]
+    assert ec.missing_samples("Mbpp/12", 3, done) == [0, 1, 2]
+    done_all = {f"Mbpp/11#{s}" for s in range(3)}
+    assert ec.missing_samples("Mbpp/11", 3, done_all) == []

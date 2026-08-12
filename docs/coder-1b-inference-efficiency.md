@@ -10,13 +10,15 @@ this changes HOW candidates are generated, never WHAT the model is.
 | sequential fp32 (status quo) | 72.4s | 82 | 5.0GB | baseline |
 | + same-prompt batching (n as one batch) | 17.1s | 286 | 10.0GB | **4.2×, kept** |
 | + bf16 weights | 16.2s | 308 | 5.1GB | **+5% and half the memory, kept** |
-| + torch.compile (full model) | — | 971 ms/step | — | rejected: the growing KV slice recompiles every step |
-| + compile KDA-only (fixed-shape layers) | — | 12.8 ms/step | — | rejected: no win over eager 11.6ms (cache-object guards) |
+| + torch.compile (full model) | — | ~1950 ms/step | — | rejected: the growing KV slice recompiles every step |
+| + compile KDA-only (fixed-shape layers) | — | 12.7 ms/step | — | rejected: no win over eager 11.7ms (cache-object guards) |
 
-Mechanism, established by microbench: the decode step is **kernel-launch-bound, not
-bandwidth-bound** at this scale — 11.2ms at B=1 vs 11.6ms at B=10 (batch is nearly
-free; that flatness IS the 4× win), but bf16's halved weight reads barely move it, and
-the ~2.5ms bandwidth floor is unreachable without a static-shape decode path. FP8 was
+Mechanism, established by microbench (committed record `evals/bench/decode_step.jsonl`,
+reproducible via `scripts/bench_decode_step.py --with-compile`): the decode step is
+**kernel-launch-bound, not bandwidth-bound** at this scale — 11.2ms at B=1 vs 11.7ms at
+B=10 (batch is nearly free; that flatness IS the 4× win), but bf16's halved weight reads
+barely move it, and the ~2.5ms bandwidth floor is unreachable without a static-shape
+decode path. FP8 was
 not attempted: it only helps a bandwidth-bound regime, which this is not. The remaining
 3–4× (11.6ms → ~2.5ms) requires a serve engine with static shapes + CUDA graphs —
 filed as future work, not done by flag-flipping.

@@ -55,6 +55,9 @@ def main() -> int:  # pragma: no cover - GPU + sandbox operational
 
     if args.k < 1:
         ap.error(f"--k must be >= 1 (got {args.k})")
+    if args.temp == 0.0 and args.k > 1:
+        ap.error(f"--temp 0 with --k {args.k} would produce {args.k} identical "
+                 "greedy candidates; use --k 1 or a positive --temp")
 
     asserts = args.asserts_file.read_text()
     model, _ = load_variant_from_run(Path(args.policy), device=args.device)
