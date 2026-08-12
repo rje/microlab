@@ -28,10 +28,12 @@ def main() -> int:  # pragma: no cover - GPU + sandbox operational
     import torch
 
     from microlab.evals.code.executor import run_python
+    from microlab.evals.code.prompts import CHAT_STOPS
+    from microlab.infer.batched import generate_batch
     from microlab.model.reference.checkpoint import load_variant_from_run
     from microlab.model.reference.sft import format_chat
     from microlab.tokenizer.fast import FastTokenizer
-    from microlab.train.exec_reward import extract_solution, sample_solutions
+    from microlab.train.exec_reward import extract_solution
 
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -46,6 +48,9 @@ def main() -> int:  # pragma: no cover - GPU + sandbox operational
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--timeout-s", type=float, default=8.0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--dtype", default="bf16", choices=["fp32", "bf16"],
+                    help="bf16 default: parity-gated vs fp32 (greedy MBPP 36/257 "
+                         "identical; delivered slice in band) at half the memory")
     args = ap.parse_args()
 
     if args.k < 1:
@@ -53,11 +58,16 @@ def main() -> int:  # pragma: no cover - GPU + sandbox operational
 
     asserts = args.asserts_file.read_text()
     model, _ = load_variant_from_run(Path(args.policy), device=args.device)
+    if args.dtype == "bf16":
+        model = model.to(torch.bfloat16)
     tok = FastTokenizer.load(str(Path(args.policy) / "tokenizer.json"))
     prompt, _ = format_chat(args.instruction, "")
-    replies = sample_solutions(model, tok._tok, prompt, args.k, max_new=args.max_new,
-                               temp=args.temp, top_k=args.top_k, seed=args.seed,
-                               device=args.device)
+    gen = (torch.Generator(device=args.device).manual_seed(args.seed)
+           if args.temp > 0 else None)
+    replies = generate_batch(model, tok, tok.encode(prompt), n=args.k,
+                             max_new=args.max_new, stops=CHAT_STOPS,
+                             device=args.device, temperature=args.temp,
+                             top_k=args.top_k, generator=gen)
     sols = [extract_solution(r) for r in replies]
     results = [bool(s.strip()) and run_python(s + "\n\n" + asserts,
                                               timeout_s=args.timeout_s).passed

@@ -38,7 +38,7 @@ def generate_until(
     # conv_hist/linear state — the same crash the console's serve path hit at the 4k
     # milestone. The cache is block_size-long rather than prompt+max_new; the guard
     # above already bounds that.
-    cache = build_cache(model, 1, device)
+    cache = build_cache(model, 1, device, dtype=next(model.parameters()).dtype)
     idx = torch.tensor([prompt_ids], dtype=torch.long, device=device)
     logits, _ = model(idx, kv_cache=cache)
 

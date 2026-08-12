@@ -45,6 +45,7 @@ from microlab.evals.code.prompts import (  # noqa: E402
 )
 from microlab.evals.code.tasks import assemble_program, load_tasks  # noqa: E402
 from microlab.evals.reference.metrics import pass_at_k  # noqa: E402
+from microlab.infer.batched import generate_batch  # noqa: E402
 from microlab.model.reference.checkpoint import load_variant_from_run  # noqa: E402
 from microlab.tokenizer.fast import FastTokenizer  # noqa: E402
 
@@ -115,6 +116,11 @@ def main() -> None:
                     help="refuse to execute without network-namespace isolation")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--engine", default="sequential", choices=["sequential", "batched"],
+                    help="batched: all n samples of a task decoded as one batch "
+                         "(~4x wall-clock; a DIFFERENT deterministic sampling stream "
+                         "than sequential — the header records it, so files never mix)")
+    ap.add_argument("--dtype", default="fp32", choices=["fp32", "bf16"])
     args = ap.parse_args()
 
     if args.n > 1 and args.temperature <= 0.0:
@@ -129,7 +135,8 @@ def main() -> None:
 
     header = {"run": str(args.run), "dataset": args.dataset, "mode": mode, "n": args.n,
               "temperature": args.temperature, "max_new": args.max_new,
-              "seed": args.seed, "limit": args.limit}
+              "seed": args.seed, "limit": args.limit,
+              "engine": args.engine, "dtype": args.dtype}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     done = read_resume(args.out, header)
     if not done and (not args.out.exists() or not args.out.read_text().strip()):
@@ -137,30 +144,52 @@ def main() -> None:
             f.write(json.dumps({"_header": header}) + "\n")
 
     model, step = load_variant_from_run(args.run, device=args.device)
+    if args.dtype == "bf16":
+        model = model.to(torch.bfloat16)
     tok = FastTokenizer.load(str(args.run / "tokenizer.json"))
     print(f"run={args.run} step={step} mode={mode} dataset={args.dataset} "
           f"tasks={len(tasks)} n={args.n} (resuming past {len(done)} samples)")
 
     t0 = time.time()
     for ti, task in enumerate(tasks):
+        if mode == "chat":
+            prompt = chat_prompt(task.instruction)
+            stops = CHAT_STOPS
+        else:
+            prompt = task.prompt
+            stops = BASE_STOPS[args.dataset]
+        if args.engine == "batched":
+            # All n samples in one batch. Deterministic for (seed, n): a crash-resumed
+            # partial task regenerates identical rows, so already-written keys are
+            # simply skipped below rather than duplicated.
+            if all(f"{task.task_id}#{s}" in done for s in range(args.n)):
+                continue
+            gen_kw = {}
+            if args.temperature > 0:
+                gen_kw["generator"] = torch.Generator(device=args.device).manual_seed(
+                    args.seed * 1_000_003 + ti * 1009)
+            completions = generate_batch(
+                model, tok, tok.encode(prompt), n=args.n, max_new=args.max_new,
+                stops=stops, device=args.device, temperature=args.temperature,
+                top_k=args.top_k, **gen_kw)
+        else:
+            completions = None
         for s in range(args.n):
             key = f"{task.task_id}#{s}"
             if key in done:
                 continue
-            if mode == "chat":
-                prompt = chat_prompt(task.instruction)
-                stops = CHAT_STOPS
+            if completions is not None:
+                completion = completions[s]
             else:
-                prompt = task.prompt
-                stops = BASE_STOPS[args.dataset]
-            gen_kw = {}
-            if args.temperature > 0:
-                gen_kw["generator"] = torch.Generator(device=args.device).manual_seed(
-                    args.seed * 1_000_003 + ti * 1009 + s)
-            completion = generate_until(
-                model, tok, tok.encode(prompt), max_new=args.max_new, stops=stops,
-                device=args.device, temperature=args.temperature, top_k=args.top_k,
-                **gen_kw)
+                gen_kw = {}
+                if args.temperature > 0:
+                    gen_kw["generator"] = torch.Generator(
+                        device=args.device).manual_seed(
+                        args.seed * 1_000_003 + ti * 1009 + s)
+                completion = generate_until(
+                    model, tok, tok.encode(prompt), max_new=args.max_new, stops=stops,
+                    device=args.device, temperature=args.temperature, top_k=args.top_k,
+                    **gen_kw)
             solution = (chat_solution(completion) if mode == "chat"
                         else base_solution(args.dataset, task, completion))
             res = run_python(

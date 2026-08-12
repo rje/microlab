@@ -1,0 +1,18 @@
+{
+  "header": {
+    "run": "runs/coder-1b-instruct-compliant",
+    "dataset": "mbpp",
+    "mode": "chat",
+    "n": 1,
+    "temperature": 0.0,
+    "max_new": 400,
+    "seed": 0,
+    "limit": null,
+    "engine": "batched",
+    "dtype": "bf16"
+  },
+  "ckpt_step": 1485,
+  "n_tasks": 257,
+  "n_samples_per_task": 1,
+  "pass@1": 0.14007782101167315
+}
