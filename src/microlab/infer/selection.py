@@ -25,6 +25,8 @@ def first_sample() -> int:
 def text_plurality(candidates: list[str]) -> int:
     """Index of the first candidate whose NORMALIZED text is most frequent. A floor
     baseline only — semantically equal code has many textual forms (see spec I4)."""
+    if not candidates:
+        raise ValueError("text_plurality requires at least one candidate")
     norm = [normalize_code(c) for c in candidates]
     counts: dict[str, int] = {}
     for n in norm:

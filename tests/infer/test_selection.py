@@ -1,3 +1,5 @@
+import pytest
+
 from microlab.infer.selection import (
     behavior_clusters,
     normalize_code,
@@ -12,6 +14,11 @@ def test_normalize_and_text_plurality():
              "def f(x):\n    return x+2"]
     assert normalize_code(cands[0]) == normalize_code(cands[1])
     assert text_plurality(cands) in (0, 1)          # the duplicated variant wins
+
+
+def test_text_plurality_empty_raises():
+    with pytest.raises(ValueError, match="at least one"):
+        text_plurality([])
 
 
 def test_behavior_clusters_groups_identical_signatures_largest_first():
