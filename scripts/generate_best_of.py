@@ -48,6 +48,9 @@ def main() -> int:  # pragma: no cover - GPU + sandbox operational
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
 
+    if args.k < 1:
+        ap.error(f"--k must be >= 1 (got {args.k})")
+
     asserts = args.asserts_file.read_text()
     model, _ = load_variant_from_run(Path(args.policy), device=args.device)
     tok = FastTokenizer.load(str(Path(args.policy) / "tokenizer.json"))
