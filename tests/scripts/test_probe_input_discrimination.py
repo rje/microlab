@@ -13,6 +13,10 @@ def test_parse_input_exprs_extracts_calls_only():
     assert got == ["add(1, 2)", "add(3,4)", "add(5, 6)"]   # deduped, max 3, call-only
 
 
+def test_parse_input_exprs_rejects_substring_identifiers():
+    assert pid.parse_input_exprs("myadd(1)\nadd(2)", "add") == ["add(2)"]
+
+
 def test_make_mutant_changes_code_or_none():
     assert pid.make_mutant("def f(a):\n    return a + 1") == "def f(a):\n    return a - 1"
     assert pid.make_mutant("def f():\n    pass") is None

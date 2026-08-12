@@ -23,9 +23,11 @@ def parse_input_exprs(reply: str, entry_point: str) -> list[str]:
 
     Matches are single-line (no `entry_point(...)` spanning a newline) and PAREN-BALANCED:
     an enclosing call like `print(add(3,4))` yields `add(3,4)`, not `add(3,4))` — a naive
-    `entry_point\\s*\\(.*\\)` regex greedily swallows the outer call's closing paren too."""
+    `entry_point\\s*\\(.*\\)` regex greedily swallows the outer call's closing paren too.
+    Left-anchored with `(?<!\\w)` so a longer identifier like `myadd(1)` never fabricates
+    an `add(1)` call for entry_point `add`."""
     out: list[str] = []
-    for m in re.finditer(re.escape(entry_point) + r"\s*\(", reply):
+    for m in re.finditer(r"(?<!\w)" + re.escape(entry_point) + r"\s*\(", reply):
         start = m.start()
         depth = 0
         end = None
@@ -71,14 +73,25 @@ def is_discriminating(sig_ref: tuple, sig_wrong: tuple) -> bool:
 
 
 def main() -> None:  # pragma: no cover - GPU + sandbox operational
+    import importlib.util
+
     import torch
     from datasets import load_dataset
 
+    from microlab.evals.code.tasks import mbpp_task
     from microlab.infer.behavior import behavior_signature
     from microlab.model.reference.checkpoint import load_variant_from_run
     from microlab.model.reference.sft import format_chat
     from microlab.tokenizer.fast import FastTokenizer
     from microlab.train.exec_reward import sample_solutions
+
+    # mbpp_signature lives in the sibling bank generator (scripts/ is not a package):
+    # entry-point-aware def-line recovery — first-def hands back a HELPER's signature on
+    # the 4 MBPP references that define one before the tested function.
+    spec = importlib.util.spec_from_file_location(
+        "gen_testfree_bank", Path(__file__).resolve().parent / "gen_testfree_bank.py")
+    gb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gb)
 
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -118,19 +131,22 @@ def main() -> None:  # pragma: no cover - GPU + sandbox operational
         sig = f"def {row['entry_point']}(...)"
         probes.append((row["task_id"], row["prompt"], sig, row["entry_point"],
                        ref, wrong, src))
+    skipped_sig = 0
     for row in mbpp_rows:
+        # mbpp_task for entry_point ONLY (AST-fixed recovery incl. wrapper asserts);
+        # its .instruction embeds the gold asserts and must never reach the prompt.
+        task = mbpp_task(row)
         code = row.get("code", "")
-        sigline = next((ln.strip() for ln in code.splitlines()
-                        if ln.strip().startswith("def ") and ln.rstrip().endswith(":")),
-                       None)
+        sigline = gb.mbpp_signature(code, entry_point=task.entry_point)
         if sigline is None:
+            skipped_sig += 1
             continue
-        entry = sigline.split("def ", 1)[1].split("(", 1)[0].strip()
         wrong = make_mutant(code)
         if wrong is None:
             continue
-        probes.append((f"Mbpp/{row['task_id']}", row["prompt"], sigline, entry,
+        probes.append((task.task_id, row["prompt"], sigline, task.entry_point,
                        code, wrong, "mutant"))
+    print(f"skipped (no signature): {skipped_sig}")
 
     model, _ = load_variant_from_run(Path(args.policy), device=args.device)
     tok = FastTokenizer.load(str(Path(args.policy) / "tokenizer.json"))
