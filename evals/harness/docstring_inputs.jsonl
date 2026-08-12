@@ -1,0 +1,76 @@
+{"task_id": "HumanEval/0", "entry_point": "has_close_elements", "exprs": ["has_close_elements([1.0, 2.0, 3.0], 0.5)", "has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)"]}
+{"task_id": "HumanEval/1", "entry_point": "separate_paren_groups", "exprs": ["separate_paren_groups('( ) (( )) (( )( ))')"]}
+{"task_id": "HumanEval/2", "entry_point": "truncate_number", "exprs": ["truncate_number(3.5)"]}
+{"task_id": "HumanEval/3", "entry_point": "below_zero", "exprs": ["below_zero([1, 2, 3])", "below_zero([1, 2, -4, 5])"]}
+{"task_id": "HumanEval/4", "entry_point": "mean_absolute_deviation", "exprs": ["mean_absolute_deviation([1.0, 2.0, 3.0, 4.0])"]}
+{"task_id": "HumanEval/5", "entry_point": "intersperse", "exprs": ["intersperse([], 4)", "intersperse([1, 2, 3], 4)"]}
+{"task_id": "HumanEval/6", "entry_point": "parse_nested_parens", "exprs": ["parse_nested_parens('(()()) ((())) () ((())()())')"]}
+{"task_id": "HumanEval/7", "entry_point": "filter_by_substring", "exprs": ["filter_by_substring([], 'a')", "filter_by_substring(['abc', 'bacd', 'cde', 'array'], 'a')"]}
+{"task_id": "HumanEval/8", "entry_point": "sum_product", "exprs": ["sum_product([])", "sum_product([1, 2, 3, 4])"]}
+{"task_id": "HumanEval/9", "entry_point": "rolling_max", "exprs": ["rolling_max([1, 2, 3, 2, 3, 4, 2])"]}
+{"task_id": "HumanEval/10", "entry_point": "make_palindrome", "exprs": ["make_palindrome('')", "make_palindrome('cat')", "make_palindrome('cata')"]}
+{"task_id": "HumanEval/11", "entry_point": "string_xor", "exprs": ["string_xor('010', '110')"]}
+{"task_id": "HumanEval/12", "entry_point": "longest", "exprs": ["longest([])", "longest(['a', 'b', 'c'])", "longest(['a', 'bb', 'ccc'])"]}
+{"task_id": "HumanEval/13", "entry_point": "greatest_common_divisor", "exprs": ["greatest_common_divisor(3, 5)", "greatest_common_divisor(25, 15)"]}
+{"task_id": "HumanEval/14", "entry_point": "all_prefixes", "exprs": ["all_prefixes('abc')"]}
+{"task_id": "HumanEval/15", "entry_point": "string_sequence", "exprs": ["string_sequence(0)", "string_sequence(5)"]}
+{"task_id": "HumanEval/16", "entry_point": "count_distinct_characters", "exprs": ["count_distinct_characters('xyzXYZ')", "count_distinct_characters('Jerry')"]}
+{"task_id": "HumanEval/17", "entry_point": "parse_music", "exprs": ["parse_music('o o| .| o| o| .| .| .| .| o o')"]}
+{"task_id": "HumanEval/18", "entry_point": "how_many_times", "exprs": ["how_many_times('', 'a')", "how_many_times('aaa', 'a')", "how_many_times('aaaa', 'aa')"]}
+{"task_id": "HumanEval/19", "entry_point": "sort_numbers", "exprs": ["sort_numbers('three one five')"]}
+{"task_id": "HumanEval/20", "entry_point": "find_closest_elements", "exprs": ["find_closest_elements([1.0, 2.0, 3.0, 4.0, 5.0, 2.2])", "find_closest_elements([1.0, 2.0, 3.0, 4.0, 5.0, 2.0])"]}
+{"task_id": "HumanEval/21", "entry_point": "rescale_to_unit", "exprs": ["rescale_to_unit([1.0, 2.0, 3.0, 4.0, 5.0])"]}
+{"task_id": "HumanEval/22", "entry_point": "filter_integers", "exprs": ["filter_integers(['a', 3.14, 5])", "filter_integers([1, 2, 3, 'abc', {}, []])"]}
+{"task_id": "HumanEval/23", "entry_point": "strlen", "exprs": ["strlen('')", "strlen('abc')"]}
+{"task_id": "HumanEval/24", "entry_point": "largest_divisor", "exprs": ["largest_divisor(15)"]}
+{"task_id": "HumanEval/25", "entry_point": "factorize", "exprs": ["factorize(8)", "factorize(25)", "factorize(70)"]}
+{"task_id": "HumanEval/26", "entry_point": "remove_duplicates", "exprs": ["remove_duplicates([1, 2, 3, 2, 4])"]}
+{"task_id": "HumanEval/27", "entry_point": "flip_case", "exprs": ["flip_case('Hello')"]}
+{"task_id": "HumanEval/28", "entry_point": "concatenate", "exprs": ["concatenate([])", "concatenate(['a', 'b', 'c'])"]}
+{"task_id": "HumanEval/29", "entry_point": "filter_by_prefix", "exprs": ["filter_by_prefix([], 'a')", "filter_by_prefix(['abc', 'bcd', 'cde', 'array'], 'a')"]}
+{"task_id": "HumanEval/30", "entry_point": "get_positive", "exprs": ["get_positive([-1, 2, -4, 5, 6])", "get_positive([5, 3, -5, 2, -3, 3, 9, 0, 123, 1, -10])"]}
+{"task_id": "HumanEval/31", "entry_point": "is_prime", "exprs": ["is_prime(6)", "is_prime(101)", "is_prime(11)"]}
+{"task_id": "HumanEval/32", "entry_point": "find_zero", "exprs": ["find_zero([1, 2])", "find_zero([-6, 11, -6, 1])"]}
+{"task_id": "HumanEval/33", "entry_point": "sort_third", "exprs": ["sort_third([1, 2, 3])", "sort_third([5, 6, 3, 4, 8, 9, 2])"]}
+{"task_id": "HumanEval/34", "entry_point": "unique", "exprs": ["unique([5, 3, 5, 2, 3, 3, 9, 0, 123])"]}
+{"task_id": "HumanEval/35", "entry_point": "max_element", "exprs": ["max_element([1, 2, 3])", "max_element([5, 3, -5, 2, -3, 3, 9, 0, 123, 1, -10])"]}
+{"task_id": "HumanEval/36", "entry_point": "fizz_buzz", "exprs": ["fizz_buzz(50)", "fizz_buzz(78)", "fizz_buzz(79)"]}
+{"task_id": "HumanEval/37", "entry_point": "sort_even", "exprs": ["sort_even([1, 2, 3])", "sort_even([5, 6, 3, 4])"]}
+{"task_id": "HumanEval/39", "entry_point": "prime_fib", "exprs": ["prime_fib(1)", "prime_fib(2)", "prime_fib(3)"]}
+{"task_id": "HumanEval/40", "entry_point": "triples_sum_to_zero", "exprs": ["triples_sum_to_zero([1, 3, 5, 0])", "triples_sum_to_zero([1, 3, -2, 1])", "triples_sum_to_zero([1, 2, 3, 7])"]}
+{"task_id": "HumanEval/42", "entry_point": "incr_list", "exprs": ["incr_list([1, 2, 3])", "incr_list([5, 3, 5, 2, 3, 3, 9, 0, 123])"]}
+{"task_id": "HumanEval/43", "entry_point": "pairs_sum_to_zero", "exprs": ["pairs_sum_to_zero([1, 3, 5, 0])", "pairs_sum_to_zero([1, 3, -2, 1])", "pairs_sum_to_zero([1, 2, 3, 7])"]}
+{"task_id": "HumanEval/44", "entry_point": "change_base", "exprs": ["change_base(8, 3)", "change_base(8, 2)", "change_base(7, 2)"]}
+{"task_id": "HumanEval/45", "entry_point": "triangle_area", "exprs": ["triangle_area(5, 3)"]}
+{"task_id": "HumanEval/46", "entry_point": "fib4", "exprs": ["fib4(5)", "fib4(6)", "fib4(7)"]}
+{"task_id": "HumanEval/47", "entry_point": "median", "exprs": ["median([3, 1, 2, 4, 5])", "median([-10, 4, 6, 1000, 10, 20])"]}
+{"task_id": "HumanEval/48", "entry_point": "is_palindrome", "exprs": ["is_palindrome('')", "is_palindrome('aba')", "is_palindrome('aaaaa')"]}
+{"task_id": "HumanEval/49", "entry_point": "modp", "exprs": ["modp(3, 5)", "modp(1101, 101)", "modp(0, 101)"]}
+{"task_id": "HumanEval/51", "entry_point": "remove_vowels", "exprs": ["remove_vowels('')", "remove_vowels(\"abcdef\\nghijklm\")", "remove_vowels('abcdef')"]}
+{"task_id": "HumanEval/52", "entry_point": "below_threshold", "exprs": ["below_threshold([1, 2, 4, 10], 100)", "below_threshold([1, 20, 4, 10], 5)"]}
+{"task_id": "HumanEval/53", "entry_point": "add", "exprs": ["add(2, 3)", "add(5, 7)"]}
+{"task_id": "HumanEval/54", "entry_point": "same_chars", "exprs": ["same_chars('eabcdzzzz', 'dddzzzzzzzddeddabc')", "same_chars('abcd', 'dddddddabc')", "same_chars('dddddddabc', 'abcd')"]}
+{"task_id": "HumanEval/55", "entry_point": "fib", "exprs": ["fib(10)", "fib(1)", "fib(8)"]}
+{"task_id": "HumanEval/56", "entry_point": "correct_bracketing", "exprs": ["correct_bracketing(\"<\")", "correct_bracketing(\"<>\")", "correct_bracketing(\"<<><>>\")"]}
+{"task_id": "HumanEval/57", "entry_point": "monotonic", "exprs": ["monotonic([1, 2, 4, 20])", "monotonic([1, 20, 4, 10])", "monotonic([4, 1, 0, -10])"]}
+{"task_id": "HumanEval/58", "entry_point": "common", "exprs": ["common([1, 4, 3, 34, 653, 2, 5], [5, 7, 1, 5, 9, 653, 121])", "common([5, 3, 2, 8], [3, 2])"]}
+{"task_id": "HumanEval/59", "entry_point": "largest_prime_factor", "exprs": ["largest_prime_factor(13195)", "largest_prime_factor(2048)"]}
+{"task_id": "HumanEval/60", "entry_point": "sum_to_n", "exprs": ["sum_to_n(30)", "sum_to_n(100)", "sum_to_n(5)"]}
+{"task_id": "HumanEval/61", "entry_point": "correct_bracketing", "exprs": ["correct_bracketing(\"()\")", "correct_bracketing(\"(()())\")", "correct_bracketing(\")"]}
+{"task_id": "HumanEval/62", "entry_point": "derivative", "exprs": ["derivative([3, 1, 2, 4, 5])", "derivative([1, 2, 3])"]}
+{"task_id": "HumanEval/63", "entry_point": "fibfib", "exprs": ["fibfib(1)", "fibfib(5)", "fibfib(8)"]}
+{"task_id": "HumanEval/64", "entry_point": "vowels_count", "exprs": ["vowels_count(\"abcde\")", "vowels_count(\"ACEDY\")"]}
+{"task_id": "HumanEval/65", "entry_point": "circular_shift", "exprs": ["circular_shift(12, 1)", "circular_shift(12, 2)"]}
+{"task_id": "HumanEval/91", "entry_point": "is_bored", "exprs": ["is_bored(\"Hello world\")", "is_bored(\"The sky is blue. The sun is shining. I love this weather\")"]}
+{"task_id": "HumanEval/93", "entry_point": "encode", "exprs": ["encode('test')", "encode('This is a message')"]}
+{"task_id": "HumanEval/99", "entry_point": "closest_integer", "exprs": ["closest_integer(\"10\")", "closest_integer(\"15.3\")"]}
+{"task_id": "HumanEval/100", "entry_point": "make_a_pile", "exprs": ["make_a_pile(3)"]}
+{"task_id": "HumanEval/104", "entry_point": "unique_digits", "exprs": ["unique_digits([15, 33, 1422, 1])", "unique_digits([152, 323, 1422, 10])"]}
+{"task_id": "HumanEval/108", "entry_point": "count_nums", "exprs": ["count_nums([])", "count_nums([-1, 11, -11])", "count_nums([1, 1, 2])"]}
+{"task_id": "HumanEval/113", "entry_point": "odd_count", "exprs": ["odd_count(['1234567'])", "odd_count(['3',\"11111111\"])"]}
+{"task_id": "HumanEval/116", "entry_point": "sort_array", "exprs": ["sort_array([1, 5, 2, 3, 4])", "sort_array([-2, -3, -4, -5, -6])", "sort_array([1, 0, 2, 3, 4])"]}
+{"task_id": "HumanEval/128", "entry_point": "prod_signs", "exprs": ["prod_signs([1, 2, 2, -4])", "prod_signs([0, 1])", "prod_signs([])"]}
+{"task_id": "HumanEval/139", "entry_point": "special_factorial", "exprs": ["special_factorial(4)"]}
+{"task_id": "HumanEval/145", "entry_point": "order_by_points", "exprs": ["order_by_points([1, 11, -1, -11, -12])", "order_by_points([])"]}
+{"task_id": "HumanEval/156", "entry_point": "int_to_mini_roman", "exprs": ["int_to_mini_roman(19)", "int_to_mini_roman(152)", "int_to_mini_roman(426)"]}
+{"task_id": "HumanEval/162", "entry_point": "string_to_md5", "exprs": ["string_to_md5('Hello world')"]}

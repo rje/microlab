@@ -68,6 +68,29 @@ def test_mbpp_entry_point_unrecoverable_raises():
         mbpp_task(row)
 
 
+def test_mbpp_entry_point_recovers_inner_call_from_math_isclose():
+    row = {**MBPP_ROW, "test_list": ["assert math.isclose(find_area(2), 12.56)"]}
+    assert mbpp_task(row).entry_point == "find_area"
+
+
+def test_mbpp_entry_point_recovers_inner_call_from_set_wrapper():
+    row = {**MBPP_ROW, "test_list": ["assert set(common(1)) == set([2])"]}
+    assert mbpp_task(row).entry_point == "common"
+
+
+def test_mbpp_entry_point_no_call_assert_raises():
+    row = {**MBPP_ROW, "test_list": ["assert True"]}
+    with pytest.raises(ValueError, match="cannot recover entry point"):
+        mbpp_task(row)
+
+
+def test_mbpp_entry_point_keeps_shadowed_builtin_under_test():
+    # Mbpp/126's reference is literally `def sum(a,b)` — a user function shadowing a
+    # builtin, called directly. It must NOT be skipped as a wrapper.
+    row = {**MBPP_ROW, "test_list": ["assert sum(10,15) == 6"]}
+    assert mbpp_task(row).entry_point == "sum"
+
+
 def test_assemble_and_execute_correct_solution_passes():
     t = humaneval_task(HE_ROW)
     program = assemble_program(HE_ROW["prompt"] + HE_ROW["canonical_solution"], t)

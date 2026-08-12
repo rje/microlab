@@ -12,6 +12,7 @@ __pycache__/
 venv/
 
 runs/
+runs-lean/
 data/raw/
 data/processed/
 models/
