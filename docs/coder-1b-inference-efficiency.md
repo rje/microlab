@@ -20,7 +20,7 @@ B=10 (batch is nearly free; that flatness IS the 4× win), but bf16's halved wei
 barely move it, and the ~2.5ms bandwidth floor is unreachable without a static-shape
 decode path. FP8 was
 not attempted: it only helps a bandwidth-bound regime, which this is not. The remaining
-3–4× (11.6ms → ~2.5ms) requires a serve engine with static shapes + CUDA graphs —
+3–4× (11.7ms → ~2.5ms) requires a serve engine with static shapes + CUDA graphs —
 filed as future work, not done by flag-flipping.
 
 ## Quality gates (pre-stated bands, all PASS)
