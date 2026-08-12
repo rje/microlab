@@ -36,6 +36,11 @@ def test_run_methods_raises_on_beat_the_oracle():
         es.run_methods(cands, [True, False], None, None, oracle_override=[False, False])
 
 
+def test_load_inputs_missing_path_raises(tmp_path):
+    with pytest.raises(FileNotFoundError, match="refusing"):
+        es.load_inputs(str(tmp_path / "nope.jsonl"))
+
+
 def test_summarize_power_gate():
     per_task = {f"t{i}": {"first": False, "oracle": True} for i in range(10)}
     rep = es.summarize(per_task)

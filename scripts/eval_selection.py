@@ -5,7 +5,7 @@ The beat-the-oracle check is a leakage falsifier IN CODE: no method may pass whe
 oracle (any-of-k on hidden tests) finds no passing candidate.
 
     python scripts/eval_selection.py --bank evals/harness/mbpp-testfree-bank.jsonl \\
-        --inputs evals/harness/synth_inputs.jsonl --dataset mbpp \\
+        --inputs evals/harness/synth_inputs.jsonl \\
         --out evals/harness/selection-mbpp-testfree.json
 """
 from __future__ import annotations
@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -66,6 +67,18 @@ def run_methods(candidates: list[str], passed: list[bool],
     return out
 
 
+def load_inputs(path: str | None) -> dict[str, dict]:
+    """task_id -> input-metadata row. Omitted path (None) is fine; a GIVEN path that does
+    not exist raises — a typo'd flag must not silently yield a zero-coverage 'complete' run."""
+    if path is None:
+        return {}
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"inputs file given but missing: {p} — refusing to run a "
+                                f"zero-coverage experiment that would look complete")
+    return {json.loads(x)["task_id"]: json.loads(x) for x in p.read_text().splitlines()}
+
+
 def summarize(per_task: dict[str, dict[str, bool | None]]) -> dict:
     """per_task: task -> method -> did-the-selected-candidate-pass (None = no coverage).
     Reports counts, coverage, the recoverable gap, and the power verdict."""
@@ -100,12 +113,6 @@ def main() -> None:  # pragma: no cover - sandbox operational
     rows = [json.loads(x) for x in Path(args.bank).read_text().splitlines()]
     banks = bank_by_task(rows)
 
-    def load_inputs(path):
-        if not path or not Path(path).exists():
-            return {}
-        return {json.loads(x)["task_id"]: json.loads(x)
-                for x in Path(path).read_text().splitlines()}
-
     input_sets = {"synth": load_inputs(args.inputs),
                   "docstring": load_inputs(args.docstring_inputs)}
     report: dict = {}
@@ -121,7 +128,13 @@ def main() -> None:  # pragma: no cover - sandbox operational
             if meta and meta.get("exprs"):
                 sigs = [signatures_for(c, meta["entry_point"], meta["exprs"][:4],
                                        timeout_s=args.timeout_s) for c in cands]
-            sel = run_methods(cands, passed, sigs, None, seed=args.seed)
+            # assert_counts=None: self_tests wiring arrives with the operational run ONLY
+            # if the Unit-0 probe passes its gate (CodeT-lite is probe-gated per spec);
+            # None = gated-out, reported as no-coverage.
+            # Per-task seed (crc32, not process-salted hash): reproducible run-to-run,
+            # decorrelated across tasks so equal-size clusters don't all pick the same slot.
+            sel = run_methods(cands, passed, sigs, None,
+                              seed=args.seed ^ zlib.crc32(task_id.encode()))
             per_task[task_id] = {m: (passed[i] if i is not None else None)
                                  for m, i in sel.items()}
         report[src] = summarize(per_task)
