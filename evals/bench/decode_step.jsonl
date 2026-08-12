@@ -1,0 +1,1 @@
+{"run": "runs/coder-1b-instruct-compliant", "step": 1485, "dtype": "bf16", "eager_ms_by_batch": {"1": 11.2, "4": 11.7, "10": 11.7, "20": 12.4}, "kda_compiled_ms_b10": 12.7, "full_compiled_ms_b10": 1949.7}
