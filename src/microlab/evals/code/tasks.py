@@ -8,6 +8,8 @@ touch the HF hub (cached after the first call).
 
 from __future__ import annotations
 
+import ast
+import builtins
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -47,9 +49,23 @@ def humaneval_task(row: dict) -> CodeTask:
     )
 
 
+def _bare_name_calls(node: ast.AST) -> list[str]:
+    """Function names of every Call whose func is a bare Name, pre-order (evaluation
+    order). Attribute calls (``math.isclose``) are never collected — the walk descends
+    into their arguments, where the real call sits."""
+    out = []
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        out.append(node.func.id)
+    for child in ast.iter_child_nodes(node):
+        out.extend(_bare_name_calls(child))
+    return out
+
+
 def _mbpp_entry_point(test_list: list[str]) -> str:
     """The function name under test, recovered from the first assert (canonical MBPP
-    practice — the dataset has no entry_point field)."""
+    practice — the dataset has no entry_point field). Wrapper asserts —
+    ``assert math.isclose(fn(...), ...)``, ``assert set(fn(...)) == set(...)`` — recover
+    the INNER user call, not the wrapper (16/257 sanitized-test rows are wrapped)."""
     first = test_list[0]
     marker = "assert "
     if marker not in first:
@@ -63,9 +79,24 @@ def _mbpp_entry_point(test_list: list[str]) -> str:
             name += ch
         else:
             break
-    if not name:
-        raise ValueError(f"cannot recover entry point from {first!r}")
-    return name
+    # Fast path: the assert directly calls a non-builtin function (the common form).
+    if name and expr[len(name):].startswith("(") and not hasattr(builtins, name):
+        return name
+    # Wrapper form: parse and prefer the first non-builtin bare-Name call in eval order.
+    # When EVERY bare-Name call is builtin-named, the first is a user function shadowing
+    # a builtin (Mbpp/126 defines ``def sum(a,b)``) — a wrapper like ``set(fn(...))``
+    # always contains an inner user call, so it never reaches that branch.
+    try:
+        tree = ast.parse(first.strip())
+    except SyntaxError as e:
+        raise ValueError(f"cannot recover entry point from {first!r}") from e
+    calls = _bare_name_calls(tree)
+    user = [c for c in calls if not hasattr(builtins, c)]
+    if user:
+        return user[0]
+    if calls:
+        return calls[0]
+    raise ValueError(f"cannot recover entry point from {first!r}")
 
 
 def mbpp_task(row: dict) -> CodeTask:
