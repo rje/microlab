@@ -16,12 +16,37 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 
-def mbpp_signature(code: str) -> str | None:
-    """First `def ...:` line of the reference solution (the bare signature), else None."""
+def mbpp_signature(code: str, entry_point: str | None = None) -> str | None:
+    """The bare `def ...:` signature line of the reference solution, else None.
+
+    With entry_point: the def line whose function name matches it (4/257 MBPP references
+    define a helper BEFORE the entry point — first-def would hand the model the wrong
+    signature). Without: the first def line (legacy behavior)."""
     for line in (code or "").splitlines():
-        if line.strip().startswith("def ") and line.rstrip().endswith(":"):
-            return line.strip()
+        stripped = line.strip()
+        if stripped.startswith("def ") and stripped.endswith(":"):
+            if entry_point is None:
+                return stripped
+            name = stripped[len("def "):].split("(", 1)[0].strip()
+            if name == entry_point:
+                return stripped
     return None
+
+
+def plan_resume(rows: list[dict], n: int) -> tuple[set[str], list[dict]]:
+    """From existing bank rows: (complete_task_ids, compacted_rows). A task is COMPLETE
+    only with exactly n sample rows; partial tasks' rows are dropped from compacted_rows
+    (they regenerate deterministically — sampling is seeded). Exactly one _header row is
+    kept (the first); extras from crash-resume are dropped."""
+    header = next((r for r in rows if "_header" in r), None)
+    counts: dict[str, int] = {}
+    for r in rows:
+        if "task_id" in r:
+            counts[r["task_id"]] = counts.get(r["task_id"], 0) + 1
+    complete = {t for t, c in counts.items() if c == n}
+    compacted = [header] if header is not None else []
+    compacted += [r for r in rows if r.get("task_id") in complete]
+    return complete, compacted
 
 
 def testfree_instruction(prompt: str, signature: str) -> str:
@@ -60,17 +85,20 @@ def main() -> None:  # pragma: no cover - GPU + sandbox operational
         rows = rows[:args.limit]
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    done = set()
-    if out.exists():
-        for line in out.read_text().splitlines():
-            d = json.loads(line)
-            if "task_id" in d:
-                done.add(d["task_id"])
+    existing = ([json.loads(x) for x in out.read_text().splitlines() if x.strip()]
+                if out.exists() else [])
+    done, compacted = plan_resume(existing, args.n)
+    if existing:
+        partial = len({r["task_id"] for r in existing if "task_id" in r} - done)
+        with out.open("w", encoding="utf-8") as f:
+            for r in compacted:
+                f.write(json.dumps(r) + "\n")
+        print(f"resume: {len(done)} complete tasks kept, {partial} partial tasks reset")
     model, _ = load_variant_from_run(Path(args.policy), device=args.device)
     tok = FastTokenizer.load(str(Path(args.policy) / "tokenizer.json"))
 
     with out.open("a", encoding="utf-8") as f:
-        if not done:
+        if not any("_header" in r for r in compacted):
             f.write(json.dumps({"_header": {
                 "run": args.policy, "dataset": "mbpp-testfree", "n": args.n,
                 "temperature": args.temp, "top_k": args.top_k, "seed": args.seed,
@@ -80,7 +108,7 @@ def main() -> None:  # pragma: no cover - GPU + sandbox operational
             task = mbpp_task(row)
             if task.task_id in done:
                 continue
-            sig = mbpp_signature(row.get("code", ""))
+            sig = mbpp_signature(row.get("code", ""), entry_point=task.entry_point)
             if sig is None:
                 skipped_sig += 1
                 continue
