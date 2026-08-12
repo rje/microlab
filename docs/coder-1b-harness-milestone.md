@@ -21,14 +21,20 @@ a live run passed on candidate 3/4; the impossible-asserts case exits 3 with a w
 |---|---|---|---|
 | v1 HumanEval pass@10 | 6.1% ± 4 | 7.3% | ✓ in band |
 | v1 MBPP pass@10 / pass@1 | 2–3× | **3.5×** (29.6/8.4) | ✗ miss, favorable — the reservoir is bigger than predicted |
-| test-free MBPP vs standard | 20–60% relatively below | **≈ equal or slightly above** (31.5% vs 29.6% delivered; 10.5% vs 8.4% p@1) | ✗ miss — test-conditioning ≈ zero at 1.2B; the test-free prompt's explicit signature appears to matter more than the asserts |
+| test-free MBPP vs standard | 20–60% relatively below | **≈ equal or slightly above** (31.5% vs 29.6% delivered; averaged pass@1 11.9% vs 8.4%; first-sample 10.5% vs 8.9% — both estimators agree on the direction) | ✗ miss — test-conditioning ≈ zero at 1.2B; the test-free prompt's explicit signature appears to matter more than the asserts |
 | Unit-0 probe | wildcard, soft bands | **16% (13/79) → SYNTHESIS DEAD (<24%)** | pre-registered branch executed |
 | Unit-2 clustering recovery 10–50% (powered) | — | **not scored**: the powered bank requires synthesized inputs; probe gated them out. Descriptive HumanEval only, underpowered (gap 9 < 15) → counts only, per the power falsifier | falsifier applied as designed |
 | text-plurality <10% | — | descriptive counts only: plurality 6 vs first 3 (gap 9) — notably strong, but no % claim (underpowered) | not scored (power rule) |
 | cluster_random ≈ cluster_shortest | within noise | 3 vs 4 (descriptive) | ✓ within noise |
 
-No in-code falsifier fired: no method beat its oracle (the leakage check never raised);
-the power gate engaged exactly as pre-registered.
+No method beat its oracle. Honesty note (from the final review): the in-code
+beat-the-oracle assertion is trivially satisfied in the shipped path — oracle and scoring
+read the same `passed` source, so it can only fire if those ever diverge (it guards future
+drift, not this run). The real leakage protection is structural: no selector ever receives
+`passed` — selector signatures physically admit only candidates/signatures/assert-counts.
+The power gate engaged exactly as pre-registered. (Estimator note: the repo now carries
+two pass@1 definitions — averaged-over-samples from the `eval_code` sampled path, and
+first-sample from `delivered()` summaries; comparisons above pair like with like.)
 
 ## The third incapacity result: input synthesis is dead at 1.2B
 
