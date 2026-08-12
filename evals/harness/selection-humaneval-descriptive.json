@@ -1,0 +1,64 @@
+{
+  "synth": {
+    "n_tasks": 164,
+    "methods": {
+      "cluster_random": {
+        "passes": 0,
+        "coverage": 0
+      },
+      "cluster_shortest": {
+        "passes": 0,
+        "coverage": 0
+      },
+      "first": {
+        "passes": 3,
+        "coverage": 164
+      },
+      "oracle": {
+        "passes": 12,
+        "coverage": 12
+      },
+      "self_tests": {
+        "passes": 0,
+        "coverage": 0
+      },
+      "text_plurality": {
+        "passes": 6,
+        "coverage": 164
+      }
+    },
+    "recoverable_gap": 9,
+    "underpowered": true
+  },
+  "docstring": {
+    "n_tasks": 164,
+    "methods": {
+      "cluster_random": {
+        "passes": 3,
+        "coverage": 76
+      },
+      "cluster_shortest": {
+        "passes": 4,
+        "coverage": 76
+      },
+      "first": {
+        "passes": 3,
+        "coverage": 164
+      },
+      "oracle": {
+        "passes": 12,
+        "coverage": 12
+      },
+      "self_tests": {
+        "passes": 0,
+        "coverage": 0
+      },
+      "text_plurality": {
+        "passes": 6,
+        "coverage": 164
+      }
+    },
+    "recoverable_gap": 9,
+    "underpowered": true
+  }
+}

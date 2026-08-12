@@ -1,0 +1,7 @@
+{
+  "n_tasks": 257,
+  "k": 10,
+  "delivered_correct": 81,
+  "delivered_rate": 0.3151750972762646,
+  "pass@1_first_sample": 0.10505836575875487
+}
